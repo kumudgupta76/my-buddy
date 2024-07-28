@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Input, notification, Tooltip, Radio } from 'antd';
+import { Button, Input, notification, Tooltip, Radio, Row, Col } from 'antd';
 import { PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined, PlusCircleOutlined, MinusCircleOutlined } from '@ant-design/icons';
 
-const Timer = () => {
+const CountdownTimer = () => {
     const [mins, setMins] = useState(30); // Initial 30 minutes
     const [remainingTime, setRemainingTime] = useState(mins * 60 * 1000);
     const [isPaused, setIsPaused] = useState(true);
@@ -78,7 +78,12 @@ const Timer = () => {
     };
 
     return (
-        <div style={{ position: 'fixed', bottom: '10px', right: '10px', zIndex: 1000 }}>
+      <>
+        {/* <Row style={{width:"100px"}}></Row> */}
+        <Row>
+          <Col span={8} ></Col>
+          <Col span={8}>
+          <div>
             <div style={{ marginBottom: '10px' }}>
                 <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)}>
                     <Tooltip title="1 min offset"><Radio.Button value={1} style={{ marginRight: '10px' }}>1 min</Radio.Button></Tooltip>
@@ -88,7 +93,7 @@ const Timer = () => {
             </div>
 
             <div style={{ marginBottom: '10px' }}>
-                <Button onClick={() => setMins(mins - 1)} style={{ marginRight: '10px' }}>
+                <Button onClick={() => setMins(mins - offset)} style={{ marginRight: '10px' }}>
                     <MinusCircleOutlined />
                 </Button>
                 <Input
@@ -98,7 +103,7 @@ const Timer = () => {
                     onChange={(e) => setMins(Number(e.target.value))}
                     style={{ width: '113px', marginRight: '10px' }}
                 />
-                <Button onClick={() => setMins(mins + 1)}>
+                <Button onClick={() => setMins(mins + offset)}>
                     <PlusCircleOutlined />
                 </Button>
             </div>
@@ -119,7 +124,13 @@ const Timer = () => {
                 <Button onClick={() => isPaused ? handlePlay() : handlePause()}>{isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}</Button>
             </div>
         </div>
+          </Col>
+          <Col span={8}></Col>
+        </Row>
+        
+      </>
+        
     );
 };
 
-export default Timer;
+export default CountdownTimer;

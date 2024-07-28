@@ -105,7 +105,13 @@ const Base = () => {
   };
 
   return (
-    <div>
+    <Layout >
+      <Header style={{ color: 'white', textAlign: 'center', fontSize: '24px' }}>
+        Reminder App
+      </Header>
+      <img src="/src/logo.svg"></img>
+      
+      <Content style={{ padding: '20px', flexDirection: 'column', alignItems: 'center' }}>
         <Reminder addReminder={addReminder} />
         <div style={{ marginBottom: '20px' }}>
           <Button onClick={handlePrevDay}>Previous Day</Button>
@@ -161,8 +167,9 @@ const Base = () => {
           )}
           style={{ marginTop: '20px', width: '100%' }}
         />
+      </Content>
       <Timer deadline={deadline} />
-    </div>
+    </Layout>
   );
 };
 

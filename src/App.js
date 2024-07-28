@@ -1,17 +1,15 @@
 import logo from './logo.svg';
 import './App.css';
-import CalendarComponent from './components/Calander';
-import Cal from './components/Cal';
+import React from 'react';
+import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import Base from './components/Base';
+import CountdownTimer from './components/CountdownTimer';
+import Timer from './components/Timer';
 
-function App() {
+const App = () => {
   return (
-    <>
-    <Base></Base>
-    {/* <Cal></Cal> */}
-    {/* <CalendarComponent></CalendarComponent> */}
-    </>
+    <CountdownTimer></CountdownTimer>
   );
-}
+};
 
 export default App;
