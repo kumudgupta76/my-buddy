@@ -79,10 +79,11 @@ const CountdownTimer = () => {
 
     return (
       <>
-        {/* <Row style={{width:"100px"}}></Row> */}
+        <Row style={{height:"200px"}}></Row>
         <Row>
+            {/* <Col span={24} style={{height:"100px"}}></Col> */}
           <Col span={8} ></Col>
-          <Col span={8}>
+          <Col span={8} style={{display:"flex"}}>
           <div>
             <div style={{ marginBottom: '10px' }}>
                 <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)}>
