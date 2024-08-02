@@ -79,13 +79,12 @@ const CountdownTimer = () => {
 
     return (
       <>
-        <Row style={{height:"200px"}}></Row>
         <Row>
             {/* <Col span={24} style={{height:"100px"}}></Col> */}
-          <Col span={8} ></Col>
-          <Col span={8} style={{display:"flex"}}>
-          <div>
-            <div style={{ marginBottom: '10px' }}>
+          <Col span={8} xs={24} md={8}></Col>
+          <Col span={8} xs={24} md={8} style={{display:"flex"}}>
+          <div style={{ margin:"auto", width:"50%"}}>
+            <div style={{ paddingBottom: '10px !important', background:"cyan"}}>
                 <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)}>
                     <Tooltip title="1 min offset"><Radio.Button value={1} style={{ marginRight: '10px' }}>1 min</Radio.Button></Tooltip>
                     <Tooltip title="5 min offset"><Radio.Button value={5} style={{ marginRight: '10px' }}>5 min</Radio.Button></Tooltip>
@@ -126,7 +125,7 @@ const CountdownTimer = () => {
             </div>
         </div>
           </Col>
-          <Col span={8}></Col>
+          <Col span={8} xs={24} md={8}></Col>
         </Row>
         
       </>
