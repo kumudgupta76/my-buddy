@@ -6,7 +6,7 @@ const { Header, Content, Footer } = Layout;
 
 const LayoutComponent = () => {
   return (
-    <Layout className="layout">
+    <Layout className="layout" style={{minHeight:"100vh", height:"100vh"}}>
     <Header>
       <div className="logo" />
       <Menu
@@ -19,6 +19,7 @@ const LayoutComponent = () => {
     <Content
       style={{
         padding: '0 50px',
+        overflow:"auto"
       }}
     >
       <Breadcrumb

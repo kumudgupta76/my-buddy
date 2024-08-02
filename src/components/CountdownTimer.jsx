@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Input, notification, Tooltip, Radio, Row, Col } from 'antd';
+import { Button, Input, notification, Tooltip, Radio, Row, Col, List, Typography } from 'antd';
 import { PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined, PlusCircleOutlined, MinusCircleOutlined } from '@ant-design/icons';
 
 const CountdownTimer = () => {
@@ -8,6 +8,8 @@ const CountdownTimer = () => {
     const [isPaused, setIsPaused] = useState(true);
     const [hasNotified, setHasNotified] = useState(false);
     const timerRef = useRef(null);
+
+    const [data, setData] = useState([]);
 
     const [offset, setOffset] = useState(5) // Default offset 5 mins
 
@@ -64,6 +66,7 @@ const CountdownTimer = () => {
     };
 
     const playSound = () => {
+        setData([{ time: mins, completedAt: new Date().toLocaleString() }, ...data])
         const audio = new Audio('/my-buddy/assets/simple-notification-152054.mp3'); // Path to your sound file
         audio.play().catch(error => {
             console.error('Error playing sound:', error);
@@ -78,58 +81,71 @@ const CountdownTimer = () => {
     };
 
     return (
-      <>
-        <Row>
-            {/* <Col span={24} style={{height:"100px"}}></Col> */}
-          <Col span={8} xs={24} md={8}></Col>
-          <Col span={8} xs={24} md={8} style={{display:"flex"}}>
-          <div style={{ margin:"auto", width:"50%"}}>
-            <div style={{ paddingBottom: '10px !important', background:"cyan"}}>
-                <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)}>
-                    <Tooltip title="1 min offset"><Radio.Button value={1} style={{ marginRight: '10px' }}>1 min</Radio.Button></Tooltip>
-                    <Tooltip title="5 min offset"><Radio.Button value={5} style={{ marginRight: '10px' }}>5 min</Radio.Button></Tooltip>
-                    <Tooltip title="15 min offset"><Radio.Button value={15}>15 min</Radio.Button></Tooltip>
-                </Radio.Group>
-            </div>
+        <>
+            <Row>
+                <Col span={8} xs={24} md={8}></Col>
+                <Col span={8} xs={24} md={8} style={{ display: "flex" }}>
+                    <div style={{ margin: "auto", width: "50%" }}>
+                        <div>
+                            <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{marginBottom:"10px"}}>
+                                <Tooltip title="1 min offset"><Radio.Button value={1} style={{ marginRight: '10px' }}>1 min</Radio.Button></Tooltip>
+                                <Tooltip title="5 min offset"><Radio.Button value={5} style={{ marginRight: '10px' }}>5 min</Radio.Button></Tooltip>
+                                <Tooltip title="15 min offset"><Radio.Button value={15}>15 min</Radio.Button></Tooltip>
+                            </Radio.Group>
+                        </div>
 
-            <div style={{ marginBottom: '10px' }}>
-                <Button onClick={() => setMins(mins - offset)} style={{ marginRight: '10px' }}>
-                    <MinusCircleOutlined />
-                </Button>
-                <Input
-                    placeholder="Mins"
-                    type="number"
-                    value={mins}
-                    onChange={(e) => setMins(Number(e.target.value))}
-                    style={{ width: '113px', marginRight: '10px' }}
-                />
-                <Button onClick={() => setMins(mins + offset)}>
-                    <PlusCircleOutlined />
-                </Button>
-            </div>
+                        <div style={{ marginBottom: '10px' }}>
+                            <Button onClick={() => setMins(mins - offset)} style={{ marginRight: '10px' }}>
+                                <MinusCircleOutlined />
+                            </Button>
+                            <Input
+                                placeholder="Mins"
+                                type="number"
+                                value={mins}
+                                onChange={(e) => setMins(Number(e.target.value))}
+                                style={{ width: '113px', marginRight: '10px' }}
+                            />
+                            <Button onClick={() => setMins(mins + offset)}>
+                                <PlusCircleOutlined />
+                            </Button>
+                        </div>
 
-            <div style={{
-                backgroundColor: 'white',
-                padding: '10px',
-                borderRadius: '5px',
-                boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-            }}>
-                <div>Take a Break in</div>
-                <div style={{fontSize: '30px'}}>{formatTime(remainingTime)}
+                        <div style={{
+                            backgroundColor: 'white',
+                            padding: '10px',
+                            borderRadius: '5px',
+                            boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+                        }}>
+                            <div>Take a Break in</div>
+                            <div style={{ fontSize: '30px' }}>{formatTime(remainingTime)}
+                            </div>
+
+                        </div>
+                        <div style={{ marginTop: '10px' }}>
+                            <Button onClick={handleReset} style={{ width: '50px', marginRight: '10px' }}><ReloadOutlined /></Button>
+                            <Button onClick={() => isPaused ? handlePlay() : handlePause()}>{isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}</Button>
+                        </div>
                     </div>
-                
+                </Col>
+                <Col span={8} xs={24} md={8}></Col>
+            </Row>
+            <Row style={{marginTop:"30px"}}>
+                <div style={{ margin: "auto", width: "50%" }}>
+                    <List
+                        header={<strong>Recent Timers</strong>}
+                        size='large'
+                        bordered
+                        dataSource={data}
+                        renderItem={(item, index) => (
+                            <List.Item>
+                                <Typography.Text>{`#${index + 1} ${item.time} mins break compeleted at ${item.completedAt}`}</Typography.Text>
+                            </List.Item>
+                        )}
+                    />
                 </div>
-            <div style={{ marginTop: '10px' }}>
-                <Button onClick={handleReset} style={{ width: '50px', marginRight: '10px' }}><ReloadOutlined /></Button>
-                <Button onClick={() => isPaused ? handlePlay() : handlePause()}>{isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}</Button>
-            </div>
-        </div>
-          </Col>
-          <Col span={8} xs={24} md={8}></Col>
-        </Row>
-        
-      </>
-        
+            </Row>
+        </>
+
     );
 };
 
