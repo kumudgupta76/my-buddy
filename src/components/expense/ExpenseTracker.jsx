@@ -228,6 +228,14 @@ const ExpenseTracker = () => {
             </Switch>
           </div>
         </Col>
+        <Col xs={24} sm={12} md={8}>
+          <h3>
+            Total ({selectedRowKeys.length} selected) - {expenses.filter(expense => selectedRowKeys.includes(expense.key)).reduce((accumulator, currentItem) => {
+              return accumulator + Number(currentItem.amount);
+            }, 0)}
+          </h3>
+        </Col>
+
       </Row>
       <h2 style={{ marginTop: 20 }}>Active Expenses ({expenses ? expenses.length : 0})</h2>
       <Table

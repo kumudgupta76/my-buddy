@@ -7,11 +7,11 @@ const { Header, Content, Footer } = Layout;
 const { Title } = Typography;
 
 const Home = () => {
-    const menuItems = [{ key: 1, label: <Link to="my-buddy/home">Home</Link> },
-    { key: 2, label: <Link to="my-buddy/timer">Timer</Link> },
-    { key: 3, label: <Link to="my-buddy/expense">Expense Tacker</Link> },
-    { key: 4, label: <Link to="my-buddy/cal">Calendar</Link> },
-    { key: 5, label: <Link to="my-buddy/dump">Dump</Link> }];
+    const menuItems = [{ key: 1, label: <Link to="/my-buddy/home">Home</Link> },
+    { key: 2, label: <Link to="/my-buddy/timer">Timer</Link> },
+    { key: 3, label: <Link to="/my-buddy/expense">Expense Tacker</Link> },
+    { key: 4, label: <Link to="/my-buddy/cal">Calendar</Link> },
+    { key: 5, label: <Link to="/my-buddy/dump">Dump</Link> }];
 
     return (
         <>
