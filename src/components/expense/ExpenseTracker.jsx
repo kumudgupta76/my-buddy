@@ -75,8 +75,8 @@ const ExpenseTracker = () => {
   };
 
   const handleDeleteExpense = (key) => {
-    const updatedExpenses = expenses.filter((expense) => expense.key !== key);
-    saveExpenses(updatedExpenses);
+    const updatedExpenses = archivedExpenses.filter((expense) => expense.key !== key);
+    saveArchivedExpenses(updatedExpenses);
     message.success('Expense deleted successfully');
   };
 
