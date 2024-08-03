@@ -108,3 +108,28 @@ code {
   float: right;
   margin: 16px 0 16px 24px;
 }
+
+.content-div {
+  padding: 0 50px;
+  overflow:auto
+}
+
+.expense-continer-div {
+  padding: 20px;
+}
+
+@media only screen and (max-width: 768px) {
+  /* For mobile phones: */
+  .content-div {
+    padding: 0 10px;
+    overflow:auto
+  }
+  .expense-continer-div {
+    padding: 5px;
+  }
+  .site-layout-content {
+    min-height: 280px;
+    padding: 14px;
+    background: #fff;
+  }
+}

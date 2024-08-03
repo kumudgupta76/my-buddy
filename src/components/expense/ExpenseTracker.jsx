@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col } from 'antd';
 import moment from 'moment';
+import { render } from '@testing-library/react';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
@@ -136,7 +137,17 @@ const ExpenseTracker = () => {
   const columns = [
     { title: 'Description', dataIndex: 'description', key: 'description' },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
-    { title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters: expenseMode, onFilter: (value, record) => record.paymentMode.indexOf(value) === 0 },
+    {
+      title: 'Payment Mode',
+      dataIndex: 'paymentMode',
+      key: 'paymentMode',
+      filters: expenseMode,
+      onFilter: (value, record) => record.paymentMode.indexOf(value) === 0,
+      render: (value) => {
+        const mode = expenseMode.find(item => item.value === value);
+        return mode ? mode.text : value;
+      }
+    },
     {
       title: 'Date',
       dataIndex: 'date',
@@ -164,7 +175,13 @@ const ExpenseTracker = () => {
   const archivedColumns = [
     { title: 'Description', dataIndex: 'description', key: 'description' },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
-    { title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters: expenseMode, onFilter: (value, record) => record.paymentMode.indexOf(value) === 0 },
+    {
+      title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters: expenseMode, onFilter: (value, record) => record.paymentMode.indexOf(value) === 0,
+      render: (value) => {
+        const mode = expenseMode.find(item => item.value === value);
+        return mode ? mode.text : value;
+      }
+    },
     {
       title: 'Date',
       dataIndex: 'date',
@@ -193,7 +210,7 @@ const ExpenseTracker = () => {
   } : null;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '100%', overflowX: 'auto' }}>
+    <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='expense-continer-div'>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={8}>
           <Button type="primary" onClick={() => setIsModalVisible(true)} block>
@@ -201,7 +218,7 @@ const ExpenseTracker = () => {
           </Button>
         </Col>
         <Col xs={24} sm={12} md={8}>
-          <Button type="secondary" onClick={copyToClipboard} block>
+          <Button type="secondary" onClick={copyToClipboard} block disabled={selectedRowKeys.length === 0}>
             Copy Selected ({selectedRowKeys.length})
           </Button>
         </Col>
@@ -277,7 +294,7 @@ const ExpenseTracker = () => {
             rules={[{ required: true, message: 'Please select the date!' }]}
             initialValue={moment()}
           >
-            <DatePicker showTime style={{ width: '100%' }}/>
+            <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>

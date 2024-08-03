@@ -41,10 +41,7 @@ const LayoutComponent = () => {
       />
     </Header>
     <Content
-      style={{
-        padding: '0 50px',
-        overflow:"auto"
-      }}
+      className="content-div"
     >
       <Breadcrumbs/>
       <div className="site-layout-content"><Outlet></Outlet></div>
