@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch } from 'antd';
+import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col } from 'antd';
 import moment from 'moment';
 
 const ExpenseTracker = () => {
@@ -130,18 +130,32 @@ const ExpenseTracker = () => {
   } : null;
 
   return (
-    <div style={{ minWidth: "200px" }}>
-      <Button type="primary" onClick={() => setIsModalVisible(true)}>
-        Add Expense
-      </Button>
-      <Button type="secondary" onClick={copyToClipboard} style={{ marginLeft: 10 }} disabled={selectedRowKeys.length === 0}>
-        Copy Selected ({selectedRowKeys.length})
-      </Button>
-      <div>
-      Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }}>
-        </Switch></div>
-      
-      <Table rowSelection={rowSelection} dataSource={expenses} columns={columns} style={{ marginTop: 20 }} />
+    <div style={{ padding: '20px', maxWidth: '100%', overflowX: 'auto' }}>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} sm={12} md={8}>
+          <Button type="primary" onClick={() => setIsModalVisible(true)} block>
+            Add Expense
+          </Button>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Button type="secondary" onClick={copyToClipboard}  disabled={selectedRowKeys.length === 0} block>
+            Copy Selected ({selectedRowKeys.length})
+          </Button>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <div>
+            Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }}>
+            </Switch>
+          </div>
+        </Col>
+      </Row>
+      <Table
+        rowSelection={rowSelection}
+        dataSource={expenses}
+        columns={columns}
+        style={{ marginTop: 20 }}
+        scroll={{ x: 'max-content' }}
+      />
 
       <Modal
         title={editingExpense ? 'Edit Expense' : 'Add Expense'}
