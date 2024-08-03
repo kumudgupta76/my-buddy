@@ -29,15 +29,18 @@ const LayoutComponent = () => {
   return (
     <Layout className="layout" style={{minHeight:"100vh", height:"100vh"}}>
     <Header>
-      <div className="logo" />
+    <Link to="my-buddy/home">
+        <img src="icon.png" className="logo"></img>
+      </Link>
       <Menu
         theme="dark"
         mode="horizontal"
-        defaultSelectedKeys={['2']}
-        items={[{key:1, label:<Link to="my-buddy/">Home</Link>},
+        defaultSelectedKeys={['3']}
+        items={[{key:1, label:<Link to="my-buddy/home">Home</Link>},
           {key:2, label:<Link to="my-buddy/timer">Timer</Link>},
           {key:3, label:<Link to="my-buddy/expense">Expense Tacker</Link>},
-          {key:4, label:<Link to="my-buddy/dump">Dump</Link>}]}
+          {key:4, label:<Link to="my-buddy/cal">Calendar</Link>},
+          {key:5, label:<Link to="my-buddy/dump">Dump</Link>}]}
       />
     </Header>
     <Content

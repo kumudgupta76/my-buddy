@@ -16,7 +16,6 @@ code {
 .outer-container {
   justify-content: center;
   display: flex;
-  margin-top: 150px;
 }
 
 
@@ -97,14 +96,15 @@ code {
   padding: 24px;
   background: #fff;
 }
-#components-layout-demo-top .logo {
+.logo {
   float: left;
-  width: 120px;
-  height: 31px;
-  margin: 16px 24px 16px 0;
+  width: 50px;
+  height: 50px;
+  margin: 7px 0 10px 0;
   background: rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
 }
-.ant-row-rtl #components-layout-demo-top .logo {
+.ant-row-rtl .logo {
   float: right;
   margin: 16px 0 16px 24px;
 }
