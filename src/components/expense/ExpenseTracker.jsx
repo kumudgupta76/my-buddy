@@ -4,36 +4,44 @@ import moment from 'moment';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
+  const [archivedExpenses, setArchivedExpenses] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [form] = Form.useForm();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [enableRowSelection, setEnableRowSelection] = useState(false);
 
-  const expenseMode = [
-    { text: "UPI HDFC Crdit Card", value: "upi-hdfc-crdit-card" },
-    { text: "UPI Kotak Crdit Card", value: "upi-kotak-crdit-card" },
-    { text: "UPI SBI", value: "upi-sbi" },
-    { text: "UPI Kotak", value: "upi-kotak" },
-    { text: "UPI Lite", value: "upi-lite" },
-    { text: "Cash", value: "cash" },
-  ];
   useEffect(() => {
     const storedExpenses = JSON.parse(localStorage.getItem('expenses')) || [];
+    const storedArchivedExpenses = JSON.parse(localStorage.getItem('archivedExpenses')) || [];
     const expensesWithMomentDates = storedExpenses.map(expense => ({
       ...expense,
       date: moment(expense.date),
     }));
+    const archivedExpensesWithMomentDates = storedArchivedExpenses.map(expense => ({
+      ...expense,
+      date: moment(expense.date),
+    }));
     setExpenses(expensesWithMomentDates);
+    setArchivedExpenses(archivedExpensesWithMomentDates);
   }, []);
 
   const saveExpenses = (newExpenses) => {
     const expensesToStore = newExpenses.map(expense => ({
       ...expense,
-      date: expense.date.toISOString(),
+      date: expense.date.toString(),
     }));
     localStorage.setItem('expenses', JSON.stringify(expensesToStore));
     setExpenses(newExpenses);
+  };
+
+  const saveArchivedExpenses = (newArchivedExpenses) => {
+    const archivedExpensesToStore = newArchivedExpenses.map(expense => ({
+      ...expense,
+      date: expense.date.toString(),
+    }));
+    localStorage.setItem('archivedExpenses', JSON.stringify(archivedExpensesToStore));
+    setArchivedExpenses(newArchivedExpenses);
   };
 
   const handleAddExpense = () => {
@@ -47,7 +55,7 @@ const ExpenseTracker = () => {
         setEditingExpense(null);
       } else {
         const newExpense = { ...values, key: Date.now().toString() };
-        const newExpenses = [...expenses, newExpense];
+        const newExpenses = [newExpense, ...expenses];
         saveExpenses(newExpenses);
       }
       form.resetFields();
@@ -69,6 +77,24 @@ const ExpenseTracker = () => {
     const updatedExpenses = expenses.filter((expense) => expense.key !== key);
     saveExpenses(updatedExpenses);
     message.success('Expense deleted successfully');
+  };
+
+  const handleArchiveExpense = (key) => {
+    const expenseToArchive = expenses.find(expense => expense.key === key);
+    const updatedExpenses = expenses.filter(expense => expense.key !== key);
+    const updatedArchivedExpenses = [...archivedExpenses, { ...expenseToArchive, archived: true }];
+    saveExpenses(updatedExpenses);
+    saveArchivedExpenses(updatedArchivedExpenses);
+    message.success('Expense archived successfully');
+  };
+
+  const handleUnarchiveExpense = (key) => {
+    const expenseToUnarchive = archivedExpenses.find(expense => expense.key === key);
+    const updatedArchivedExpenses = archivedExpenses.filter(expense => expense.key !== key);
+    const updatedExpenses = [...expenses, { ...expenseToUnarchive, archived: false }];
+    saveExpenses(updatedExpenses);
+    saveArchivedExpenses(updatedArchivedExpenses);
+    message.success('Expense unarchived successfully');
   };
 
   const handleRowSelectionChange = (selectedKeys) => {
@@ -98,10 +124,19 @@ const ExpenseTracker = () => {
     });
   };
 
+  const expenseMode = [
+    { text: "UPI HDFC Credit Card", value: "upi-hdfc-credit-card" },
+    { text: "UPI Kotak Credit Card", value: "upi-kotak-credit-card" },
+    { text: "UPI SBI", value: "upi-sbi" },
+    { text: "UPI Kotak", value: "upi-kotak" },
+    { text: "UPI Lite", value: "upi-lite" },
+    { text: "Cash", value: "cash" },
+  ];
+
   const columns = [
     { title: 'Description', dataIndex: 'description', key: 'description' },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
-    { title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters: expenseMode, onFilter: (value, record) => record.paymentMode.indexOf(value) === 0, },
+    { title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters: expenseMode, onFilter: (value, record) => record.paymentMode.indexOf(value) === 0 },
     {
       title: 'Date',
       dataIndex: 'date',
@@ -116,8 +151,36 @@ const ExpenseTracker = () => {
           <Button onClick={() => handleEditExpense(record)} type="link">
             Edit
           </Button>
+          {!record.archived && (
+            <Button onClick={() => handleArchiveExpense(record.key)} type="link" danger>
+              Archive
+            </Button>
+          )}
+        </>
+      ),
+    },
+  ];
+
+  const archivedColumns = [
+    { title: 'Description', dataIndex: 'description', key: 'description' },
+    { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
+    { title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters: expenseMode, onFilter: (value, record) => record.paymentMode.indexOf(value) === 0 },
+    {
+      title: 'Date',
+      dataIndex: 'date',
+      key: 'date',
+      render: (text) => moment(text).format('YYYY-MM-DD HH:mm:ss'),
+    },
+    {
+      title: 'Action',
+      key: 'action',
+      render: (_, record) => (
+        <>
           <Button onClick={() => handleDeleteExpense(record.key)} type="link" danger>
             Delete
+          </Button>
+          <Button onClick={() => handleUnarchiveExpense(record.key)} type="link">
+            Unarchive
           </Button>
         </>
       ),
@@ -138,7 +201,7 @@ const ExpenseTracker = () => {
           </Button>
         </Col>
         <Col xs={24} sm={12} md={8}>
-          <Button type="secondary" onClick={copyToClipboard}  disabled={selectedRowKeys.length === 0} block>
+          <Button type="secondary" onClick={copyToClipboard} block>
             Copy Selected ({selectedRowKeys.length})
           </Button>
         </Col>
@@ -149,10 +212,18 @@ const ExpenseTracker = () => {
           </div>
         </Col>
       </Row>
+      <h2 style={{ marginTop: 20 }}>Active Expenses ({expenses ? expenses.length : 0})</h2>
       <Table
         rowSelection={rowSelection}
         dataSource={expenses}
         columns={columns}
+        style={{ marginTop: 20 }}
+        scroll={{ x: 'max-content' }}
+      />
+      <h2 style={{ marginTop: 20 }}>Archived Expenses ({archivedExpenses ? archivedExpenses.length : 0})</h2>
+      <Table
+        dataSource={archivedExpenses}
+        columns={archivedColumns}
         style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
       />
@@ -204,8 +275,9 @@ const ExpenseTracker = () => {
             name="date"
             label="Date"
             rules={[{ required: true, message: 'Please select the date!' }]}
+            initialValue={moment()}
           >
-            <DatePicker showTime style={{ width: '100%' }} />
+            <DatePicker showTime style={{ width: '100%' }}/>
           </Form.Item>
         </Form>
       </Modal>
