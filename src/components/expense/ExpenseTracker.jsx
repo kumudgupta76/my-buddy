@@ -7,7 +7,8 @@ const ExpenseTracker = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [form] = Form.useForm();
-  const [rowSelection, setRowSelection] = useState({});
+  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
+  const [enableRowSelection, setEnableRowSelection] = useState(false);
 
   const expenseMode = [
     { text: "UPI HDFC Crdit Card", value: "upi-hdfc-crdit-card" },
@@ -16,7 +17,7 @@ const ExpenseTracker = () => {
     { text: "UPI Kotak", value: "upi-kotak" },
     { text: "UPI Lite", value: "upi-lite" },
     { text: "Cash", value: "cash" },
-  ]
+  ];
   useEffect(() => {
     const storedExpenses = JSON.parse(localStorage.getItem('expenses')) || [];
     const expensesWithMomentDates = storedExpenses.map(expense => ({
@@ -29,7 +30,7 @@ const ExpenseTracker = () => {
   const saveExpenses = (newExpenses) => {
     const expensesToStore = newExpenses.map(expense => ({
       ...expense,
-      date: expense.date.toString(),
+      date: expense.date.toISOString(),
     }));
     localStorage.setItem('expenses', JSON.stringify(expensesToStore));
     setExpenses(newExpenses);
@@ -70,15 +71,17 @@ const ExpenseTracker = () => {
     message.success('Expense deleted successfully');
   };
 
-  const handleRowSelectionChange = (enable) => {
-    console.log(enable);
-    setRowSelection(enable ? {} : undefined);
+  const handleRowSelectionChange = (selectedKeys) => {
+    setSelectedRowKeys(selectedKeys);
   };
 
+  const handleRowSelectionSwitchChange = (checked) => {
+    setEnableRowSelection(checked);
+  };
 
   const copyToClipboard = () => {
     const header = ["Description", "Amount", "Payment Mode", "Date"];
-    const rows = expenses.map(expense => [
+    const rows = expenses.filter(expense => selectedRowKeys.includes(expense.key)).map(expense => [
       expense.description,
       expense.amount,
       expense.paymentMode,
@@ -98,7 +101,7 @@ const ExpenseTracker = () => {
   const columns = [
     { title: 'Description', dataIndex: 'description', key: 'description' },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
-    { title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters:expenseMode,onFilter: (value, record) => record.paymentMode.indexOf(value) === 0, },
+    { title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters: expenseMode, onFilter: (value, record) => record.paymentMode.indexOf(value) === 0, },
     {
       title: 'Date',
       dataIndex: 'date',
@@ -121,15 +124,23 @@ const ExpenseTracker = () => {
     },
   ];
 
+  const rowSelection = enableRowSelection ? {
+    selectedRowKeys,
+    onChange: handleRowSelectionChange,
+  } : null;
+
   return (
     <div style={{ minWidth: "200px" }}>
       <Button type="primary" onClick={() => setIsModalVisible(true)}>
         Add Expense
       </Button>
-      <Button type="secondary" onClick={copyToClipboard} style={{ marginLeft: 10 }}>
-        Copy to Clipboard
+      <Button type="secondary" onClick={copyToClipboard} style={{ marginLeft: 10 }} disabled={selectedRowKeys.length === 0}>
+        Copy Selected
       </Button>
-      <Switch checked={!!rowSelection} onChange={handleRowSelectionChange} ></Switch>
+      <div>
+      Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }}>
+        </Switch></div>
+      
       <Table rowSelection={rowSelection} dataSource={expenses} columns={columns} style={{ marginTop: 20 }} />
 
       <Modal

@@ -82,22 +82,32 @@ const CountdownTimer = () => {
 
     return (
         <>
-            <Row>
-                <Col span={8} sm={24} md={8}></Col>
-                <Col span={8} sm={24} md={8} style={{ display: "flex" }}>
-                    <div style={{ margin: "auto", width: "50%" }}>
-                        <div>
-                            <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{marginBottom:"10px"}}>
+            <Row style={{}}>
+                <Col sm={0} md={6}></Col>
+                <Col sm={24} md={12} style={{background:"#ebc0a636", padding:"10px",border:"1px solid #d9d9d9"}}>
+                    <Row>
+                        <Col sm={24} md={12} style={{padding:"5px"}}>
+                            Offset Value For Minute
+                        </Col>
+                        <Col sm={24} md={12}>
+                            <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{ marginBottom: "10px" }}>
                                 <Tooltip title="1 min offset"><Radio.Button value={1} style={{ marginRight: '10px' }}>1 min</Radio.Button></Tooltip>
                                 <Tooltip title="5 min offset"><Radio.Button value={5} style={{ marginRight: '10px' }}>5 min</Radio.Button></Tooltip>
                                 <Tooltip title="15 min offset"><Radio.Button value={15}>15 min</Radio.Button></Tooltip>
                             </Radio.Group>
-                        </div>
+                        </Col>
+                    </Row>
 
-                        <div style={{ marginBottom: '10px' }}>
-                            <Button onClick={() => setMins(mins - offset)} style={{ marginRight: '10px' }}>
-                                <MinusCircleOutlined />
-                            </Button>
+                    <Row style={{ marginBottom: '10px' }}>
+                        <Col sm={24} md={12} style={{padding:"5px"}}>
+                            Minute
+                        </Col>
+                        <Col sm={24} md={12}>
+                            <Tooltip title="Remove offset from minutes">
+                                <Button onClick={() => setMins(mins - offset)} style={{ marginRight: '10px' }}>
+                                    <MinusCircleOutlined />
+                                </Button>
+                            </Tooltip>
                             <Input
                                 placeholder="Mins"
                                 type="number"
@@ -105,45 +115,60 @@ const CountdownTimer = () => {
                                 onChange={(e) => setMins(Number(e.target.value))}
                                 style={{ width: '113px', marginRight: '10px' }}
                             />
-                            <Button onClick={() => setMins(mins + offset)}>
-                                <PlusCircleOutlined />
-                            </Button>
-                        </div>
+                            <Tooltip title="Add offset to minutes">
+                                <Button onClick={() => setMins(mins + offset)}>
+                                    <PlusCircleOutlined />
+                                </Button>
+                            </Tooltip>
+                        </Col>
+                    </Row>
 
-                        <div style={{
-                            backgroundColor: 'white',
-                            padding: '10px',
-                            borderRadius: '5px',
-                            bosmhadow: '0 0 10px rgba(0,0,0,0.1)',
-                        }}>
-                            <div>Take a Break in</div>
-                            <div style={{ fontSize: '30px' }}>{formatTime(remainingTime)}
+                    <Row style={{ marginBottom: '10px' }}>
+                        <Col sm={24} md={12}></Col>
+                        <Col sm={24} md={12}>
+                            <div style={{
+                                backgroundColor: 'white',
+                                padding: '10px',
+                                borderRadius: '5px',
+                                bosmhadow: '0 0 10px rgba(0,0,0,0.1)',
+                                border: "1px solid"
+                            }}>
+                                <div>Take a Break in</div>
+                                <div style={{ fontSize: '30px' }}>{formatTime(remainingTime)}
+                                </div>
+
                             </div>
+                        </Col>
+                    </Row>
 
-                        </div>
-                        <div style={{ marginTop: '10px' }}>
-                            <Button onClick={handleReset} style={{ width: '50px', marginRight: '10px' }}><ReloadOutlined /></Button>
-                            <Button onClick={() => isPaused ? handlePlay() : handlePause()}>{isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}</Button>
-                        </div>
-                    </div>
+                    <Row style={{ marginBottom: '10px' }}>
+                        <Col md={12} style={{padding:"5px"}}>
+                            Actions
+                        </Col>
+                        <Col md={12}>
+                            <Tooltip title="Reset Timer to minutes"><Button onClick={handleReset} style={{ width: '50px', marginRight: '10px' }}><ReloadOutlined /></Button></Tooltip>
+                            <Tooltip title="Pause the Timer">
+                                <Button onClick={() => isPaused ? handlePlay() : handlePause()}>{
+                                    isPaused ? <PlayCircleOutlined />
+                                        : <PauseCircleOutlined />
+                                }</Button>
+                            </Tooltip>
+                        </Col>
+                    </Row>
                 </Col>
-                <Col span={8} sm={24} md={8}></Col>
+                <Col sm={0} md={6}></Col>
             </Row>
-            <Row style={{marginTop:"30px"}}>
-                <div style={{ margin: "auto", width: "50%" }}>
-                    <List
-                        header={<strong>Recent Timers</strong>}
-                        size='large'
-                        bordered
-                        dataSource={data}
-                        renderItem={(item, index) => (
-                            <List.Item>
-                                <Typography.Text>{`#${index + 1} ${item.time} mins break compeleted at ${item.completedAt}`}</Typography.Text>
-                            </List.Item>
-                        )}
-                    />
-                </div>
-            </Row>
+            <List style={{ marginTop: "30px" }}
+                header={<strong>Recent Timers</strong>}
+                size='large'
+                bordered
+                dataSource={data}
+                renderItem={(item, index) => (
+                    <List.Item>
+                        <Typography.Text>{`#${index + 1} ${item.time} mins break compeleted at ${item.completedAt}`}</Typography.Text>
+                    </List.Item>
+                )}
+            />
         </>
 
     );
