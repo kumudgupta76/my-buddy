@@ -39,7 +39,7 @@ const CountdownTimer = () => {
 
     useEffect(() => {
         handleReset();
-    }, [mins])
+    }, [mins]);
 
     const handlePause = () => {
         setIsPaused(true);
@@ -66,7 +66,8 @@ const CountdownTimer = () => {
     };
 
     const playSound = () => {
-        setData([{ time: mins, completedAt: new Date().toLocaleString() }, ...data])
+        const newData = [{ time: mins, completedAt: new Date().toLocaleString() }, ...data];
+        setData(newData);
         const audio = new Audio('/my-buddy/assets/simple-notification-152054.mp3'); // Path to your sound file
         audio.play().catch(error => {
             console.error('Error playing sound:', error);
@@ -82,11 +83,11 @@ const CountdownTimer = () => {
 
     return (
         <>
-            <Row style={{}}>
+            <Row>
                 <Col sm={0} md={6}></Col>
-                <Col sm={24} md={12} style={{background:"#ebc0a636", padding:"10px",border:"1px solid #d9d9d9"}}>
+                <Col sm={24} md={12} style={{ background: "#ebc0a636", padding: "10px", border: "1px solid #d9d9d9" }}>
                     <Row>
-                        <Col sm={24} md={12} style={{padding:"5px"}}>
+                        <Col sm={24} md={12} style={{ padding: "5px" }}>
                             Offset Value For Minute
                         </Col>
                         <Col sm={24} md={12}>
@@ -99,7 +100,7 @@ const CountdownTimer = () => {
                     </Row>
 
                     <Row style={{ marginBottom: '10px' }}>
-                        <Col sm={24} md={12} style={{padding:"5px"}}>
+                        <Col sm={24} md={12} style={{ padding: "5px" }}>
                             Minute
                         </Col>
                         <Col sm={24} md={12}>
@@ -130,25 +131,24 @@ const CountdownTimer = () => {
                                 backgroundColor: 'white',
                                 padding: '10px',
                                 borderRadius: '5px',
-                                bosmhadow: '0 0 10px rgba(0,0,0,0.1)',
-                                border: "1px solid"
+                                boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+                                border: "1px solid  #d9d9d9"
                             }}>
                                 <div>Take a Break in</div>
                                 <div style={{ fontSize: '30px' }}>{formatTime(remainingTime)}
                                 </div>
-
                             </div>
                         </Col>
                     </Row>
 
                     <Row style={{ marginBottom: '10px' }}>
-                        <Col md={12} style={{padding:"5px"}}>
+                        <Col md={12} style={{ padding: "5px" }}>
                             Actions
                         </Col>
                         <Col md={12}>
-                            <Tooltip title="Reset Timer to minutes"><Button onClick={handleReset} style={{ width: '50px', marginRight: '10px' }}><ReloadOutlined /></Button></Tooltip>
+                            <Tooltip title="Reset Timer to minutes"><Button onClick={handleReset} style={{ width: '100px', marginRight: '10px' }}>Reset<ReloadOutlined /></Button></Tooltip>
                             <Tooltip title="Pause the Timer">
-                                <Button onClick={() => isPaused ? handlePlay() : handlePause()}>{
+                                <Button style={{width:"100px"}} onClick={() => isPaused ? handlePlay() : handlePause()}>{isPaused ? "Play" : "Pause"} {
                                     isPaused ? <PlayCircleOutlined />
                                         : <PauseCircleOutlined />
                                 }</Button>
@@ -165,12 +165,11 @@ const CountdownTimer = () => {
                 dataSource={data}
                 renderItem={(item, index) => (
                     <List.Item>
-                        <Typography.Text>{`#${index + 1} ${item.time} mins break compeleted at ${item.completedAt}`}</Typography.Text>
+                        <Typography.Text>{`#${index + 1} ${item.time} mins break completed at ${item.completedAt}`}</Typography.Text>
                     </List.Item>
                 )}
             />
         </>
-
     );
 };
 

@@ -10,6 +10,9 @@ const urlsToCache = [
   '/battery_256.png',
   '/battery_512.png',
   '/icon.png',
+  '/assets/simple-notification-152054.mp3',
+  '/timer',
+  '/expense'
   // Add other assets you want to cache
 ];
 

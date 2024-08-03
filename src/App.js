@@ -3,7 +3,7 @@ import './App.css';
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes, Link } from 'react-router-dom';
 import Base from './components/Base';
-import CountdownTimer from './components/CountdownTimer';
+import CountdownTimer from './components/timer/CountdownTimer';
 import Timer from './components/Timer';
 import Layout from './components/Layout';
 import NoPage from './components/NoPage';

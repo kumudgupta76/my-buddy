@@ -135,7 +135,7 @@ const ExpenseTracker = () => {
         Add Expense
       </Button>
       <Button type="secondary" onClick={copyToClipboard} style={{ marginLeft: 10 }} disabled={selectedRowKeys.length === 0}>
-        Copy Selected
+        Copy Selected ({selectedRowKeys.length})
       </Button>
       <div>
       Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }}>
