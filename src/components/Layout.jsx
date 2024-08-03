@@ -1,8 +1,29 @@
-import { Outlet, Link } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 
 import { Layout, Breadcrumb, Menu } from "antd";
 
 const { Header, Content, Footer } = Layout;
+
+
+const Breadcrumbs = () => {
+  const location = useLocation();
+  const pathSnippets = location.pathname.split('/').filter(i => i);
+  const breadcrumbItems = pathSnippets.map((_, index) => {
+    const url = `/${pathSnippets.slice(0, index + 1).join('/')}`;
+    const name = pathSnippets[index].replace(/-/g, ' '); // Replace hyphens with spaces for better readability
+    return (
+      <Breadcrumb.Item key={url}>
+        <Link to={url}>{name.charAt(0).toUpperCase() + name.slice(1)}</Link>
+      </Breadcrumb.Item>
+    );
+  });
+
+  return (
+    <Breadcrumb style={{ margin: '16px 0' }}>
+      {breadcrumbItems}
+    </Breadcrumb>
+  );
+};
 
 const LayoutComponent = () => {
   return (
@@ -13,7 +34,10 @@ const LayoutComponent = () => {
         theme="dark"
         mode="horizontal"
         defaultSelectedKeys={['2']}
-        items={[{key:1, label:<Link to="/">Home</Link>},{key:2, label:<Link to="/timer">Timer</Link>}, {key:3, label:<Link to="/dump">Dump</Link>}]}
+        items={[{key:1, label:<Link to="my-buddy/">Home</Link>},
+          {key:2, label:<Link to="my-buddy/timer">Timer</Link>},
+          {key:3, label:<Link to="my-buddy/expense">Expense Tacker</Link>},
+          {key:4, label:<Link to="my-buddy/dump">Dump</Link>}]}
       />
     </Header>
     <Content
@@ -22,15 +46,7 @@ const LayoutComponent = () => {
         overflow:"auto"
       }}
     >
-      <Breadcrumb
-        style={{
-          margin: '16px 0',
-        }}
-      >
-        <Breadcrumb.Item>Home</Breadcrumb.Item>
-        <Breadcrumb.Item>List</Breadcrumb.Item>
-        <Breadcrumb.Item>App</Breadcrumb.Item>
-      </Breadcrumb>
+      <Breadcrumbs/>
       <div className="site-layout-content"><Outlet></Outlet></div>
       
     </Content>

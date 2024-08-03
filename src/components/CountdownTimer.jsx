@@ -83,8 +83,8 @@ const CountdownTimer = () => {
     return (
         <>
             <Row>
-                <Col span={8} xs={24} md={8}></Col>
-                <Col span={8} xs={24} md={8} style={{ display: "flex" }}>
+                <Col span={8} sm={24} md={8}></Col>
+                <Col span={8} sm={24} md={8} style={{ display: "flex" }}>
                     <div style={{ margin: "auto", width: "50%" }}>
                         <div>
                             <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{marginBottom:"10px"}}>
@@ -114,7 +114,7 @@ const CountdownTimer = () => {
                             backgroundColor: 'white',
                             padding: '10px',
                             borderRadius: '5px',
-                            boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+                            bosmhadow: '0 0 10px rgba(0,0,0,0.1)',
                         }}>
                             <div>Take a Break in</div>
                             <div style={{ fontSize: '30px' }}>{formatTime(remainingTime)}
@@ -127,7 +127,7 @@ const CountdownTimer = () => {
                         </div>
                     </div>
                 </Col>
-                <Col span={8} xs={24} md={8}></Col>
+                <Col span={8} sm={24} md={8}></Col>
             </Row>
             <Row style={{marginTop:"30px"}}>
                 <div style={{ margin: "auto", width: "50%" }}>

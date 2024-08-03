@@ -7,6 +7,7 @@ import CountdownTimer from './components/CountdownTimer';
 import Timer from './components/Timer';
 import Layout from './components/Layout';
 import NoPage from './components/NoPage';
+import ExpenseTracker from './components/expense/ExpenseTracker';
 
 const App = () => {
   return (
@@ -14,9 +15,10 @@ const App = () => {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Base />} />
-          <Route path="timer" element={<CountdownTimer />} />
-          <Route path="contact" element={<Timer />} />
+          <Route path="my-buddy/timer" element={<CountdownTimer />} />
+          <Route path="my-buddy/contact" element={<Timer />} />
           <Route path="*" element={<NoPage />} />
+          <Route path="my-buddy/expense" element={<ExpenseTracker />} />
         </Route>
       </Routes>
     </Router>
