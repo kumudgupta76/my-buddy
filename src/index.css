@@ -142,7 +142,7 @@ code {
 
 .header .menu-button {
   display: block;
-  margin: 17px 0 auto auto;
+  margin: 0 0 auto auto;
 }
 
 @media (min-width: 768px) {

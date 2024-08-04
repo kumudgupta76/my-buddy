@@ -43,9 +43,6 @@ const LayoutComponent = () => {
           <Link to="my-buddy/">
             <img src="icon.png" className="logo" alt="image not loaded" />
           </Link>
-
-        </div>
-        <div >
           <Button
             className="menu-button"
             type="text"
@@ -60,7 +57,6 @@ const LayoutComponent = () => {
           closable={true}
           onClose={onCloseDrawer}
           visible={drawerVisible}
-          style={{width:"100px"}}
         >
           <Menu
             mode="inline"
