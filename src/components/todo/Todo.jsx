@@ -13,8 +13,8 @@ const TodoTracker = () => {
   const [enableRowSelection, setEnableRowSelection] = useState(false);
 
   useEffect(() => {
-    const storedTodos = JSON.parse(localStorage.getItem('tasks')) || [];
-    const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTasks')) || [];
+    const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
+    const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
     const todosWithMomentDates = storedTodos.map(todo => ({
       ...todo,
       date: moment(todo.date),
@@ -32,7 +32,7 @@ const TodoTracker = () => {
       ...todo,
       date: todo.date.toString(),
     }));
-    localStorage.setItem('tasks', JSON.stringify(todosToStore));
+    localStorage.setItem('todos', JSON.stringify(todosToStore));
     setTodos(newTodos);
   };
 
@@ -41,7 +41,7 @@ const TodoTracker = () => {
       ...todo,
       date: todo.date.toString(),
     }));
-    localStorage.setItem('archivedTasks', JSON.stringify(archivedTodosToStore));
+    localStorage.setItem('archivedTodos', JSON.stringify(archivedTodosToStore));
     setArchivedTodos(newArchivedTodos);
   };
 
