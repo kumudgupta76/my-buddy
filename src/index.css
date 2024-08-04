@@ -133,3 +133,24 @@ code {
     background: #fff;
   }
 }
+
+/* Add to your CSS file */
+
+.header .desktop-menu {
+  display: none;
+}
+
+.header .menu-button {
+  display: block;
+  margin: 17px 0 auto auto;
+}
+
+@media (min-width: 768px) {
+  .header .desktop-menu {
+    display: flex;
+  }
+  
+  .header .menu-button {
+    display: none;
+  }
+}

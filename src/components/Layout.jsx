@@ -1,9 +1,9 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
-
-import { Layout, Breadcrumb, Menu } from "antd";
+import React, { useState } from 'react';
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Layout, Breadcrumb, Menu, Drawer, Button } from 'antd';
+import { MenuOutlined } from '@ant-design/icons';
 
 const { Header, Content, Footer } = Layout;
-
 
 const Breadcrumbs = () => {
   const location = useLocation();
@@ -26,40 +26,81 @@ const Breadcrumbs = () => {
 };
 
 const LayoutComponent = () => {
+  const [drawerVisible, setDrawerVisible] = useState(false);
+
+  const showDrawer = () => {
+    setDrawerVisible(true);
+  };
+
+  const onCloseDrawer = () => {
+    setDrawerVisible(false);
+  };
+
   return (
-    <Layout className="layout" style={{minHeight:"100vh", height:"100vh"}}>
-    <Header>
-    <Link to="my-buddy/">
-        <img src="icon.png" className="logo" alt="image not loaded"></img>
-      </Link>
-      <Menu
-        theme="dark"
-        mode="horizontal"
-        items={[{key:1, label:<Link to="my-buddy/todo">Todo</Link>},
-          {key:2, label:<Link to="my-buddy/timer">Timer</Link>},
-          {key:3, label:<Link to="my-buddy/expense">Expense Tacker</Link>},
-          {key:4, label:<Link to="my-buddy/cal">Calendar</Link>},
-          { key: 5, label: <Link to="/my-buddy/calview">Calendar View</Link> },
-    { key: 6, label: <Link to="/my-buddy/battery">Battery</Link> },
-    { key: 7, label: <Link to="/my-buddy/dump">Dump</Link> }]}
-      />
-    </Header>
-    <Content
-      className="content-div"
-    >
-      <Breadcrumbs/>
-      <div className="site-layout-content"><Outlet></Outlet></div>
-      
-    </Content>
-    <Footer
-      style={{
-        textAlign: 'center',
-      }}
-    >
-      Created with Love by Kumud
-    </Footer>
-  </Layout>
-  )
+    <Layout className="layout" style={{ minHeight: "100vh", height: "100vh" }}>
+      <Header className="header">
+        <div className="logo-container">
+          <Link to="my-buddy/">
+            <img src="icon.png" className="logo" alt="image not loaded" />
+          </Link>
+
+        </div>
+        <div >
+          <Button
+            className="menu-button"
+            type="text"
+            icon={<MenuOutlined color='white' />}
+            onClick={showDrawer}
+            style={{ color: "white", fontSize: "large", fontWeight: "bold" }}
+          />
+        </div>
+        <Drawer
+          title="Menu"
+          placement="right"
+          closable={true}
+          onClose={onCloseDrawer}
+          visible={drawerVisible}
+          style={{width:"100px"}}
+        >
+          <Menu
+            mode="inline"
+            items={[
+              { key: 1, label: <Link to="my-buddy/todo"><div >Todo</div></Link> },
+              { key: 2, label: <Link to="my-buddy/timer"><div >Timer</div></Link> },
+              { key: 3, label: <Link to="my-buddy/expense"><div >Expense Tracker</div></Link> },
+              { key: 4, label: <Link to="my-buddy/cal"><div >Calendar</div></Link> },
+              { key: 5, label: <Link to="/my-buddy/calview"><div >Calendar View</div></Link> },
+              { key: 6, label: <Link to="/my-buddy/battery"><div >Battery</div></Link> },
+              { key: 7, label: <Link to="/my-buddy/dump"><div >Dump</div></Link> }
+            ]}
+          />
+        </Drawer>
+        <Menu
+          theme="dark"
+          mode="horizontal"
+          className="desktop-menu"
+          items={[
+            { key: 1, label: <Link to="my-buddy/todo"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Todo</div></Link> },
+            { key: 2, label: <Link to="my-buddy/timer"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Timer</div></Link> },
+            { key: 3, label: <Link to="my-buddy/expense"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Expense Tracker</div></Link> },
+            { key: 4, label: <Link to="my-buddy/cal"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar</div></Link> },
+            { key: 5, label: <Link to="/my-buddy/calview"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar View</div></Link> },
+            { key: 6, label: <Link to="/my-buddy/battery"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Battery</div></Link> },
+            { key: 7, label: <Link to="/my-buddy/dump"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Dump</div></Link> }
+          ]}
+        />
+      </Header>
+      <Content className="content-div">
+        <Breadcrumbs />
+        <div className="site-layout-content">
+          <Outlet />
+        </div>
+      </Content>
+      <Footer style={{ textAlign: 'center' }}>
+        Created with Love by Kumud
+      </Footer>
+    </Layout>
+  );
 };
 
 export default LayoutComponent;
