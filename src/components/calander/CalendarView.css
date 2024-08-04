@@ -1,0 +1,37 @@
+/* src/components/CalendarView.css */
+.calendar-container {
+    padding: 10px;
+  }
+  
+  .calendar-date-cell {
+    padding: 5px;
+  }
+  
+  .calendar-task {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+    font-size: 14px;
+  }
+  
+  .calendar-modal .ant-modal-body {
+    padding: 10px;
+  }
+  
+  .task-list-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  @media (max-width: 576px) {
+    .calendar-task {
+      font-size: 12px;
+    }
+    
+    .calendar-modal .ant-modal-body {
+      padding: 5px;
+    }
+  }
+  

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col } from 'antd';
 import moment from 'moment';
+import TodoDetail from './TodoDetail';
 
 const TodoTracker = () => {
   const [todos, setTodos] = useState([]);
@@ -12,8 +13,8 @@ const TodoTracker = () => {
   const [enableRowSelection, setEnableRowSelection] = useState(false);
 
   useEffect(() => {
-    const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
-    const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
+    const storedTodos = JSON.parse(localStorage.getItem('tasks')) || [];
+    const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTasks')) || [];
     const todosWithMomentDates = storedTodos.map(todo => ({
       ...todo,
       date: moment(todo.date),
@@ -31,7 +32,7 @@ const TodoTracker = () => {
       ...todo,
       date: todo.date.toString(),
     }));
-    localStorage.setItem('todos', JSON.stringify(todosToStore));
+    localStorage.setItem('tasks', JSON.stringify(todosToStore));
     setTodos(newTodos);
   };
 
@@ -40,7 +41,7 @@ const TodoTracker = () => {
       ...todo,
       date: todo.date.toString(),
     }));
-    localStorage.setItem('archivedTodos', JSON.stringify(archivedTodosToStore));
+    localStorage.setItem('archivedTasks', JSON.stringify(archivedTodosToStore));
     setArchivedTodos(newArchivedTodos);
   };
 
@@ -124,15 +125,6 @@ const TodoTracker = () => {
     });
   };
 
-  const todoMode = [
-    { text: "UPI HDFC Credit Card", value: "upi-hdfc-credit-card" },
-    { text: "UPI Kotak Credit Card", value: "upi-kotak-credit-card" },
-    { text: "UPI SBI", value: "upi-sbi" },
-    { text: "UPI Kotak", value: "upi-kotak" },
-    { text: "UPI Lite", value: "upi-lite" },
-    { text: "Cash", value: "cash" },
-  ];
-
   const columns = [
     { title: 'Title', dataIndex: 'title', key: 'title',width: '80%', },
     {
@@ -214,7 +206,7 @@ const TodoTracker = () => {
         style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
         expandable={{
-          expandedRowRender: record => <p style={{ margin: 0 }}><strong>Description:</strong> {record.description}<br></br><strong>Created At:</strong> {new Date(record.date).toLocaleString()}</p>
+          expandedRowRender: record =><TodoDetail todo={record}/>
         }}
       />
       <h2 style={{ marginTop: 20 }}>Archived Todos ({archivedTodos ? archivedTodos.length : 0})</h2>
@@ -224,7 +216,7 @@ const TodoTracker = () => {
         style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
         expandable={{
-          expandedRowRender: record => <p style={{ margin: 0 }}>{record.description}<br></br><strong>Created At:</strong> {new Date(record.date).toLocaleString()}</p>
+          expandedRowRender: record => <TodoDetail todo={record}/>
         }}
       />
 

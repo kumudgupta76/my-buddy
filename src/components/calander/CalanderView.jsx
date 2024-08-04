@@ -1,7 +1,10 @@
 // src/components/CalendarView.js
 import React, { useState, useEffect } from 'react';
-import { Calendar, Modal, Button, Input, List } from 'antd';
+import { Calendar, Modal, Button, Input, List, Typography, Space } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import './CalendarView.css'; // Import the CSS file for additional styling
+
+const { Title } = Typography;
 
 const CalendarView = () => {
   const [selectedDate, setSelectedDate] = useState(null);
@@ -54,23 +57,25 @@ const CalendarView = () => {
   };
 
   return (
-    <div>
+    <div className="calendar-container">
       <Calendar
         onSelect={handleDateClick}
         dateCellRender={(date) => {
           const dateStr = date.format('YYYY-MM-DD');
           return (
-            <div>
+            <div className="calendar-date-cell">
               {tasks[dateStr]?.map(task => (
-                <div key={task.id}>
+                <div key={task.id} className="calendar-task">
                   {task.text}
                   <Button 
                     icon={<EditOutlined />} 
                     onClick={() => handleEditTask(task.id, prompt('Edit Task:', task.text))}
+                    size="small"
                   />
                   <Button 
                     icon={<DeleteOutlined />} 
                     onClick={() => handleDeleteTask(task.id)}
+                    size="small"
                   />
                 </div>
               ))}
@@ -79,10 +84,13 @@ const CalendarView = () => {
         }}
       />
       <Modal
-        title={`Tasks for ${selectedDate}`}
+        title={<Title level={4}>Tasks for {selectedDate}</Title>}
         visible={isModalVisible}
         onOk={handleAddTask}
         onCancel={() => setIsModalVisible(false)}
+        okText="Add Task"
+        cancelText="Cancel"
+        className="calendar-modal"
       >
         <Input
           value={taskInput}
@@ -92,16 +100,22 @@ const CalendarView = () => {
         <List
           dataSource={tasks[selectedDate] || []}
           renderItem={item => (
-            <List.Item>
-              {item.text}
-              <Button 
-                icon={<EditOutlined />} 
-                onClick={() => handleEditTask(item.id, prompt('Edit Task:', item.text))}
-              />
-              <Button 
-                icon={<DeleteOutlined />} 
-                onClick={() => handleDeleteTask(item.id)}
-              />
+            <List.Item className="task-list-item">
+              <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                {item.text}
+                <Space>
+                  <Button 
+                    icon={<EditOutlined />} 
+                    onClick={() => handleEditTask(item.id, prompt('Edit Task:', item.text))}
+                    size="small"
+                  />
+                  <Button 
+                    icon={<DeleteOutlined />} 
+                    onClick={() => handleDeleteTask(item.id)}
+                    size="small"
+                  />
+                </Space>
+              </Space>
             </List.Item>
           )}
         />
