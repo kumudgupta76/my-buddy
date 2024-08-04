@@ -29,18 +29,19 @@ const LayoutComponent = () => {
   return (
     <Layout className="layout" style={{minHeight:"100vh", height:"100vh"}}>
     <Header>
-    <Link to="my-buddy/home">
-        <img src="icon.png" className="logo"></img>
+    <Link to="my-buddy/">
+        <img src="icon.png" className="logo" alt="image not loaded"></img>
       </Link>
       <Menu
         theme="dark"
         mode="horizontal"
-        defaultSelectedKeys={['3']}
-        items={[{key:1, label:<Link to="my-buddy/home">Home</Link>},
+        items={[{key:1, label:<Link to="my-buddy/todo">Todo</Link>},
           {key:2, label:<Link to="my-buddy/timer">Timer</Link>},
           {key:3, label:<Link to="my-buddy/expense">Expense Tacker</Link>},
           {key:4, label:<Link to="my-buddy/cal">Calendar</Link>},
-          {key:5, label:<Link to="my-buddy/dump">Dump</Link>}]}
+          { key: 5, label: <Link to="/my-buddy/calview">Calendar View</Link> },
+    { key: 6, label: <Link to="/my-buddy/battery">Battery</Link> },
+    { key: 7, label: <Link to="/my-buddy/dump">Dump</Link> }]}
       />
     </Header>
     <Content
@@ -55,7 +56,7 @@ const LayoutComponent = () => {
         textAlign: 'center',
       }}
     >
-      Ant Design ©2018 Created by Ant UED
+      Created with Love by Kumud
     </Footer>
   </Layout>
   )
