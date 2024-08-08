@@ -11,6 +11,7 @@ import Home from './components/Home';
 import Todo from './components/todo/Todo';
 import Battery from './components/battery/Battery';
 import CalendarView from './components/calander/CalanderView';
+import LocalStorageManager from './components/admin/LocalStorgeManager';
 
 const App = () => {
   return (
@@ -24,6 +25,7 @@ const App = () => {
           <Route path="my-buddy/cal" element={<CalendarComponent />} />
           <Route path="my-buddy/calview" element={<CalendarView></CalendarView>} />
           <Route path="my-buddy/battery" element={<Battery />} />
+          <Route path="my-buddy/admin" element={<LocalStorageManager />} />
           <Route path="*" element={<NoPage />} />
           <Route path="my-buddy/expense" element={<ExpenseTracker />} />
         </Route>

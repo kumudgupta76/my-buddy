@@ -12,7 +12,8 @@ const Home = () => {
     { key: 4, label: <Link to="/my-buddy/cal">Calendar</Link> },
     { key: 5, label: <Link to="/my-buddy/calview">Calendar View</Link> },
     { key: 6, label: <Link to="/my-buddy/battery">Battery</Link> },
-    { key: 7, label: <Link to="/my-buddy/dump">Dump</Link> }];
+    { key: 7, label: <Link to="/my-buddy/admin"><div >Local Store Manager</div></Link> },
+    { key: 8, label: <Link to="/my-buddy/dump"><div >Dump</div></Link> }];
 
     return (
         <>

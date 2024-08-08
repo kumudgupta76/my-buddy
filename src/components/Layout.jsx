@@ -67,7 +67,8 @@ const LayoutComponent = () => {
               { key: 4, label: <Link to="my-buddy/cal"><div >Calendar</div></Link> },
               { key: 5, label: <Link to="/my-buddy/calview"><div >Calendar View</div></Link> },
               { key: 6, label: <Link to="/my-buddy/battery"><div >Battery</div></Link> },
-              { key: 7, label: <Link to="/my-buddy/dump"><div >Dump</div></Link> }
+              { key: 7, label: <Link to="/my-buddy/admin"><div >Local Store Manager</div></Link> },
+              { key: 8, label: <Link to="/my-buddy/dump"><div >Dump</div></Link> }
             ]}
           />
         </Drawer>
@@ -82,7 +83,8 @@ const LayoutComponent = () => {
             { key: 4, label: <Link to="my-buddy/cal"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar</div></Link> },
             { key: 5, label: <Link to="/my-buddy/calview"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar View</div></Link> },
             { key: 6, label: <Link to="/my-buddy/battery"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Battery</div></Link> },
-            { key: 7, label: <Link to="/my-buddy/dump"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Dump</div></Link> }
+            { key: 7, label: <Link to="/my-buddy/admin"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>LocalStorageManager</div></Link> },
+            { key: 8, label: <Link to="/my-buddy/dump"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Dump</div></Link> }
           ]}
         />
       </Header>

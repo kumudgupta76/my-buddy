@@ -1,6 +1,14 @@
 const CACHE_NAME = 'my-pwa-cache-v1';
 const urlsToCache = [
-  '/'
+  // '/',
+  // '/index.html',
+  // '/manifest.json',
+  // '/battery.png',
+  // '/battery_64.png',
+  // '/battery_128.png',
+  // '/battery_256.png',
+  // '/battery_512.png',
+  // '/icon.png',
   // Add other assets you want to cache
 ];
 
