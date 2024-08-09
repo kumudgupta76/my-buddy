@@ -94,7 +94,7 @@ const LayoutComponent = () => {
           <Outlet />
         </div>
       </Content>
-      <Footer style={{ textAlign: 'center' }}>
+      <Footer className='footer-layout'>
         Created with Love by Kumud
       </Footer>
     </Layout>

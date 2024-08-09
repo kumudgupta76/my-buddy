@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Input, Button, Space, message,Typography } from 'antd';
+import { Table, Input, Button, Space, message,Typography, } from 'antd';
+const { TextArea } = Input;
 
 const LocalStorageManager = () => {
   const [data, setData] = useState([]);
@@ -75,7 +76,7 @@ const LocalStorageManager = () => {
 
       {editKey !== null && (
         <div style={{ marginTop: '20px' }}>
-          <Input
+          <TextArea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Edit value"
@@ -83,6 +84,9 @@ const LocalStorageManager = () => {
           />
           <Button type="primary" onClick={handleSave}>
             Save
+          </Button>
+          <Button style={{marginLeft:"10px"}} type="info" onClick={() => setEditKey(null)}>
+            Cancel
           </Button>
         </div>
       )}

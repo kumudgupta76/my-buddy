@@ -145,6 +145,16 @@ code {
   margin: 0 0 auto auto;
 }
 
+
+.footer-layout {
+  display: none;
+  text-align: center;
+}
+
+.date-cell-title {
+  margin-right: 5px;
+}
+
 @media (min-width: 768px) {
   .header .desktop-menu {
     display: flex;
@@ -153,4 +163,11 @@ code {
   .header .menu-button {
     display: none;
   }
+
+  .footer-layout {
+    display: block;
+  }
 }
+
+
+
