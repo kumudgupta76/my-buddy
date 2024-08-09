@@ -80,7 +80,7 @@ const LayoutComponent = () => {
             { key: 1, label: <Link to="my-buddy/todo"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Todo</div></Link> },
             { key: 2, label: <Link to="my-buddy/timer"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Timer</div></Link> },
             { key: 3, label: <Link to="my-buddy/expense"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Expense Tracker</div></Link> },
-            { key: 4, label: <Link to="my-buddy/cal"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar</div></Link> },
+            // { key: 4, label: <Link to="my-buddy/cal"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar</div></Link> },
             { key: 5, label: <Link to="/my-buddy/calview"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar View</div></Link> },
             { key: 6, label: <Link to="/my-buddy/battery"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Battery</div></Link> },
             { key: 7, label: <Link to="/my-buddy/admin"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>LocalStorageManager</div></Link> },
