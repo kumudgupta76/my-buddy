@@ -29,7 +29,6 @@ const CalendarView = () => {
 
   const handleDateClick = (value) => {
     setSelectedDate(value);
-    setIsModalVisible(true);
   };
 
   const handleAddTask = () => {
@@ -63,8 +62,12 @@ const CalendarView = () => {
     <div className="calendar-container">
       <Button 
         onClick={() => setIsModalVisible(true)}
-        size="small"
       >Add Task</Button>
+      <Button 
+        style={{marginLeft:"10px"}}
+        onClick={() => setSelectedDate(moment())}
+      >Today</Button>
+      <Typography.Text style={{marginLeft:"10px", border:"1px solid", padding:"5px", borderRadius:"2px"}} >{`Date - ${selectedDate.toLocaleString()}`}</Typography.Text>
       <Calendar
         onSelect={handleDateClick}
         fullscreen={!isMobile()}
