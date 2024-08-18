@@ -2,6 +2,7 @@
 import React from 'react';
 import { List, Typography } from 'antd';
 import { Link } from 'react-router-dom';
+import ReloadButton from './ReloadButton';
 
 const { Title } = Typography;
 
@@ -22,6 +23,7 @@ const Home = () => {
                 dataSource={menuItems}
                 renderItem={item => <List.Item>{item.label}</List.Item>}>
             </List>
+            <ReloadButton></ReloadButton>
         </>
 
 

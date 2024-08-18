@@ -1,6 +1,8 @@
 const CACHE_NAME = 'my-pwa-cache-v1';
 const urlsToCache = [
-  // '/',
+  '/',
+  '/calview',
+  '/my-buddy'
   // '/index.html',
   // '/manifest.json',
   // '/battery.png',
@@ -13,6 +15,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener("install", event => {
+  self.skipWaiting(); // Force the waiting service worker to become the active service worker
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
@@ -49,6 +52,7 @@ self.addEventListener("activate", event => {
       );
     })
   );
+  self.clients.claim(); // Ensure that the service worker takes control of the page immediately
 });
 
 self.addEventListener("push", event => {

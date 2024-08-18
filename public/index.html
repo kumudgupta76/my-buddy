@@ -31,6 +31,14 @@
         .catch(err => {
           console.log("Error");
         });
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (this.refreshing) return;
+          this.refreshing = true;
+
+          if (confirm("A new version of the app is available. Do you want to reload?")) {
+            window.location.reload();
+          }
+        });
     }
     // Notification.requestPermission().then(function(result) {
     //   if (result === "denied") {

@@ -18,6 +18,7 @@ const Breadcrumbs = () => {
     );
   });
 
+  console.log(process.env.PUBLIC_URL)
   return (
     <Breadcrumb style={{ margin: '16px 0' }}>
       {breadcrumbItems}
@@ -48,7 +49,7 @@ const LayoutComponent = () => {
             type="text"
             icon={<MenuOutlined color='white' />}
             onClick={showDrawer}
-            style={{ color: "white", fontSize: "large", fontWeight: "bold" }}
+            style={{ color: "white", fontSize: "large", fontWeight: "bold",height:"100%" }}
           />
         </div>
         <Drawer

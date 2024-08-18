@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col } from 'antd';
 import moment from 'moment';
-import { render } from '@testing-library/react';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
