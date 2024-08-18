@@ -1,6 +1,6 @@
 // src/components/CalendarView.js
 import React, { useState, useEffect } from 'react';
-import { Calendar, Modal, Button, Input, List, Typography, Space } from 'antd';
+import { Calendar, Modal, Button, Input, List, Typography, Space, Row, Col } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import './CalendarView.css'; // Import the CSS file for additional styling
 import TodoTracker from '../todo/Todo';
@@ -60,14 +60,21 @@ const CalendarView = () => {
 
   return (
     <div className="calendar-container">
-      <Button 
+      <Row>
+        <Col sm={24} md={12}>
+        <Button 
         onClick={() => setIsModalVisible(true)}
       >Add Task</Button>
       <Button 
         style={{marginLeft:"10px"}}
         onClick={() => setSelectedDate(moment())}
       >Today</Button>
-      <Typography.Text style={{marginLeft:"10px", border:"1px solid", padding:"5px", borderRadius:"2px"}} >{`Date - ${selectedDate.toLocaleString()}`}</Typography.Text>
+        </Col>
+        <Col sm={24} md={12}>
+        <div style={{marginLeft:"10px", border:"1px solid", borderRadius:"2px", display:"flex", justifyContent:"center", padding:"4px"}} >{`Date - ${selectedDate.toLocaleString()}`}</div>  
+  
+        </Col>
+      </Row>
       <Calendar
         onSelect={handleDateClick}
         fullscreen={!isMobile()}

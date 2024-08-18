@@ -1,14 +1,15 @@
+import { Button } from 'antd';
 import React from 'react';
 
 const ReloadButton = () => {
   const handleReload = () => {
-    window.location.reload();
+    window.location.reload(true);
   };
 
   return (
-    <button onClick={handleReload}>
+    <Button onClick={handleReload}>
       Reload Page
-    </button>
+    </Button >
   );
 };
 
