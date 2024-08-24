@@ -125,12 +125,14 @@ const ExpenseTracker = () => {
   };
 
   const expenseMode = [
-    { text: "UPI HDFC Credit Card", value: "upi-hdfc-credit-card" },
-    { text: "UPI Kotak Credit Card", value: "upi-kotak-credit-card" },
+    { text: "HDFC Card", value: "hdfc-card" },
+    { text: "Kotak Visa Card", value: "kotak-rupay-card" },
+    { text: "Kotak Rupay Card", value: "kotak-visa-card" },
     { text: "UPI SBI", value: "upi-sbi" },
     { text: "UPI Kotak", value: "upi-kotak" },
     { text: "UPI Lite", value: "upi-lite" },
     { text: "Cash", value: "cash" },
+    { text: "Other", value: "other" }
   ];
 
   const columns = [

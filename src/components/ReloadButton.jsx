@@ -7,7 +7,7 @@ const ReloadButton = () => {
   };
 
   return (
-    <Button onClick={handleReload}>
+    <Button danger onClick={handleReload}>
       Reload Page
     </Button >
   );
