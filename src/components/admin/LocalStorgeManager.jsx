@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Input, Button, Space, message,Typography, } from 'antd';
+import { Table, Input, Button, Space, message, Typography, Tooltip } from 'antd';
+import { EditOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons';
+
 const { TextArea } = Input;
 
 const LocalStorageManager = () => {
@@ -25,6 +27,15 @@ const LocalStorageManager = () => {
       setInputValue(item.value);
     }
   };
+
+  const handleCopy = (key) => {
+    navigator.clipboard.writeText(JSON.stringify(data.find(d => d.key === key).value)).then(() => {
+      message.success('Table content copied to clipboard!');
+    }).catch(err => {
+      message.error('Failed to copy table content');
+      console.error('Could not copy text: ', err);
+    });
+  }
 
   const handleSave = () => {
     localStorage.setItem(editKey, inputValue);
@@ -60,18 +71,31 @@ const LocalStorageManager = () => {
       key: 'actions',
       render: (_, record) => (
         <Space>
-          <Button onClick={() => handleEdit(record.key)}>Edit</Button>
-          <Button onClick={() => handleDelete(record.key)} danger>
-            Delete
-          </Button>
+          <Tooltip title="Copy Entry">
+            <Button
+            icon={<CopyOutlined />}
+            onClick={() => handleCopy(record.key)}
+          />
+          </Tooltip>
+          <Tooltip title="Edit Entry">
+            <Button
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record.key)}
+          /></Tooltip>
+          <Tooltip title="Delete Entry"><Button
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.key)}
+            danger
+          /></Tooltip>
+          
         </Space>
       ),
     },
   ];
 
   return (
-    <div style={{ padding: '20px' }}>
-        <h3>Local Store Data</h3>
+    <div style={{ maxWidth: '100%', overflowX: 'auto' }}>
+      <h3>Local Store Data</h3>
       <Table dataSource={data} columns={columns} rowKey="key" />
 
       {editKey !== null && (
@@ -85,7 +109,7 @@ const LocalStorageManager = () => {
           <Button type="primary" onClick={handleSave}>
             Save
           </Button>
-          <Button style={{marginLeft:"10px"}} type="info" onClick={() => setEditKey(null)}>
+          <Button style={{ marginLeft: "10px" }} type="info" onClick={() => setEditKey(null)}>
             Cancel
           </Button>
         </div>

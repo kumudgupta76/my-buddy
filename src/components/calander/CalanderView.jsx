@@ -4,13 +4,13 @@ import { Calendar, Modal, Button, Input, List, Typography, Space, Row, Col } fro
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import './CalendarView.css'; // Import the CSS file for additional styling
 import TodoTracker from '../todo/Todo';
-import moment from "moment";
+import dayjs from "dayjs";
 import { dateToString, isMobile } from '../../common/utils';
 
 const { Title } = Typography;
 
 const CalendarView = () => {
-  const [selectedDate, setSelectedDate] = useState(moment());
+  const [selectedDate, setSelectedDate] = useState(dayjs());
   const [tasks, setTasks] = useState({});
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [taskInput, setTaskInput] = useState('');
@@ -67,7 +67,7 @@ const CalendarView = () => {
       >Add Task</Button>
       <Button 
         style={{marginLeft:"10px"}}
-        onClick={() => setSelectedDate(moment())}
+        onClick={() => setSelectedDate(dayjs())}
       >Today</Button>
         </Col>
         <Col sm={24} md={12}>

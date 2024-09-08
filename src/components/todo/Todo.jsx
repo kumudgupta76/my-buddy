@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import TodoDetail from './TodoDetail';
+import TextArea from 'antd/lib/input/TextArea';
 
 const TodoTracker = () => {
   const [todos, setTodos] = useState([]);
@@ -15,16 +16,16 @@ const TodoTracker = () => {
   useEffect(() => {
     const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
     const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
-    const todosWithMomentDates = storedTodos.map(todo => ({
+    const todosWithdayjsDates = storedTodos.map(todo => ({
       ...todo,
-      date: moment(todo.date),
+      date: dayjs(todo.date),
     }));
-    const archivedTodosWithMomentDates = storedArchivedTodos.map(todo => ({
+    const archivedTodosWithdayjsDates = storedArchivedTodos.map(todo => ({
       ...todo,
-      date: moment(todo.date),
+      date: dayjs(todo.date),
     }));
-    setTodos(todosWithMomentDates);
-    setArchivedTodos(archivedTodosWithMomentDates);
+    setTodos(todosWithdayjsDates);
+    setArchivedTodos(archivedTodosWithdayjsDates);
   }, []);
 
   const saveTodos = (newTodos) => {
@@ -68,7 +69,7 @@ const TodoTracker = () => {
   const handleEditTodo = (record) => {
     form.setFieldsValue({
       ...record,
-      date: moment(record.date), // Convert to moment object for the DatePicker
+      date: dayjs(record.date), // Convert to dayjs object for the DatePicker
     });
     setEditingTodo(record);
     setIsModalVisible(true);
@@ -112,7 +113,7 @@ const TodoTracker = () => {
       todo.description,
       todo.amount,
       todo.paymentMode,
-      moment(todo.date).format('YYYY-MM-DD HH:mm:ss')
+      dayjs(todo.date).format('YYYY-MM-DD HH:mm:ss')
     ]);
 
     const tsv = [header, ...rows].map(row => row.join('\t')).join('\n');
@@ -250,14 +251,14 @@ const TodoTracker = () => {
             label="Description"
             rules={[{ required: false, message: 'Please enter the description' }]}
           >
-            <Input />
+            <TextArea rows={4}/>
           </Form.Item>
 
           <Form.Item
             name="date"
             label="Date"
             rules={[{ required: true, message: 'Please select the date!' }]}
-            initialValue={moment()}
+            initialValue={dayjs()}
           >
             <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>

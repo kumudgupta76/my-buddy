@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col } from 'antd';
-import moment from 'moment';
+import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col, Dropdown } from 'antd';
+import dayjs from 'dayjs';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
@@ -14,16 +14,16 @@ const ExpenseTracker = () => {
   useEffect(() => {
     const storedExpenses = JSON.parse(localStorage.getItem('expenses')) || [];
     const storedArchivedExpenses = JSON.parse(localStorage.getItem('archivedExpenses')) || [];
-    const expensesWithMomentDates = storedExpenses.map(expense => ({
+    const expensesWithdayjsDates = storedExpenses.map(expense => ({
       ...expense,
-      date: moment(expense.date),
+      date: dayjs(expense.date),
     }));
-    const archivedExpensesWithMomentDates = storedArchivedExpenses.map(expense => ({
+    const archivedExpensesWithdayjsDates = storedArchivedExpenses.map(expense => ({
       ...expense,
-      date: moment(expense.date),
+      date: dayjs(expense.date),
     }));
-    setExpenses(expensesWithMomentDates);
-    setArchivedExpenses(archivedExpensesWithMomentDates);
+    setExpenses(expensesWithdayjsDates);
+    setArchivedExpenses(archivedExpensesWithdayjsDates);
   }, []);
 
   const saveExpenses = (newExpenses) => {
@@ -67,7 +67,7 @@ const ExpenseTracker = () => {
   const handleEditExpense = (record) => {
     form.setFieldsValue({
       ...record,
-      date: moment(record.date), // Convert to moment object for the DatePicker
+      date: dayjs(record.date), // Convert to dayjs object for the DatePicker
     });
     setEditingExpense(record);
     setIsModalVisible(true);
@@ -79,14 +79,22 @@ const ExpenseTracker = () => {
     message.success('Expense deleted successfully');
   };
 
-  const handleArchiveExpense = (key) => {
-    const expenseToArchive = expenses.find(expense => expense.key === key);
-    const updatedExpenses = expenses.filter(expense => expense.key !== key);
-    const updatedArchivedExpenses = [...archivedExpenses, { ...expenseToArchive, archived: true }];
+  const handleArchiveExpense = (keys) => {
+    // Ensure keys is an array, even if a single key is provided
+    const keysArray = Array.isArray(keys) ? keys : [keys];
+  
+    // Find and archive the expenses corresponding to the provided keys
+    const expensesToArchive = expenses.filter(expense => keysArray.includes(expense.key));
+    const updatedExpenses = expenses.filter(expense => !keysArray.includes(expense.key));
+    const updatedArchivedExpenses = [...archivedExpenses, ...expensesToArchive.map(expense => ({ ...expense, archived: true }))];
+  
+    // Save the updated lists
     saveExpenses(updatedExpenses);
     saveArchivedExpenses(updatedArchivedExpenses);
-    message.success('Expense archived successfully');
+  
+    message.success('Expenses archived successfully');
   };
+  
 
   const handleUnarchiveExpense = (key) => {
     const expenseToUnarchive = archivedExpenses.find(expense => expense.key === key);
@@ -105,16 +113,21 @@ const ExpenseTracker = () => {
     setEnableRowSelection(checked);
   };
 
-  const copyToClipboard = () => {
+  const copyToClipboard = ({includeHeader = false}) => {
     const header = ["Description", "Amount", "Payment Mode", "Date"];
-    const rows = expenses.filter(expense => selectedRowKeys.includes(expense.key)).map(expense => [
+    let rows = expenses.filter(expense => selectedRowKeys.includes(expense.key)).map(expense => [
       expense.description,
       expense.amount,
       expense.paymentMode,
-      moment(expense.date).format('YYYY-MM-DD HH:mm:ss')
+      dayjs(expense.date).format('YYYY-MM-DD HH:mm:ss')
     ]);
 
-    const tsv = [header, ...rows].map(row => row.join('\t')).join('\n');
+    rows.sort((a, b) => new Date(a[3]) - new Date(b[3]));
+
+    const tsv = [
+      ...(includeHeader ? [header] : []),
+      ...rows
+    ].map(row => row.join('\t')).join('\n');
 
     navigator.clipboard.writeText(tsv).then(() => {
       message.success('Table content copied to clipboard!');
@@ -153,7 +166,7 @@ const ExpenseTracker = () => {
       title: 'Date',
       dataIndex: 'date',
       key: 'date',
-      render: (text) => moment(text).format('YYYY-MM-DD HH:mm:ss'),
+      render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
     },
     {
       title: 'Action',
@@ -187,7 +200,7 @@ const ExpenseTracker = () => {
       title: 'Date',
       dataIndex: 'date',
       key: 'date',
-      render: (text) => moment(text).format('YYYY-MM-DD HH:mm:ss'),
+      render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
     },
     {
       title: 'Action',
@@ -210,20 +223,37 @@ const ExpenseTracker = () => {
     onChange: handleRowSelectionChange,
   } : null;
 
+  const items = [
+    { label: 'Archive', key: 'item-1' }, 
+  ];
+
+  const onMenuClick = (e) => {
+    if(e.key === "item-1") {
+      handleArchiveExpense(selectedRowKeys)
+    }
+  }
+
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='expense-continer-div'>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={8}>
-          <Button type="primary" onClick={() => setIsModalVisible(true)} block>
+          <Button type="primary" onClick={() => setIsModalVisible(true)}>
             Add Expense
           </Button>
         </Col>
         <Col xs={24} sm={12} md={8}>
-          <Button type="secondary" onClick={copyToClipboard} block disabled={selectedRowKeys.length === 0}>
+          <Dropdown.Button
+            menu={{
+              items,
+              onClick: onMenuClick,
+            }}
+            onClick={copyToClipboard}
+            disabled={selectedRowKeys.length === 0}
+          >
             Copy Selected ({selectedRowKeys.length})
-          </Button>
+          </Dropdown.Button>
         </Col>
-        <Col xs={24} sm={12} md={8}>
+        <Col xs={24} sm={24} md={8}>
           <div>
             Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }}>
             </Switch>
@@ -301,7 +331,7 @@ const ExpenseTracker = () => {
             name="date"
             label="Date"
             rules={[{ required: true, message: 'Please select the date!' }]}
-            initialValue={moment()}
+            initialValue={dayjs()}
           >
             <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>
