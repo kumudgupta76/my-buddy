@@ -82,19 +82,19 @@ const ExpenseTracker = () => {
   const handleArchiveExpense = (keys) => {
     // Ensure keys is an array, even if a single key is provided
     const keysArray = Array.isArray(keys) ? keys : [keys];
-  
+
     // Find and archive the expenses corresponding to the provided keys
     const expensesToArchive = expenses.filter(expense => keysArray.includes(expense.key));
     const updatedExpenses = expenses.filter(expense => !keysArray.includes(expense.key));
     const updatedArchivedExpenses = [...archivedExpenses, ...expensesToArchive.map(expense => ({ ...expense, archived: true }))];
-  
+
     // Save the updated lists
     saveExpenses(updatedExpenses);
     saveArchivedExpenses(updatedArchivedExpenses);
-  
+
     message.success('Expenses archived successfully');
   };
-  
+
 
   const handleUnarchiveExpense = (key) => {
     const expenseToUnarchive = archivedExpenses.find(expense => expense.key === key);
@@ -113,7 +113,7 @@ const ExpenseTracker = () => {
     setEnableRowSelection(checked);
   };
 
-  const copyToClipboard = ({includeHeader = false}) => {
+  const copyToClipboard = ({ includeHeader = false }) => {
     const header = ["Description", "Amount", "Payment Mode", "Date"];
     let rows = expenses.filter(expense => selectedRowKeys.includes(expense.key)).map(expense => [
       expense.description,
@@ -224,11 +224,11 @@ const ExpenseTracker = () => {
   } : null;
 
   const items = [
-    { label: 'Archive', key: 'item-1' }, 
+    { label: 'Archive All', key: 'item-1' },
   ];
 
   const onMenuClick = (e) => {
-    if(e.key === "item-1") {
+    if (e.key === "item-1") {
       handleArchiveExpense(selectedRowKeys)
     }
   }
@@ -236,12 +236,10 @@ const ExpenseTracker = () => {
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='expense-continer-div'>
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={8}>
+        <Col md={24} style={{ display: "flex" }}>
           <Button type="primary" onClick={() => setIsModalVisible(true)}>
             Add Expense
           </Button>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
           <Dropdown.Button
             menu={{
               items,
@@ -249,11 +247,13 @@ const ExpenseTracker = () => {
             }}
             onClick={copyToClipboard}
             disabled={selectedRowKeys.length === 0}
+            style={{ marginLeft: "10px" }}
           >
             Copy Selected ({selectedRowKeys.length})
           </Dropdown.Button>
+
         </Col>
-        <Col xs={24} sm={24} md={8}>
+        <Col xs={24} sm={12} md={8}>
           <div>
             Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }}>
             </Switch>
@@ -266,7 +266,6 @@ const ExpenseTracker = () => {
             }, 0)}
           </h3>
         </Col>
-
       </Row>
       <h2 style={{ marginTop: 20 }}>Active Expenses ({expenses ? expenses.length : 0})</h2>
       <Table
@@ -321,9 +320,9 @@ const ExpenseTracker = () => {
             label="Payment Mode"
             rules={[{ required: true, message: 'Please select the payment mode' }]}
           >
-            <Radio.Group>
+            <Radio.Group className="tag-radio-group">
               {expenseMode.map((expenseType, index) =>
-                <Radio.Button value={expenseType.value} key={index}>{expenseType.text}</Radio.Button>
+                <Radio.Button value={expenseType.value} key={index} className="tag-radio">{expenseType.text}</Radio.Button>
               )}
             </Radio.Group>
           </Form.Item>
