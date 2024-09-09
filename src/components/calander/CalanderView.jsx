@@ -45,7 +45,7 @@ const CalendarView = () => {
   const handleEditTask = (taskId, newText) => {
     setTasks({
       ...tasks,
-      [dateToString(selectedDate)]: tasks[dateToString(selectedDate)].map(task => 
+      [dateToString(selectedDate)]: tasks[dateToString(selectedDate)].map(task =>
         task.id === taskId ? { ...task, text: newText } : task
       ),
     });
@@ -60,19 +60,18 @@ const CalendarView = () => {
 
   return (
     <div className="calendar-container">
-      <Row>
+      <Row gutter={[16, 16]}>
         <Col sm={24} md={12}>
-        <Button 
-        onClick={() => setIsModalVisible(true)}
-      >Add Task</Button>
-      <Button 
-        style={{marginLeft:"10px"}}
-        onClick={() => setSelectedDate(dayjs())}
-      >Today</Button>
+          <Button
+            onClick={() => setIsModalVisible(true)}
+          >Add Task</Button>
+          <Button
+            style={{ marginLeft: "10px" }}
+            onClick={() => setSelectedDate(dayjs())}
+          >Today</Button>
         </Col>
         <Col sm={24} md={12}>
-        <div style={{marginLeft:"10px", border:"1px solid", borderRadius:"2px", display:"flex", justifyContent:"center", padding:"4px"}} >{`Date - ${selectedDate.toLocaleString()}`}</div>  
-  
+          <div style={{ border: "1px solid", borderRadius: "2px", padding: "4px" }} >{`Date - ${selectedDate.toLocaleString()}`}</div>
         </Col>
       </Row>
       <Calendar
@@ -112,13 +111,13 @@ const CalendarView = () => {
               <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                 {item.text}
                 <Space>
-                  <Button 
-                    icon={<EditOutlined />} 
+                  <Button
+                    icon={<EditOutlined />}
                     onClick={() => handleEditTask(item.id, prompt('Edit Task:', item.text))}
                     size="small"
                   />
-                  <Button 
-                    icon={<DeleteOutlined />} 
+                  <Button
+                    icon={<DeleteOutlined />}
                     onClick={() => handleDeleteTask(item.id)}
                     size="small"
                   />
