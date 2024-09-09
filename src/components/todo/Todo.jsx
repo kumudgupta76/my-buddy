@@ -3,9 +3,14 @@ import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, 
 import dayjs from 'dayjs';
 import TodoDetail from './TodoDetail';
 import TextArea from 'antd/lib/input/TextArea';
+import { dateToString } from '../../common/utils';
 
 const TodoTracker = () => {
-  const [todos, setTodos] = useState([]);
+  const [todos, setTodos] = useState(() => {
+    const savedTodos = JSON.parse(localStorage.getItem('todos'));
+    return savedTodos || [];
+  });
+  
   const [archivedTodos, setArchivedTodos] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTodo, setEditingTodo] = useState(null);
@@ -31,7 +36,7 @@ const TodoTracker = () => {
   const saveTodos = (newTodos) => {
     const todosToStore = newTodos.map(todo => ({
       ...todo,
-      date: todo.date.toString(),
+      date: dateToString(todo.date),
     }));
     localStorage.setItem('todos', JSON.stringify(todosToStore));
     setTodos(newTodos);
@@ -40,7 +45,7 @@ const TodoTracker = () => {
   const saveArchivedTodos = (newArchivedTodos) => {
     const archivedTodosToStore = newArchivedTodos.map(todo => ({
       ...todo,
-      date: todo.date.toString(),
+      date: dateToString(todo.date),
     }));
     localStorage.setItem('archivedTodos', JSON.stringify(archivedTodosToStore));
     setArchivedTodos(newArchivedTodos);
@@ -48,7 +53,7 @@ const TodoTracker = () => {
 
   const handleAddTodo = () => {
     form.validateFields().then((values) => {
-      values.date = values.date.toISOString(); // Convert to string before saving
+      values.date = dateToString(values.date) // Convert to string before saving
       if (editingTodo) {
         const updatedTodos = todos.map((todo) =>
           todo.key === editingTodo.key ? { ...todo, ...values } : todo
@@ -63,6 +68,10 @@ const TodoTracker = () => {
       form.resetFields();
       setIsModalVisible(false);
       message.success('Todo saved successfully');
+    }).catch((errorInfo) => {
+      // Handle form validation error here
+      console.error('Validation Failed:', errorInfo);
+      message.error('Please fill in the required fields!');
     });
   };
 
@@ -223,7 +232,7 @@ const TodoTracker = () => {
 
       <Modal
         title={editingTodo ? 'Edit Todo' : 'Add Todo'}
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => {
           setIsModalVisible(false);
           setEditingTodo(null);
@@ -260,7 +269,7 @@ const TodoTracker = () => {
             rules={[{ required: true, message: 'Please select the date!' }]}
             initialValue={dayjs()}
           >
-            <DatePicker showTime style={{ width: '100%' }} />
+            <DatePicker style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>

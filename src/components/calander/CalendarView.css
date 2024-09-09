@@ -3,35 +3,46 @@
     padding: 10px;
   }
   
-  .calendar-date-cell {
-    padding: 5px;
-  }
-  
+.calendar-date-cell {
+  padding: 5px;
+}
+
+.calendar-task {
+  padding: 2px;
+  margin-bottom: 5px;
+  background-color: #fff;
+  border-radius: 5px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* This adds the shadow */
+  transition: box-shadow 0.3s ease-in-out;
+}
+
+.calendar-task:hover {
+  box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.15); /* Slightly increased shadow on hover */
+}
+
+
+.calendar-modal .ant-modal-body {
+  padding: 10px;
+}
+
+.task-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+@media (max-width: 576px) {
   .calendar-task {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-    font-size: 14px;
+    font-size: 12px;
   }
   
   .calendar-modal .ant-modal-body {
-    padding: 10px;
+    padding: 5px;
   }
-  
-  .task-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  
-  @media (max-width: 576px) {
-    .calendar-task {
-      font-size: 12px;
-    }
-    
-    .calendar-modal .ant-modal-body {
-      padding: 5px;
-    }
-  }
+}
+
+.completed-task {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
   
