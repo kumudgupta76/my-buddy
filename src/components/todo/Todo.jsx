@@ -269,7 +269,7 @@ const TodoTracker = () => {
             rules={[{ required: true, message: 'Please select the date!' }]}
             initialValue={dayjs()}
           >
-            <DatePicker style={{ width: '100%' }} />
+            <DatePicker showTime style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>

@@ -114,15 +114,16 @@ const ExpenseTracker = () => {
   };
 
   const copyToClipboard = ({ includeHeader = false }) => {
-    const header = ["Description", "Amount", "Payment Mode", "Date"];
+    const header = ["Date", "Description", "Payment Mode", "Amount"];
     let rows = expenses.filter(expense => selectedRowKeys.includes(expense.key)).map(expense => [
+      dayjs(expense.date).format('DD-MM-YYYY'),
       expense.description,
-      expense.amount,
       expense.paymentMode,
-      dayjs(expense.date).format('YYYY-MM-DD HH:mm:ss')
+      expense.amount,
+      expense.comment
     ]);
 
-    rows.sort((a, b) => new Date(a[3]) - new Date(b[3]));
+    rows.sort((a, b) => new Date(a[0]) - new Date(b[0]));
 
     const tsv = [
       ...(includeHeader ? [header] : []),
@@ -149,6 +150,12 @@ const ExpenseTracker = () => {
   ];
 
   const columns = [
+    {
+      title: 'Date',
+      dataIndex: 'date',
+      key: 'date',
+      render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
+    },
     { title: 'Description', dataIndex: 'description', key: 'description' },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
     {
@@ -162,12 +169,7 @@ const ExpenseTracker = () => {
         return mode ? mode.text : value;
       }
     },
-    {
-      title: 'Date',
-      dataIndex: 'date',
-      key: 'date',
-      render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-    },
+    { title: 'Comment', dataIndex: 'comment', key: 'comment' },
     {
       title: 'Action',
       key: 'action',
@@ -187,6 +189,12 @@ const ExpenseTracker = () => {
   ];
 
   const archivedColumns = [
+    {
+      title: 'Date',
+      dataIndex: 'date',
+      key: 'date',
+      render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
+    },
     { title: 'Description', dataIndex: 'description', key: 'description' },
     { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
     {
@@ -196,12 +204,7 @@ const ExpenseTracker = () => {
         return mode ? mode.text : value;
       }
     },
-    {
-      title: 'Date',
-      dataIndex: 'date',
-      key: 'date',
-      render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-    },
+    { title: 'Comment', dataIndex: 'comment', key: 'comment' },
     {
       title: 'Action',
       key: 'action',
@@ -332,7 +335,14 @@ const ExpenseTracker = () => {
             rules={[{ required: true, message: 'Please select the date!' }]}
             initialValue={dayjs()}
           >
-            <DatePicker showTime style={{ width: '100%' }} />
+            <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+          <Form.Item
+            name="comment"
+            label="Comment"
+            rules={[{ required: false, message: 'Please enter the comment' }]}
+          >
+            <Input />
           </Form.Item>
         </Form>
       </Modal>
