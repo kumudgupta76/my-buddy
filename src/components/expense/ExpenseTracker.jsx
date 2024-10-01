@@ -9,7 +9,7 @@ const ExpenseTracker = () => {
   const [editingExpense, setEditingExpense] = useState(null);
   const [form] = Form.useForm();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
-  const [enableRowSelection, setEnableRowSelection] = useState(false);
+  const [enableRowSelection, setEnableRowSelection] = useState(true);
 
   useEffect(() => {
     const storedExpenses = JSON.parse(localStorage.getItem('expenses')) || [];
@@ -116,7 +116,7 @@ const ExpenseTracker = () => {
   const copyToClipboard = ({ includeHeader = false }) => {
     const header = ["Date", "Description", "Payment Mode", "Amount"];
     let rows = expenses.filter(expense => selectedRowKeys.includes(expense.key)).map(expense => [
-      dayjs(expense.date).format('DD-MM-YYYY'),
+      dayjs(expense.date).format('YYYY-MM-DD'),
       expense.description,
       expense.paymentMode,
       expense.amount,
