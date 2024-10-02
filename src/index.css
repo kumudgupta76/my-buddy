@@ -147,8 +147,9 @@ code {
 
 
 .footer-layout {
-  display: none;
   text-align: center;
+  padding: 10px !important;
+  background: #fff !important;
 }
 
 .date-cell-title {

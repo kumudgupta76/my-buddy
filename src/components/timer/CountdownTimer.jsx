@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Input, notification, Tooltip, Radio, Row, Col, List, Typography } from 'antd';
+import { Button, Input, notification, Tooltip, Radio, Row, Col, List, Typography, Card } from 'antd';
 import { PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined, PlusCircleOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { showNotification } from '../../common/utils';
 
 const CountdownTimer = () => {
     const [mins, setMins] = useState(30); // Initial 30 minutes
@@ -81,86 +82,74 @@ const CountdownTimer = () => {
             message: 'Timer Complete',
             description: 'Time to take a break!',
         });
+
+        showNotification('Time Up ⏰', "Time to take a break!");
     };
 
     return (
         <>
             <Row>
-                <Col sm={0} md={6}></Col>
-                <Col sm={24} md={12} style={{ background: "#ebc0a636", padding: "10px", border: "1px solid #d9d9d9" }}>
-                    <Row>
-                        <Col sm={24} md={12} style={{ padding: "5px" }}>
-                            Offset Value For Minute
-                        </Col>
-                        <Col sm={24} md={12}>
-                            <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{ marginBottom: "10px" }}>
-                                <Tooltip title="1 min offset"><Radio.Button value={1} style={{ marginRight: '10px' }}>1 min</Radio.Button></Tooltip>
-                                <Tooltip title="5 min offset"><Radio.Button value={5} style={{ marginRight: '10px' }}>5 min</Radio.Button></Tooltip>
-                                <Tooltip title="15 min offset"><Radio.Button value={15}>15 min</Radio.Button></Tooltip>
-                            </Radio.Group>
-                        </Col>
-                    </Row>
-
-                    <Row style={{ marginBottom: '10px' }}>
-                        <Col sm={24} md={12} style={{ padding: "5px" }}>
-                            Minute
-                        </Col>
-                        <Col sm={24} md={12}>
-                            <Tooltip title="Remove offset from minutes">
-                                <Button onClick={() => setMins(mins - offset)} style={{ marginRight: '10px' }}>
-                                    <MinusCircleOutlined />
-                                </Button>
-                            </Tooltip>
-                            <Input
-                                placeholder="Mins"
-                                type="number"
-                                value={mins}
-                                onChange={(e) => setMins(Number(e.target.value))}
-                                style={{ width: '113px', marginRight: '10px' }}
-                            />
-                            <Tooltip title="Add offset to minutes">
-                                <Button onClick={() => setMins(mins + offset)}>
-                                    <PlusCircleOutlined />
-                                </Button>
-                            </Tooltip>
-                        </Col>
-                    </Row>
-
-                    <Row style={{ marginBottom: '10px' }}>
-                        <Col sm={24} md={12}></Col>
-                        <Col sm={24} md={12}>
-                            <div style={{
-                                backgroundColor: 'white',
-                                padding: '10px',
-                                borderRadius: '5px',
-                                boxShadow: '0 0 10px rgba(0,0,0,0.1)',
-                                border: "1px solid  #d9d9d9"
-                            }}>
-                                <div>Take a Break in</div>
-                                <div style={{ fontSize: '30px' }}>{formatTime(remainingTime)}
+                <Col xs={24} md={6}></Col>
+                <Col xs={24} md={12}>
+                    <Card style={{ background: "#f9f9f9", padding: "20px", border: "1px solid #d9d9d9", borderRadius: "8px", boxShadow: "0 2px 10px rgba(0,0,0,0.1)" }}>
+                        <Row justify="center">
+                            <Col xs={24} md={12}>
+                                <Typography.Title level={5}>Offset Value For Minute</Typography.Title>
+                                <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{ marginBottom: "20px" }}>
+                                    <Tooltip title="1 min offset"><Radio.Button value={1}>1 min</Radio.Button></Tooltip>
+                                    <Tooltip title="5 min offset"><Radio.Button value={5}>5 min</Radio.Button></Tooltip>
+                                    <Tooltip title="15 min offset"><Radio.Button value={15}>15 min</Radio.Button></Tooltip>
+                                </Radio.Group>
+                            </Col>
+                            <Col xs={24} md={6}>
+                                <Typography.Title level={5}>Minute</Typography.Title>
+                                <div style={{ display: 'flex', alignItems: 'center', marginBottom: "20px" }}>
+                                    <Tooltip title="Remove offset from minutes">
+                                        <Button onClick={() => setMins(mins - offset)} style={{ marginRight: '10px' }} icon={<MinusCircleOutlined />} />
+                                    </Tooltip>
+                                    <Input
+                                        placeholder="Mins"
+                                        type="number"
+                                        value={mins}
+                                        onChange={(e) => setMins(Number(e.target.value))}
+                                        style={{ width: '113px', marginRight: '10px' }}
+                                    />
+                                    <Tooltip title="Add offset to minutes">
+                                        <Button onClick={() => setMins(mins + offset)} icon={<PlusCircleOutlined />} />
+                                    </Tooltip>
                                 </div>
-                            </div>
-                        </Col>
-                    </Row>
-
-                    <Row style={{ marginBottom: '10px' }}>
-                        <Col md={12} style={{ padding: "5px" }}>
-                            Actions
-                        </Col>
-                        <Col md={12}>
-                            <Tooltip title="Reset Timer to minutes"><Button onClick={handleReset} style={{ width: '100px', marginRight: '10px' }}>Reset<ReloadOutlined /></Button></Tooltip>
-                            <Tooltip title="Pause the Timer">
-                                <Button style={{width:"100px"}} onClick={() => isPaused ? handlePlay() : handlePause()}>{isPaused ? "Play" : "Pause"} {
-                                    isPaused ? <PlayCircleOutlined />
-                                        : <PauseCircleOutlined />
-                                }</Button>
-                            </Tooltip>
-                        </Col>
-                    </Row>
+                            </Col>
+                        </Row>
+                        <Row>
+                            <Col xs={24} md={24}>
+                                <Card style={{ marginBottom: '20px', padding: '10px', borderRadius: '5px', boxShadow: '0 0 10px rgba(0,0,0,0.1)' }}>
+                                    <Typography.Title level={4}>Take a Break in</Typography.Title>
+                                    <div style={{ fontSize: '30px', fontWeight: 'bold' }}>{formatTime(remainingTime)}</div>
+                                </Card>
+                            </Col>
+                            <Col xs={24} md={24}>
+                                <Typography.Title level={5}>Actions</Typography.Title>
+                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                    <Tooltip title="Reset Timer to minutes">
+                                        <Button onClick={handleReset} style={{ marginRight: '10px' }} icon={<ReloadOutlined />}>Reset</Button>
+                                    </Tooltip>
+                                    <Tooltip title="Pause the Timer">
+                                        <Button onClick={() => (isPaused ? handlePlay() : handlePause())}>
+                                            {isPaused ? "Play" : "Pause"} {isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
+                                        </Button>
+                                    </Tooltip>
+                                </div>
+                            </Col>
+                        </Row>
+                    </Card>
                 </Col>
-                <Col sm={0} md={6}></Col>
+                <Col xs={24} md={12}></Col>
             </Row>
-            <List style={{ marginTop: "30px" }}
+
+
+
+            <List
+                style={{ marginTop: "30px", border: "1px solid #d9d9d9", borderRadius: "8px" }}
                 header={<strong>Recent Timers</strong>}
                 size='large'
                 bordered

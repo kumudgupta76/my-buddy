@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Layout, Breadcrumb, Menu, Drawer, Button } from 'antd';
 import { MenuOutlined } from '@ant-design/icons';
+import { getErrorCount, getErrors } from '../common/utils';
 
 const { Header, Content, Footer } = Layout;
 
@@ -96,7 +97,7 @@ const LayoutComponent = () => {
         </div>
       </Content>
       <Footer className='footer-layout'>
-        Created with Love by Kumud
+        {getErrorCount() !== 0 && `Errors(${getErrorCount()}) - ${JSON.stringify(getErrors())}`}
       </Footer>
     </Layout>
   );
