@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col } from 'antd';
+import { Form, Input, Button, Table, Modal, message, Switch, Row, Col, DatePicker } from 'antd';
 import dayjs from 'dayjs';
 import TodoDetail from './TodoDetail';
-import TextArea from 'antd/lib/input/TextArea';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 import { dateToString } from '../../common/utils';
 
 const TodoTracker = () => {
@@ -53,7 +54,7 @@ const TodoTracker = () => {
 
   const handleAddTodo = () => {
     form.validateFields().then((values) => {
-      values.date = dateToString(values.date) // Convert to string before saving
+      values.date = dateToString(values.date); // Convert to string before saving
       if (editingTodo) {
         const updatedTodos = todos.map((todo) =>
           todo.key === editingTodo.key ? { ...todo, ...values } : todo
@@ -69,7 +70,6 @@ const TodoTracker = () => {
       setIsModalVisible(false);
       message.success('Todo saved successfully');
     }).catch((errorInfo) => {
-      // Handle form validation error here
       console.error('Validation Failed:', errorInfo);
       message.error('Please fill in the required fields!');
     });
@@ -78,7 +78,7 @@ const TodoTracker = () => {
   const handleEditTodo = (record) => {
     form.setFieldsValue({
       ...record,
-      date: dayjs(record.date), // Convert to dayjs object for the DatePicker
+      date: dayjs(record.date),
     });
     setEditingTodo(record);
     setIsModalVisible(true);
@@ -136,7 +136,7 @@ const TodoTracker = () => {
   };
 
   const columns = [
-    { title: 'Title', dataIndex: 'title', key: 'title',width: '80%', },
+    { title: 'Title', dataIndex: 'title', key: 'title', width: '80%' },
     {
       title: 'Action',
       key: 'action',
@@ -157,7 +157,7 @@ const TodoTracker = () => {
   ];
 
   const archivedColumns = [
-    { title: 'Title', dataIndex: 'title', key: 'title',width: '80%', },
+    { title: 'Title', dataIndex: 'title', key: 'title', width: '80%' },
     {
       title: 'Action',
       key: 'action',
@@ -181,7 +181,7 @@ const TodoTracker = () => {
   } : null;
 
   return (
-    <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-continer-div'>
+    <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-container-div'>
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={8}>
           <Button type="primary" onClick={() => setIsModalVisible(true)} block>
@@ -195,8 +195,7 @@ const TodoTracker = () => {
         </Col>
         <Col xs={24} sm={12} md={8}>
           <div>
-            Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }}>
-            </Switch>
+            Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }} />
           </div>
         </Col>
         <Col xs={24} sm={12} md={8}>
@@ -206,7 +205,6 @@ const TodoTracker = () => {
             }, 0)}
           </h3>
         </Col>
-
       </Row>
       <h2 style={{ marginTop: 20 }}>Active Todos ({todos ? todos.length : 0})</h2>
       <Table
@@ -216,7 +214,7 @@ const TodoTracker = () => {
         style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
         expandable={{
-          expandedRowRender: record =><TodoDetail todo={record}/>
+          expandedRowRender: record => <TodoDetail todo={record} />
         }}
       />
       <h2 style={{ marginTop: 20 }}>Archived Todos ({archivedTodos ? archivedTodos.length : 0})</h2>
@@ -226,7 +224,7 @@ const TodoTracker = () => {
         style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
         expandable={{
-          expandedRowRender: record => <TodoDetail todo={record}/>
+          expandedRowRender: record => <TodoDetail todo={record} />
         }}
       />
 
@@ -260,9 +258,22 @@ const TodoTracker = () => {
             label="Description"
             rules={[{ required: false, message: 'Please enter the description' }]}
           >
-            <TextArea rows={4}/>
+            <ReactQuill
+              theme="snow"
+              placeholder="Write your description here..."
+              onChange={(content) => form.setFieldsValue({ description: content })}
+              modules={{
+                toolbar: [
+                  [{ 'header': [1, 2, false] }, { 'font': [] }],
+                  ['bold', 'italic', 'blockquote'],
+                  ['link', 'image'],
+                  [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+                  ['checklist'], // Add checklist button
+                  ['clean'], // Remove formatting button
+                ],
+              }}
+            />
           </Form.Item>
-
           <Form.Item
             name="date"
             label="Date"
