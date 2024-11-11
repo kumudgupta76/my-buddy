@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col, Dropdown } from 'antd';
 import dayjs from 'dayjs';
+import { SearchOutlined } from '@ant-design/icons';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
@@ -113,9 +114,9 @@ const ExpenseTracker = () => {
     setEnableRowSelection(checked);
   };
 
-  const copyToClipboard = ({ includeHeader = false }) => {
+  const copyToClipboard = ({ includeHeader = false, copyAll = false }) => {
     const header = ["Date", "Description", "Payment Mode", "Amount"];
-    let rows = expenses.filter(expense => selectedRowKeys.includes(expense.key)).map(expense => [
+    let rows = expenses.filter(expense => copyAll || selectedRowKeys.includes(expense.key)).map(expense => [
       dayjs(expense.date).format('YYYY-MM-DD'),
       expense.description,
       expense.paymentMode,
@@ -131,7 +132,7 @@ const ExpenseTracker = () => {
     ].map(row => row.join('\t')).join('\n');
 
     navigator.clipboard.writeText(tsv).then(() => {
-      message.success('Table content copied to clipboard!');
+      message.success(`Table content(${rows.length} rows) copied to clipboard!`);
     }).catch(err => {
       message.error('Failed to copy table content');
       console.error('Could not copy text: ', err);
@@ -155,9 +156,49 @@ const ExpenseTracker = () => {
       dataIndex: 'date',
       key: 'date',
       render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
+      sorter: (a, b) => dayjs(a.date).isAfter(dayjs(b.date)) ? 1 : -1,  // Sort based on raw date values
+      sortDirections: ['ascend', 'descend'],  // Enable both ascending and descending sorting
     },
-    { title: 'Description', dataIndex: 'description', key: 'description' },
-    { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
+    {
+      title: 'Description', dataIndex: 'description', key: 'description'
+      , filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+        <div style={{ padding: 8 }}>
+          <Input
+            autoFocus
+            placeholder="Search description"
+            value={selectedKeys[0]}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => confirm()}
+            style={{ marginBottom: 8, display: 'block' }}
+          />
+          <div>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => clearFilters && clearFilters()}
+            >
+              Reset
+            </Button>
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => confirm()}
+              icon={<SearchOutlined />}
+            >
+              Search
+            </Button>
+          </div>
+        </div>
+      ),
+      filterIcon: () => <SearchOutlined />,
+      onFilter: (value, record) => record.description.toLowerCase().includes(value.toLowerCase()),
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      sorter: (a, b) => a.amount - b.amount
+    },
     {
       title: 'Payment Mode',
       dataIndex: 'paymentMode',
@@ -169,7 +210,17 @@ const ExpenseTracker = () => {
         return mode ? mode.text : value;
       }
     },
-    { title: 'Comment', dataIndex: 'comment', key: 'comment' },
+    {
+      title: 'Comment',
+      dataIndex: 'comment',
+      key: 'comment',
+      sorter: (a, b) => {
+        const commentA = a.comment || ''; // Default to empty string if a.comment is undefined
+        const commentB = b.comment || ''; // Default to empty string if b.comment is undefined
+        return commentA.localeCompare(commentB); // Perform the comparison on non-null values
+      },  // Sort alphabetically by comment text
+      sortDirections: ['ascend', 'descend'],  // Enable both ascending and descending sorting
+    },
     {
       title: 'Action',
       key: 'action',
@@ -194,17 +245,71 @@ const ExpenseTracker = () => {
       dataIndex: 'date',
       key: 'date',
       render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
+      sorter: (a, b) => dayjs(a.date).isAfter(dayjs(b.date)) ? 1 : -1,  // Sort based on raw date values
+      sortDirections: ['ascend', 'descend'],  // Enable both ascending and descending sorting
     },
-    { title: 'Description', dataIndex: 'description', key: 'description' },
-    { title: 'Amount', dataIndex: 'amount', key: 'amount', sorter: (a, b) => a.amount - b.amount },
     {
-      title: 'Payment Mode', dataIndex: 'paymentMode', key: 'paymentMode', filters: expenseMode, onFilter: (value, record) => record.paymentMode.indexOf(value) === 0,
+      title: 'Description', dataIndex: 'description', key: 'description'
+      , filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters }) => (
+        <div style={{ padding: 8 }}>
+          <Input
+            autoFocus
+            placeholder="Search description"
+            value={selectedKeys[0]}
+            onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
+            onPressEnter={() => confirm()}
+            style={{ marginBottom: 8, display: 'block' }}
+          />
+          <div>
+            <Button
+              type="link"
+              size="small"
+              onClick={() => clearFilters && clearFilters()}
+            >
+              Reset
+            </Button>
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => confirm()}
+              icon={<SearchOutlined />}
+            >
+              Search
+            </Button>
+          </div>
+        </div>
+      ),
+      filterIcon: () => <SearchOutlined />,
+      onFilter: (value, record) => record.description.toLowerCase().includes(value.toLowerCase()),
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      sorter: (a, b) => a.amount - b.amount
+    },
+    {
+      title: 'Payment Mode',
+      dataIndex: 'paymentMode',
+      key: 'paymentMode',
+      filters: expenseMode,
+      onFilter: (value, record) => record.paymentMode.indexOf(value) === 0,
       render: (value) => {
         const mode = expenseMode.find(item => item.value === value);
         return mode ? mode.text : value;
       }
     },
-    { title: 'Comment', dataIndex: 'comment', key: 'comment' },
+    {
+      title: 'Comment',
+      dataIndex: 'comment',
+      key: 'comment',
+      sorter: (a, b) => {
+        const commentA = a.comment || ''; // Default to empty string if a.comment is undefined
+        const commentB = b.comment || ''; // Default to empty string if b.comment is undefined
+        return commentA.localeCompare(commentB); // Perform the comparison on non-null values
+      },  // Sort alphabetically by comment text
+      sortDirections: ['ascend', 'descend'],  // Enable both ascending and descending sorting
+    },
     {
       title: 'Action',
       key: 'action',
@@ -215,7 +320,7 @@ const ExpenseTracker = () => {
           </Button>
           <Button onClick={() => handleUnarchiveExpense(record.key)} type="link">
             Unarchive
-          </Button>
+            </Button>
         </>
       ),
     },
@@ -227,7 +332,7 @@ const ExpenseTracker = () => {
   } : null;
 
   const items = [
-    { label: 'Archive All', key: 'item-1' },
+    { label: 'Archive Selected', key: 'item-1' },
   ];
 
   const onMenuClick = (e) => {
@@ -254,7 +359,9 @@ const ExpenseTracker = () => {
           >
             Copy Selected ({selectedRowKeys.length})
           </Dropdown.Button>
-
+          <Button onClick={() => copyToClipboard({ copyAll: true })}>
+            Copy All
+          </Button>
         </Col>
         <Col xs={24} sm={12} md={8}>
           <div>
