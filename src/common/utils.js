@@ -1,3 +1,4 @@
+import { message } from "antd";
 import moment from "moment";
 
 export function dateToString(date) {
@@ -6,6 +7,16 @@ export function dateToString(date) {
 
 export function isMobile() {
     return window.innerWidth <= 768;
+}
+
+const truncateString = str => str.length > 10 ? str.slice(0, 10) + '...' : str;
+
+export function copyToClipboard(textToCopy) {
+    navigator.clipboard.writeText(textToCopy).then(() => {
+        message.success(`Text copied to clipboard! - ${truncateString(textToCopy)}`);
+    }).catch(err => {
+        message.error('Failed to copy text');
+    });
 }
 
 const ERROR_KEY = 'errorMessages';
