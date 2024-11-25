@@ -93,7 +93,7 @@ const ExpenseTracker = () => {
     saveExpenses(updatedExpenses);
     saveArchivedExpenses(updatedArchivedExpenses);
 
-    message.success('Expenses archived successfully');
+    message.success(`Expenses(${keysArray.length}) archived successfully`);
   };
 
 
@@ -361,6 +361,9 @@ const ExpenseTracker = () => {
           </Dropdown.Button>
           <Button onClick={() => copyToClipboard({ copyAll: true })}>
             Copy All
+          </Button>
+          <Button onClick={() => handleArchiveExpense(expenses.map(e => e.key))}>
+            Archive All
           </Button>
         </Col>
         <Col xs={24} sm={12} md={8}>

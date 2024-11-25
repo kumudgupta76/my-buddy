@@ -1,5 +1,5 @@
 import React from 'react';
-import { List, Button, Checkbox, Typography, Space } from 'antd';
+import { List, Button, Checkbox, Typography, Row,Col } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
@@ -26,19 +26,29 @@ const TodoTracker = ({ todos, onTodosChange }) => {
         dataSource={todos}
         renderItem={todo => (
           <List.Item key={todo.id} className={todo.completed ? 'completed-task' : ''}>
-            <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+            <Row >
+              <Col>
               <Checkbox
                 checked={todo.completed}
                 onChange={() => handleToggleCompleted(todo.id)}
               >
-                {todo.title}- {JSON.stringify(todo)}
+                {todo.title}
               </Checkbox>
+              
               <Button
                 icon={<DeleteOutlined />}
                 onClick={() => handleDeleteTask(todo.id)}
                 size="small"
               />
-            </Space>
+              </Col>
+              <Col>
+              <div style={{overflow:"auto"}} dangerouslySetInnerHTML={{ __html: todo.description }} />
+              </Col>
+            </Row>
+            <Row>
+              
+            </Row>
+            
           </List.Item>
         )}
       />
