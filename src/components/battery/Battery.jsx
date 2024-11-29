@@ -1,24 +1,22 @@
-import { Calendar, Col, Row, Select, Radio, Typography, Progress, Spin } from 'antd'
+import { Col, Row, Typography, Progress, Spin } from 'antd'
 import React, { useEffect, useState } from 'react'
-import dayjs from 'dayjs'
-import { green, red } from '@ant-design/colors'
 import { LoadingOutlined } from '@ant-design/icons';
-const { Text, Link, Title } = Typography;
+const { Title } = Typography;
 
-const month = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December'
-]
+// const month = [
+//   'January',
+//   'February',
+//   'March',
+//   'April',
+//   'May',
+//   'June',
+//   'July',
+//   'August',
+//   'September',
+//   'October',
+//   'November',
+//   'December'
+// ]
 
 const Cal = () => {
   const conicColors = {

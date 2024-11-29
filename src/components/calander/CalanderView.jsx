@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Calendar, Modal, Button, Input, List, Typography, Space, Row, Col,message, DatePicker } from 'antd';
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Form, Calendar, Modal, Button, Input, Typography, Row, Col,message, DatePicker } from 'antd';
+// import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import moment from "moment";
 import './CalendarView.css';
 import { dateToString, isMobile } from '../../common/utils';
@@ -12,31 +12,22 @@ const { Title } = Typography;
 const CalendarView = () => {
   const [selectedDate, setSelectedDate] = useState(moment());
   const [todos, setTodos] = useState([]);
-  const [archivedTodos, setArchivedTodos] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTodo, setEditingTodo] = useState(null);
   const [form] = Form.useForm();
-  const [selectedRowKeys, setSelectedRowKeys] = useState([]);
-  const [enableRowSelection, setEnableRowSelection] = useState(false);
 
   useEffect(() => {
     const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
-    const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
     const todosWithmomentDates = storedTodos.map(todo => ({
       ...todo,
       date: moment(todo.date),
     }));
-    const archivedTodosWithmomentDates = storedArchivedTodos.map(todo => ({
-      ...todo,
-      date: moment(todo.date),
-    }));
     setTodos(todosWithmomentDates);
-    setArchivedTodos(archivedTodosWithmomentDates);
   }, []);
 
   useEffect(() => {
     form.resetFields();
-  }, [isModalVisible]);
+  }, [isModalVisible, form]);
 
   const saveTodos = (newTodos) => {
     const todosToStore = newTodos.map(todo => ({
@@ -45,15 +36,6 @@ const CalendarView = () => {
     }));
     localStorage.setItem('todos', JSON.stringify(todosToStore));
     setTodos(newTodos);
-  };
-
-  const saveArchivedTodos = (newArchivedTodos) => {
-    const archivedTodosToStore = newArchivedTodos.map(todo => ({
-      ...todo,
-      date: dateToString(todo.date),
-    }));
-    localStorage.setItem('archivedTodos', JSON.stringify(archivedTodosToStore));
-    setArchivedTodos(newArchivedTodos);
   };
 
   const handleAddTodo = () => {
@@ -80,69 +62,10 @@ const CalendarView = () => {
     });
   };
 
-  const handleEditTodo = (record) => {
-    form.setFieldsValue({
-      ...record,
-      date: moment(record.date), // Convert to moment object for the DatePicker
-    });
-    setEditingTodo(record);
-    setIsModalVisible(true);
-  };
-
-  const handleDeleteTodo = (key) => {
-    const updatedTodos = archivedTodos.filter((todo) => todo.key !== key);
-    saveArchivedTodos(updatedTodos);
-    message.success('Todo deleted successfully');
-  };
-
-  const handleArchiveTodo = (key) => {
-    const todoToArchive = todos.find(todo => todo.key === key);
-    const updatedTodos = todos.filter(todo => todo.key !== key);
-    const updatedArchivedTodos = [...archivedTodos, { ...todoToArchive, archived: true }];
-    saveTodos(updatedTodos);
-    saveArchivedTodos(updatedArchivedTodos);
-    message.success('Todo archived successfully');
-  };
-
-  const handleUnarchiveTodo = (key) => {
-    const todoToUnarchive = archivedTodos.find(todo => todo.key === key);
-    const updatedArchivedTodos = archivedTodos.filter(todo => todo.key !== key);
-    const updatedTodos = [...todos, { ...todoToUnarchive, archived: false }];
-    saveTodos(updatedTodos);
-    saveArchivedTodos(updatedArchivedTodos);
-    message.success('Todo unarchived successfully');
-  };
 
   const handleDateClick = (value) => {
     setSelectedDate(value);
   };
-
-  // const handleAddTask = () => {
-  //   if (taskInput.trim()) {
-  //     const newTask = {
-  //       id: Date.now(), // A unique identifier for the task
-  //       date: dateToString(selectedDate), // Store the date in string format
-  //       title: taskInput, // The title of the task from the input
-  //       completed: false, // By default, the task is not completed
-  //       key: Date.now().toString(), // Another unique identifier for React lists
-  //     };
-  //     setTodos([...todos, newTask]);
-  //     setTaskInput('');
-  //     setIsModalVisible(false);
-  //   }
-  // };
-
-  // const handleEditTask = (taskId, newText) => {
-  //   const updatedTodos = todos.map(todo =>
-  //     todo.id === taskId ? { ...todo, title: newText } : todo
-  //   );
-  //   setTodos(updatedTodos);
-  // };
-
-  // const handleDeleteTask = (taskId) => {
-  //   const updatedTodos = todos.filter(todo => todo.id !== taskId);
-  //   setTodos(updatedTodos);
-  // };
 
   const getTasksForDate = (date) => {
     const dateStr = dateToString(date);

@@ -43,7 +43,7 @@ const LayoutComponent = () => {
       <Header className="header">
         <div className="logo-container">
           <Link to="my-buddy/">
-            <img src="icon.png" className="logo" alt="image not loaded" />
+            <img src="icon.png" className="logo" alt="" />
           </Link>
           <Button
             className="menu-button"
