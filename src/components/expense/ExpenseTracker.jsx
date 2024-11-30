@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Switch, Row, Col, Dropdown } from 'antd';
+import { Form, Input, Button, Table, Modal, message, Radio, DatePicker, Row, Col, Dropdown, Tooltip } from 'antd';
 import dayjs from 'dayjs';
-import { SearchOutlined } from '@ant-design/icons';
+import { CopyOutlined, DatabaseOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
+import { isMobile } from '../../common/utils';
+import './ExpenseTracker.css';
 
 const ExpenseTracker = () => {
   const [expenses, setExpenses] = useState([]);
@@ -10,7 +12,8 @@ const ExpenseTracker = () => {
   const [editingExpense, setEditingExpense] = useState(null);
   const [form] = Form.useForm();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
-  const [enableRowSelection, setEnableRowSelection] = useState(true);
+  // const [enableRowSelection, setEnableRowSelection] = useState(true);
+  const enableRowSelection = true;
 
   useEffect(() => {
     const storedExpenses = JSON.parse(localStorage.getItem('expenses')) || [];
@@ -110,9 +113,9 @@ const ExpenseTracker = () => {
     setSelectedRowKeys(selectedKeys);
   };
 
-  const handleRowSelectionSwitchChange = (checked) => {
-    setEnableRowSelection(checked);
-  };
+  // const handleRowSelectionSwitchChange = (checked) => {
+  //   setEnableRowSelection(checked);
+  // };
 
   const copyToClipboard = ({ includeHeader = false, copyAll = false }) => {
     const header = ["Date", "Description", "Payment Mode", "Amount"];
@@ -320,7 +323,7 @@ const ExpenseTracker = () => {
           </Button>
           <Button onClick={() => handleUnarchiveExpense(record.key)} type="link">
             Unarchive
-            </Button>
+          </Button>
         </>
       ),
     },
@@ -344,10 +347,24 @@ const ExpenseTracker = () => {
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='expense-continer-div'>
       <Row gutter={[16, 16]}>
-        <Col md={24} style={{ display: "flex" }}>
-          <Button type="primary" onClick={() => setIsModalVisible(true)}>
-            Add Expense
+        <Col sm={12} md={24} style={{ display: "flex", justifyContent: "space-between" }}>
+        <Tooltip title="Add Expense">
+          <Button className='expense-btn' onClick={() => setIsModalVisible(true)}>
+            {isMobile() ? <PlusOutlined/> :"Add Expense"}
           </Button>
+          </Tooltip>
+          <Tooltip title="Copy All Rows">
+            <Button className='expense-btn' onClick={() => copyToClipboard({ copyAll: true })}>
+            {isMobile() ? <CopyOutlined/> :"Copy All"}
+          </Button>
+          </Tooltip>
+          <Tooltip title="Archive All Rows">
+            <Button className='expense-btn' onClick={() => handleArchiveExpense(expenses.map(e => e.key))}>
+            {isMobile() ? <DatabaseOutlined/> :"Archive All" }
+          </Button>
+          </Tooltip>
+        </Col>
+        <Col sm={12} md={24}>
           <Dropdown.Button
             menu={{
               items,
@@ -355,32 +372,20 @@ const ExpenseTracker = () => {
             }}
             onClick={copyToClipboard}
             disabled={selectedRowKeys.length === 0}
-            style={{ marginLeft: "10px" }}
           >
-            Copy Selected ({selectedRowKeys.length})
+            {isMobile() ? <CopyOutlined/> : `Copy Selected (${selectedRowKeys.length})`}
           </Dropdown.Button>
-          <Button onClick={() => copyToClipboard({ copyAll: true })}>
-            Copy All
-          </Button>
-          <Button onClick={() => handleArchiveExpense(expenses.map(e => e.key))}>
-            Archive All
-          </Button>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <div>
-            Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }}>
-            </Switch>
-          </div>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <h3>
-            Total ({selectedRowKeys.length} selected) - {expenses.filter(expense => selectedRowKeys.includes(expense.key)).reduce((accumulator, currentItem) => {
-              return accumulator + Number(currentItem.amount);
-            }, 0)}
-          </h3>
         </Col>
       </Row>
-      <h2 style={{ marginTop: 20 }}>Active Expenses ({expenses ? expenses.length : 0})</h2>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <h3 style={{ marginTop: 20 }}>Active Expenses ({expenses ? expenses.length : 0})</h3>
+        <h4 style={{ marginTop: 20 }}>
+          Total ({selectedRowKeys.length} selected) - {expenses.filter(expense => selectedRowKeys.includes(expense.key)).reduce((accumulator, currentItem) => {
+            return accumulator + Number(currentItem.amount);
+          }, 0)}
+        </h4>
+      </div>
+
       <Table
         rowSelection={rowSelection}
         dataSource={expenses}
@@ -388,7 +393,7 @@ const ExpenseTracker = () => {
         style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
       />
-      <h2 style={{ marginTop: 20 }}>Archived Expenses ({archivedExpenses ? archivedExpenses.length : 0})</h2>
+      <h3 style={{ marginTop: 20 }}>Archived Expenses ({archivedExpenses ? archivedExpenses.length : 0})</h3>
       <Table
         dataSource={archivedExpenses}
         columns={archivedColumns}
