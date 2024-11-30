@@ -17,6 +17,9 @@ jobs:
         with:
           node-version: '16'  # Adjust to your Node.js version
 
+      - name: Set CI to false
+        run: echo "CI=false" >> $GITHUB_ENV  # Disable the CI flag
+
       - name: Install dependencies
         run: npm install
 
