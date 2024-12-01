@@ -78,16 +78,16 @@ const Timer = () => {
     };
 
     return (
-        <div style={{ position: 'fixed', bottom: '10px', right: '10px', zIndex: 1000 }}>
+        <div style={{ bottom: '10px', right: '10px', zIndex: 1000 }}>
             <div style={{ marginBottom: '10px' }}>
-                <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)}>
+                <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{ display: "flex", justifyContent: "space-between" }}>
                     <Tooltip title="1 min offset"><Radio.Button value={1} style={{ marginRight: '10px' }}>1 min</Radio.Button></Tooltip>
                     <Tooltip title="5 min offset"><Radio.Button value={5} style={{ marginRight: '10px' }}>5 min</Radio.Button></Tooltip>
                     <Tooltip title="15 min offset"><Radio.Button value={15}>15 min</Radio.Button></Tooltip>
                 </Radio.Group>
             </div>
 
-            <div style={{ marginBottom: '10px' }}>
+            <div style={{ marginBottom: '10px', display: "flex", justifyContent: "space-between" }}>
                 <Button onClick={() => setMins(mins - 1)} style={{ marginRight: '10px' }}>
                     <MinusCircleOutlined />
                 </Button>
@@ -110,11 +110,10 @@ const Timer = () => {
                 boxShadow: '0 0 10px rgba(0,0,0,0.1)',
             }}>
                 <div>Take a Break in</div>
-                <div style={{fontSize: '30px'}}>{formatTime(remainingTime)}
-                    </div>
-                
+                <div style={{ fontSize: '30px' }}>{formatTime(remainingTime)}
                 </div>
-            <div style={{ marginTop: '10px' }}>
+            </div>
+            <div style={{ marginTop: '10px', display: "flex", alignContent: "space-between" }}>
                 <Button onClick={handleReset} style={{ width: '50px', marginRight: '10px' }}><ReloadOutlined /></Button>
                 <Button onClick={() => isPaused ? handlePlay() : handlePause()}>{isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}</Button>
             </div>
