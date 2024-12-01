@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Table, Modal, message, Switch, Row, Col, DatePicker, Checkbox, Tooltip } from 'antd';
+import { Form, Input, Button, Table, Modal, message, Switch, Row, Col, DatePicker, Checkbox, Tooltip, Space } from 'antd';
 import dayjs from 'dayjs';
 import TodoDetail from './TodoDetail';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 import { dateToString, isMobile } from '../../common/utils';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { CloudDownloadOutlined, CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { copyToClipboard } from '../../common/utils';
 
 const TodoTracker = () => {
@@ -157,16 +157,20 @@ const TodoTracker = () => {
       key: 'action',
       width: '20%',
       render: (_, record) => (
-        <>
-          <Button onClick={() => handleEditTodo(record)} type="link">
-            Edit
+        <Space>
+        <Tooltip title="Edit Entry">
+          <Button onClick={() => handleEditTodo(record)} icon={<EditOutlined/>}>
+          {isMobile() ? "" : "Edit"} 
           </Button>
+          </Tooltip>
+          <Tooltip title="Archive Entry">
           {!record.archived && (
-            <Button onClick={() => handleArchiveTodo(record.key)} type="link" danger>
-              Archive
+            <Button onClick={() => handleArchiveTodo(record.key)} icon={<CloudUploadOutlined/>} danger>
+              {isMobile() ? "" : "Archive"}
             </Button>
           )}
-        </>
+          </Tooltip>
+        </Space>
       ),
     },
   ];
@@ -178,14 +182,26 @@ const TodoTracker = () => {
       key: 'action',
       width: '20%',
       render: (_, record) => (
-        <>
-          <Button onClick={() => handleDeleteTodo(record.key)} type="link" danger>
-            Delete
-          </Button>
-          <Button onClick={() => handleUnarchiveTodo(record.key)} type="link">
-            Unarchive
-          </Button>
-        </>
+        <Space>
+          <Tooltip title="Delete Entry">
+            <Button
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeleteTodo(record.key)}
+              danger
+            >
+              {isMobile() ? "" : "Delete"}
+            </Button>
+          </Tooltip>
+          <Tooltip title="Unarchive Entry">
+            <Button 
+              onClick={() => handleUnarchiveTodo(record.key)} 
+             
+              icon={<CloudDownloadOutlined />}
+            >
+              {isMobile() ? "" : "Unarchive"}
+            </Button>
+          </Tooltip>
+        </Space>
       ),
     },
   ];
@@ -200,7 +216,7 @@ const TodoTracker = () => {
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-container-div'>
       <Row>
-        <Col style={{width:"100%"}}>
+        <Col style={{ width: "100%" }}>
           <Button type="primary" onClick={() => setIsModalVisible(true)} block>
             <PlusOutlined></PlusOutlined> Todo
           </Button>
@@ -216,10 +232,10 @@ const TodoTracker = () => {
         expandable={{
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
-              <Col md={12} sm={24} style={{ width:"100%"}}>
+              <Col md={12} sm={24} style={{ width: "100%" }}>
                 <TodoDetail todo={record} />
               </Col>
-              <Col md={12} sm={24} style={{ width:"100%"}}>
+              <Col md={12} sm={24} style={{ width: "100%" }}>
                 <div style={{ backgroundColor: "white", padding: "10px", marginTop: "10px", borderRadius: "10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <Input

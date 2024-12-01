@@ -57,16 +57,18 @@ const LocalStorageManager = () => {
       title: 'Key',
       dataIndex: 'key',
       key: 'key',
+      width: '50%',
     },
-    {
-      title: 'Value',
-      dataIndex: 'value',
-      key: 'value',
-    },
+    // {
+    //   title: 'Value',
+    //   dataIndex: 'value',
+    //   key: 'value',
+    // },
     {
       title: 'Actions',
       key: 'actions',
       fixed: 'right',
+      width: "50%",
       render: (_, record) => (
         <Space>
           <Tooltip title="Copy Entry">
@@ -80,11 +82,13 @@ const LocalStorageManager = () => {
               icon={<EditOutlined />}
               onClick={() => handleEdit(record.key)}
             /></Tooltip>
-          <Tooltip title="Delete Entry"><Button
-            icon={<DeleteOutlined />}
-            onClick={() => handleDelete(record.key)}
-            danger
-          /></Tooltip>
+          <Tooltip title="Delete Entry">
+            <Button
+              icon={<DeleteOutlined />}
+              onClick={() => handleDelete(record.key)}
+              danger
+            />
+          </Tooltip>
 
         </Space>
       ),
@@ -171,22 +175,24 @@ const LocalStorageManager = () => {
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }}>
       <Row gutter={[16, 16]}>
-        <Col md={24} style={{ display: "flex" }}>
-          <Button onClick={handleBackup}>Backup localStorage</Button>
-          <Button onClick={handleRestore}>Restore localStorage</Button>
+        <Col md={24}>
+          <Space>
+            <Button onClick={handleBackup}>Backup localStorage</Button>
+            <Button onClick={handleRestore}>Restore localStorage</Button>
 
-          <Button onClick={handleBackupJson}>Backup localStorage to Json File</Button>
-          <Button onClick={() => document.getElementById('restoreFileInput').click()}>Restore localStorage from Json File</Button>
+            <Button onClick={handleBackupJson}>Backup localStorage to Json File</Button>
+            <Button onClick={() => document.getElementById('restoreFileInput').click()}>Restore localStorage from Json File</Button>
+          </Space>
         </Col>
         <Col md={24}>
-              {/* Button for restore (file input hidden) */}
-      <input 
-        type="file" 
-        accept=".json"
-        onChange={handleRestoreJson}
-        style={{ display: 'none' }} // Hidden input to trigger the file selection dialog
-        id="restoreFileInput"
-      />
+          {/* Button for restore (file input hidden) */}
+          <input
+            type="file"
+            accept=".json"
+            onChange={handleRestoreJson}
+            style={{ display: 'none' }} // Hidden input to trigger the file selection dialog
+            id="restoreFileInput"
+          />
         </Col>
         <Col md={24}>
           <TextArea
@@ -194,11 +200,16 @@ const LocalStorageManager = () => {
             onChange={(e) => setBackupString(e.target.value)}
             rows="3"
             placeholder='Paste backup string here'
+            width="100%"
           />
         </Col>
       </Row>
       <h3>Local Store Data</h3>
-      <Table dataSource={data} columns={columns} rowKey="key" />
+      <Table dataSource={data} columns={columns} rowKey="key" expandable={{expandedRowRender: (record) => {
+        return (
+          <p style={{ margin: 0 }}>{JSON.stringify(record.value)}</p>
+        );
+      }}}/>
 
       {editKey !== null && (
         <div style={{ marginTop: '20px' }}>
