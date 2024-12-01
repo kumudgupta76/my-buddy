@@ -19,7 +19,7 @@ const Home = () => {
     return (
         <>
             <List
-                header={<Title level={4}>Welcome to My Buddy App</Title>}
+                header={<Title level={4}>Welcome to My Buddy</Title>}
                 dataSource={menuItems}
                 renderItem={item => <List.Item>{item.label}</List.Item>}>
             </List>

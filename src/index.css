@@ -95,6 +95,7 @@ code {
   min-height: 280px;
   padding: 24px;
   background: #fff;
+  border-radius: 5px;
 }
 .logo {
   float: left;
@@ -131,6 +132,7 @@ code {
     min-height: 280px;
     padding: 14px;
     background: #fff;
+    border-radius: 5px;
   }
 }
 

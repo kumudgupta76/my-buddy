@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Layout, Breadcrumb, Menu, Drawer, Button } from 'antd';
 import { MenuOutlined } from '@ant-design/icons';
-import { getErrorCount, getErrors } from '../common/utils';
+import { getErrorCount, getErrors, isMobile } from '../common/utils';
 
 const { Header, Content, Footer } = Layout;
 
@@ -13,7 +13,7 @@ const Breadcrumbs = () => {
     const url = `/${pathSnippets.slice(0, index + 1).join('/')}`;
     const name = pathSnippets[index].replace(/-/g, ' '); // Replace hyphens with spaces for better readability
     return (
-      <Breadcrumb.Item key={url}>
+      <Breadcrumb.Item key={url} style={{backgroundColor:"white", padding:"5px", borderRadius:"5px"}}>
         <Link to={url}>{name.charAt(0).toUpperCase() + name.slice(1)}</Link>
       </Breadcrumb.Item>
     );
@@ -21,7 +21,7 @@ const Breadcrumbs = () => {
 
   console.log(process.env.PUBLIC_URL)
   return (
-    <Breadcrumb style={{ margin: '16px 0' }}>
+    <Breadcrumb style={{ margin: '10px 0', padding:"10px" }}>
       {breadcrumbItems}
     </Breadcrumb>
   );
@@ -40,7 +40,7 @@ const LayoutComponent = () => {
 
   return (
     <Layout className="layout" style={{ minHeight: "100vh", height: "100vh" }}>
-      <Header className="header">
+      {isMobile() ? <></> : <Header className="header">
         <div className="logo-container">
           <Link to="my-buddy/">
             <img src="icon.png" className="logo" alt="" />
@@ -89,7 +89,7 @@ const LayoutComponent = () => {
             { key: 8, label: <Link to="/my-buddy/dump"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Dump</div></Link> }
           ]}
         />
-      </Header>
+      </Header>}
       <Content className="content-div">
         <Breadcrumbs />
         <div className="site-layout-content">

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Table, Modal, message, Switch, Row, Col, DatePicker, Checkbox } from 'antd';
+import { Form, Input, Button, Table, Modal, message, Switch, Row, Col, DatePicker, Checkbox, Tooltip } from 'antd';
 import dayjs from 'dayjs';
 import TodoDetail from './TodoDetail';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
-import { dateToString } from '../../common/utils';
+import { dateToString, isMobile } from '../../common/utils';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { copyToClipboard } from '../../common/utils';
 
@@ -199,44 +199,27 @@ const TodoTracker = () => {
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-container-div'>
-      <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={8}>
+      <Row>
+        <Col style={{width:"100%"}}>
           <Button type="primary" onClick={() => setIsModalVisible(true)} block>
-            Add Todo
+            <PlusOutlined></PlusOutlined> Todo
           </Button>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <Button type="secondary" onClick={copyToClipboard} block disabled={selectedRowKeys.length === 0}>
-            Copy Selected ({selectedRowKeys.length})
-          </Button>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <div>
-            Enable Row Selection <Switch checked={enableRowSelection} onChange={handleRowSelectionSwitchChange} style={{ marginLeft: 10 }} />
-          </div>
-        </Col>
-        <Col xs={24} sm={12} md={8}>
-          <h3>
-            Total ({selectedRowKeys.length} selected) - {todos.filter(todo => selectedRowKeys.includes(todo.key)).reduce((accumulator, currentItem) => {
-              return accumulator + Number(currentItem.amount);
-            }, 0)}
-          </h3>
         </Col>
       </Row>
-      <h2 style={{ marginTop: 20 }}>Active Todos ({todos ? todos.length : 0})</h2>
+      <h3 style={{ marginTop: 20 }}>Active Todos ({todos ? todos.length : 0})</h3>
       <Table
         rowSelection={rowSelection}
         dataSource={todos}
         columns={columns}
         style={{ marginTop: 20 }}
-        scroll={{ x: 'max-content' }}
+        // scroll={{ x: 'max-content' }}
         expandable={{
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
-              <Col md={12} sm={12}>
+              <Col md={12} sm={24} style={{ width:"100%"}}>
                 <TodoDetail todo={record} />
               </Col>
-              <Col md={12} sm={12}>
+              <Col md={12} sm={24} style={{ width:"100%"}}>
                 <div style={{ backgroundColor: "white", padding: "10px", marginTop: "10px", borderRadius: "10px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between" }}>
                     <Input
@@ -266,21 +249,42 @@ const TodoTracker = () => {
                       />
                     </div>
                   ))}
-
                 </div>
               </Col>
             </Row>
           ),
         }}
       />
-      <h2 style={{ marginTop: 20 }}>Archived Todos ({archivedTodos ? archivedTodos.length : 0})</h2>
+      <h3 style={{ marginTop: 20 }}>Archived Todos ({archivedTodos ? archivedTodos.length : 0})</h3>
       <Table
         dataSource={archivedTodos}
         columns={archivedColumns}
         style={{ marginTop: 20 }}
-        scroll={{ x: 'max-content' }}
+        // scroll={{ x: 'max-content' }}
         expandable={{
-          expandedRowRender: record => <TodoDetail todo={record} />,
+          expandedRowRender: (record) => (
+            <Row gutter={[16, 16]}>
+              <Col md={12} sm={24}>
+                <TodoDetail todo={record} />
+              </Col>
+              <Col md={12} sm={24}>
+                <div style={{ backgroundColor: "white", padding: "10px", marginTop: "10px", borderRadius: "10px" }}>
+                  {record.checklist && record.checklist.map((item) => (
+                    <div key={item.id} style={{ display: "flex", justifyContent: "space-between", marginTop: "10px" }}>
+                      <Checkbox
+                        checked={item.completed}
+                      >
+                        <span
+                          style={{
+                            textDecoration: item.completed ? 'line-through' : 'none',
+                          }}
+                        >{item.text}</span>
+                      </Checkbox>
+                    </div>
+                  ))}
+                </div>
+              </Col>
+            </Row>)
         }}
       />
 
