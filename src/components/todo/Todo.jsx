@@ -5,7 +5,7 @@ import TodoDetail from './TodoDetail';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 import { dateToString } from '../../common/utils';
-import {DeleteOutlined, PlusOutlined, PlusSquareTwoTone} from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { copyToClipboard } from '../../common/utils';
 
 const TodoTracker = () => {
@@ -122,6 +122,7 @@ const TodoTracker = () => {
       return todo;
     });
     saveTodos(updatedTodos);
+    setNewCheckList('');
   };
 
   const handleToggleChecklistCompletion = (todoKey, checklistId) => {
@@ -232,38 +233,41 @@ const TodoTracker = () => {
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
               <Col md={12} sm={12}>
-              <TodoDetail todo={record} />
+                <TodoDetail todo={record} />
               </Col>
               <Col md={12} sm={12}>
-              <div style={{ backgroundColor: "white", padding:"10px", marginTop:"10px", borderRadius:"10px" }}>
-              <Input
-                placeholder="Add checklist item"
-                onChange={(e) => setNewCheckList(e.target.value)}
-                onPressEnter={(e) => handleAddChecklistItem(record.key, e.target.value)}
-                addonAfter={<div style={{cursor:"pointer"}} onClick={() => handleAddChecklistItem(record.key, newCheckList)} > + </div>}
-              />
-                {record.checklist && record.checklist.map((item) => (
-                  <div key={item.id} style={{display:"flex", justifyContent:"space-between", marginTop:"10px"}}>
-                    <Checkbox
-                      checked={item.completed}
-                      onChange={() => handleToggleChecklistCompletion(record.key, item.id)}
-                    >
-                      <span
-                      style={{
-                        textDecoration: item.completed ? 'line-through' : 'none',
-                      }}
-                    >{item.text}</span>
-                    </Checkbox>
-                    <Button
-                      type="text"
-                      icon={<DeleteOutlined />}
-                      onClick={() => handleDeleteChecklistItem(record.key, item.id)}
+                <div style={{ backgroundColor: "white", padding: "10px", marginTop: "10px", borderRadius: "10px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <Input
+                      placeholder="Add checklist item"
+                      onChange={(e) => setNewCheckList(e.target.value)}
+                      onPressEnter={(e) => handleAddChecklistItem(record.key, e.target.value)}
+                      value={newCheckList}
                     />
+                    <Button onClick={() => handleAddChecklistItem(record.key, newCheckList)}><PlusOutlined /></Button>
                   </div>
-                ))}
-              
-              </div>
-            </Col>
+                  {record.checklist && record.checklist.map((item) => (
+                    <div key={item.id} style={{ display: "flex", justifyContent: "space-between", marginTop: "10px" }}>
+                      <Checkbox
+                        checked={item.completed}
+                        onChange={() => handleToggleChecklistCompletion(record.key, item.id)}
+                      >
+                        <span
+                          style={{
+                            textDecoration: item.completed ? 'line-through' : 'none',
+                          }}
+                        >{item.text}</span>
+                      </Checkbox>
+                      <Button
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        onClick={() => handleDeleteChecklistItem(record.key, item.id)}
+                      />
+                    </div>
+                  ))}
+
+                </div>
+              </Col>
             </Row>
           ),
         }}
