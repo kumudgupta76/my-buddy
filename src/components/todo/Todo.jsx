@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Table, Modal, message, Switch, Row, Col, DatePicker } from 'antd';
+import { Form, Input, Button, Table, Modal, message, Switch, Row, Col, DatePicker, Checkbox } from 'antd';
 import dayjs from 'dayjs';
 import TodoDetail from './TodoDetail';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 import { dateToString } from '../../common/utils';
+import {DeleteOutlined, PlusOutlined, PlusSquareTwoTone} from '@ant-design/icons';
+import { copyToClipboard } from '../../common/utils';
 
 const TodoTracker = () => {
   const [todos, setTodos] = useState(() => {
     const savedTodos = JSON.parse(localStorage.getItem('todos'));
     return savedTodos || [];
   });
-  
+
   const [archivedTodos, setArchivedTodos] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTodo, setEditingTodo] = useState(null);
@@ -22,16 +24,16 @@ const TodoTracker = () => {
   useEffect(() => {
     const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
     const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
-    const todosWithdayjsDates = storedTodos.map(todo => ({
+    const todosWithDayjsDates = storedTodos.map(todo => ({
       ...todo,
       date: dayjs(todo.date),
     }));
-    const archivedTodosWithdayjsDates = storedArchivedTodos.map(todo => ({
+    const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({
       ...todo,
       date: dayjs(todo.date),
     }));
-    setTodos(todosWithdayjsDates);
-    setArchivedTodos(archivedTodosWithdayjsDates);
+    setTodos(todosWithDayjsDates);
+    setArchivedTodos(archivedTodosWithDayjsDates);
   }, []);
 
   const saveTodos = (newTodos) => {
@@ -62,7 +64,7 @@ const TodoTracker = () => {
         saveTodos(updatedTodos);
         setEditingTodo(null);
       } else {
-        const newTodo = { ...values, key: Date.now().toString() };
+        const newTodo = { ...values, key: Date.now().toString(), checklist: [] }; // Add checklist as empty
         const newTodos = [newTodo, ...todos];
         saveTodos(newTodos);
       }
@@ -108,31 +110,42 @@ const TodoTracker = () => {
     message.success('Todo unarchived successfully');
   };
 
-  const handleRowSelectionChange = (selectedKeys) => {
-    setSelectedRowKeys(selectedKeys);
-  };
-
   const handleRowSelectionSwitchChange = (checked) => {
     setEnableRowSelection(checked);
   };
-
-  const copyToClipboard = () => {
-    const header = ["Description", "Amount", "Payment Mode", "Date"];
-    const rows = todos.filter(todo => selectedRowKeys.includes(todo.key)).map(todo => [
-      todo.description,
-      todo.amount,
-      todo.paymentMode,
-      dayjs(todo.date).format('YYYY-MM-DD HH:mm:ss')
-    ]);
-
-    const tsv = [header, ...rows].map(row => row.join('\t')).join('\n');
-
-    navigator.clipboard.writeText(tsv).then(() => {
-      message.success('Table content copied to clipboard!');
-    }).catch(err => {
-      message.error('Failed to copy table content');
-      console.error('Could not copy text: ', err);
+  const handleAddChecklistItem = (todoKey, newChecklistItem) => {
+    const updatedTodos = todos.map(todo => {
+      if (todo.key === todoKey) {
+        const updatedChecklist = [...todo.checklist, { id: Date.now(), text: newChecklistItem, completed: false }];
+        return { ...todo, checklist: updatedChecklist };
+      }
+      return todo;
     });
+    saveTodos(updatedTodos);
+  };
+
+  const handleToggleChecklistCompletion = (todoKey, checklistId) => {
+    const updatedTodos = todos.map(todo => {
+      if (todo.key === todoKey) {
+        const updatedChecklist = todo.checklist.map(item =>
+          item.id === checklistId ? { ...item, completed: !item.completed } : item
+        );
+        return { ...todo, checklist: updatedChecklist };
+      }
+      return todo;
+    });
+    saveTodos(updatedTodos);
+  };
+
+  const handleDeleteChecklistItem = (todoKey, checklistId) => {
+    const updatedTodos = todos.map(todo => {
+      if (todo.key === todoKey) {
+        const updatedChecklist = todo.checklist.filter(item => item.id !== checklistId);
+        return { ...todo, checklist: updatedChecklist };
+      }
+      return todo;
+    });
+    saveTodos(updatedTodos);
   };
 
   const columns = [
@@ -177,8 +190,10 @@ const TodoTracker = () => {
 
   const rowSelection = enableRowSelection ? {
     selectedRowKeys,
-    onChange: handleRowSelectionChange,
+    onChange: setSelectedRowKeys,
   } : null;
+
+  const [newCheckList, setNewCheckList] = useState('');
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-container-div'>
@@ -214,7 +229,43 @@ const TodoTracker = () => {
         style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
         expandable={{
-          expandedRowRender: record => <TodoDetail todo={record} />
+          expandedRowRender: (record) => (
+            <Row gutter={[16, 16]}>
+              <Col md={12} sm={12}>
+              <TodoDetail todo={record} />
+              </Col>
+              <Col md={12} sm={12}>
+              <div style={{ backgroundColor: "white", padding:"10px", marginTop:"10px", borderRadius:"10px" }}>
+              <Input
+                placeholder="Add checklist item"
+                onChange={(e) => setNewCheckList(e.target.value)}
+                onPressEnter={(e) => handleAddChecklistItem(record.key, e.target.value)}
+                addonAfter={<div style={{cursor:"pointer"}} onClick={() => handleAddChecklistItem(record.key, newCheckList)} > + </div>}
+              />
+                {record.checklist && record.checklist.map((item) => (
+                  <div key={item.id} style={{display:"flex", justifyContent:"space-between", marginTop:"10px"}}>
+                    <Checkbox
+                      checked={item.completed}
+                      onChange={() => handleToggleChecklistCompletion(record.key, item.id)}
+                    >
+                      <span
+                      style={{
+                        textDecoration: item.completed ? 'line-through' : 'none',
+                      }}
+                    >{item.text}</span>
+                    </Checkbox>
+                    <Button
+                      type="text"
+                      icon={<DeleteOutlined />}
+                      onClick={() => handleDeleteChecklistItem(record.key, item.id)}
+                    />
+                  </div>
+                ))}
+              
+              </div>
+            </Col>
+            </Row>
+          ),
         }}
       />
       <h2 style={{ marginTop: 20 }}>Archived Todos ({archivedTodos ? archivedTodos.length : 0})</h2>
@@ -224,7 +275,7 @@ const TodoTracker = () => {
         style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
         expandable={{
-          expandedRowRender: record => <TodoDetail todo={record} />
+          expandedRowRender: record => <TodoDetail todo={record} />,
         }}
       />
 
@@ -245,13 +296,9 @@ const TodoTracker = () => {
           </Button>,
         ]}
       >
-        <Form form={form} layout="vertical">
-          <Form.Item
-            name="title"
-            label="Title"
-            rules={[{ required: true, message: 'Title is required' }]}
-          >
-            <Input type="text" />
+        <Form form={form} layout="vertical" onFinish={handleAddTodo}>
+          <Form.Item name="title" label="Title" rules={[{ required: true, message: 'Please input the title!' }]}>
+            <Input placeholder="Enter Todo Title" />
           </Form.Item>
           <Form.Item
             name="description"
