@@ -116,6 +116,7 @@ const TodoTracker = () => {
   const handleAddChecklistItem = (todoKey, newChecklistItem) => {
     const updatedTodos = todos.map(todo => {
       if (todo.key === todoKey) {
+        todo.checklist = todo.checklist || [];
         const updatedChecklist = [...todo.checklist, { id: Date.now(), text: newChecklistItem, completed: false }];
         return { ...todo, checklist: updatedChecklist };
       }
@@ -244,7 +245,7 @@ const TodoTracker = () => {
                       onPressEnter={(e) => handleAddChecklistItem(record.key, e.target.value)}
                       value={newCheckList}
                     />
-                    <Button onClick={() => handleAddChecklistItem(record.key, newCheckList)}><PlusOutlined /></Button>
+                    <Button disabled={newCheckList.length == 0} onClick={() => handleAddChecklistItem(record.key, newCheckList)}><PlusOutlined /></Button>
                   </div>
                   {record.checklist && record.checklist.map((item) => (
                     <div key={item.id} style={{ display: "flex", justifyContent: "space-between", marginTop: "10px" }}>
