@@ -20,6 +20,60 @@
   box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.15); /* Slightly increased shadow on hover */
 }
 
+@media screen and (max-width: 576px) {
+  .calendar-task {
+    height: 5px;
+    width: 5px;
+    background-color: #0dbe16;
+    border-radius: 5%;
+    display: inline-block;
+    }
+  .date-cell-title {
+    display: none;
+  }
+  .ant-picker-calendar-date-value {
+    padding: 5px 8px;
+    border-radius: 100%;
+    background-color: #f0fbfe;
+    transition: all 0.4s ease-in-out;
+    height: 35px;
+    width: 35px;
+
+    &:hover {
+      border: 2px solid;
+      transform: scale(1.2);
+      background-color: transparent;
+      padding: 3px 6px;
+    }
+
+    &_disabled {
+      pointer-events: none;
+      color: pink;
+      background: repeating-linear-gradient(
+        45deg,
+        #ffffff 0px,
+        #c3dbe7 5px,
+        #ffffff 5px,
+        #ffffff 10px
+      );
+    }
+  }
+
+  .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner, .ant-picker-cell-in-view.ant-picker-cell-range-start .ant-picker-cell-inner, .ant-picker-cell-in-view.ant-picker-cell-range-end .ant-picker-cell-inner, .ant-picker-cell-in-view.ant-picker-cell-range .ant-picker-cell-inner {
+    color: black;
+    background-color: white;
+    font-weight: bold;
+  }
+
+  .ant-picker-date-panel .ant-picker-content th {
+    color: #52aeef;
+  }
+
+  .ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before {
+    border: none;   
+  }
+}
+
 
 .calendar-modal .ant-modal-body {
   padding: 10px;

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Calendar, Modal, Button, Input, Typography, Row, Col,message, DatePicker } from 'antd';
+import { Form, Calendar, Modal, Button, Input, Typography, Row, Col, message, DatePicker } from 'antd';
 // import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import moment from "moment";
 import './CalendarView.css';
 import { dateToString, isMobile } from '../../common/utils';
-import TodoTracker from './TodoTracker';
 import TextArea from 'antd/lib/input/TextArea';
+import TodoDetail from '../todo/TodoDetail';
 
 const { Title } = Typography;
 
@@ -137,7 +137,7 @@ const CalendarView = () => {
             label="Description"
             rules={[{ required: false, message: 'Please enter the description' }]}
           >
-            <TextArea rows={4}/>
+            <TextArea rows={4} />
           </Form.Item>
 
           <Form.Item
@@ -150,12 +150,7 @@ const CalendarView = () => {
           </Form.Item>
         </Form>
       </Modal>
-
-      {/* TodoTracker component, now using the shared todos object */}
-      <div style={{ marginTop: '20px' }}>
-        <Title level={4}>Todo Tracker</Title>
-        <TodoTracker todos={todos} onTodosChange={handleTodosChange} />
-      </div>
+      {todos.map(todo => <div style={{ backgroundColor: "#f9f9f9", padding: "10px", marginTop: "10px", borderRadius: "10px" }}><TodoDetail todo={todo} /> </div>)}
     </div>
   );
 };

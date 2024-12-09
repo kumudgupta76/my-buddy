@@ -8,7 +8,7 @@ const TodoDetail = ({ todo }) => {
         <span>{new Date(todo.date).toLocaleString()}</span>
       </div>
       <hr />
-      <div style={{ margin: 0, whiteSpace: "pre-wrap"}}>
+      <div style={{ margin: 0, whiteSpace: "pre-wrap", overflow:"auto"}}>
         <div dangerouslySetInnerHTML={{ __html: todo.description }} />
       </div>
     </div>

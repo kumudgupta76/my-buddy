@@ -28,7 +28,8 @@ const TodoTracker = ({ todos, onTodosChange }) => {
           <List.Item key={todo.id} className={todo.completed ? 'completed-task' : ''}>
             <Row >
               <Col>
-              <Checkbox
+              <div style={{display:"flex", justifyContent:"flex-ends"}}>
+                <Checkbox
                 checked={todo.completed}
                 onChange={() => handleToggleCompleted(todo.id)}
               >
@@ -40,6 +41,8 @@ const TodoTracker = ({ todos, onTodosChange }) => {
                 onClick={() => handleDeleteTask(todo.id)}
                 size="small"
               />
+              </div>
+              
               </Col>
               <Col>
               <div style={{overflow:"auto"}} dangerouslySetInnerHTML={{ __html: todo.description }} />
