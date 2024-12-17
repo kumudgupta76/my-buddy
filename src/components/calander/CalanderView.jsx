@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Form, Calendar, Modal, Button, Input, Typography, Row, Col, message, DatePicker } from 'antd';
 // import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import moment from "moment";
-import './CalendarView.css';
+// import './CalendarView.css';
 import { dateToString, isMobile } from '../../common/utils';
 import TextArea from 'antd/lib/input/TextArea';
 import TodoDetail from '../todo/TodoDetail';
