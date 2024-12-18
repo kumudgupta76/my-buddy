@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Layout, Breadcrumb, Menu, Drawer, Button } from 'antd';
 import { MenuOutlined } from '@ant-design/icons';
 import { getErrorCount, getErrors, isMobile } from '../common/utils';
+import { routes } from '../common/constants';
+import { UserContext } from '../common/UserContext';
+import { signOutUser } from '../common/authUtils';
 
 const { Header, Content, Footer } = Layout;
 
@@ -13,15 +16,13 @@ const Breadcrumbs = () => {
     const url = `/${pathSnippets.slice(0, index + 1).join('/')}`;
     const name = pathSnippets[index].replace(/-/g, ' '); // Replace hyphens with spaces for better readability
     return (
-      <Breadcrumb.Item key={url} style={{backgroundColor:"white", padding:"5px", borderRadius:"5px"}}>
+      <Breadcrumb.Item key={url} style={{ backgroundColor: "white", padding: "5px", borderRadius: "5px" }}>
         <Link to={url}>{name.charAt(0).toUpperCase() + name.slice(1)}</Link>
       </Breadcrumb.Item>
     );
   });
-
-  console.log(process.env.PUBLIC_URL)
   return (
-    <Breadcrumb style={{ margin: '10px 0', padding:"10px" }}>
+    <Breadcrumb style={{ margin: '10px 0', padding: "10px" }}>
       {breadcrumbItems}
     </Breadcrumb>
   );
@@ -30,6 +31,8 @@ const Breadcrumbs = () => {
 const LayoutComponent = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
 
+  const { user } = useContext(UserContext);
+
   const showDrawer = () => {
     setDrawerVisible(true);
   };
@@ -37,6 +40,22 @@ const LayoutComponent = () => {
   const onCloseDrawer = () => {
     setDrawerVisible(false);
   };
+
+  let menuItems = routes.map(route => ({ key: route.key, label: <Link to={`/my-buddy/${route.slug}`}><div>{route.name}</div></Link> }));
+
+  if (user) {
+    menuItems.push({ key: 'sign-out', label: <Button type='link' onClick={signOutUser}>Sign Out</Button> });
+  } else {
+    menuItems.push({ key: 'sign-in', label: <Link to="/my-buddy/auth"><div>Sign In</div></Link> });
+  }
+
+  let menuItemsHor = routes.map(route => ({ key: route.key, label: <Link to={`/my-buddy/${route.slug}`}><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>{route.name}</div></Link> }));
+
+  if (user) {
+    menuItemsHor.push({ key: 'sign-out', label: <Button type='link' style={{ color: "white", fontSize: "large", fontWeight: "bold" }} onClick={signOutUser}>Sign Out</Button> });
+  } else {
+    menuItemsHor.push({ key: 'sign-in', label: <Link to="/my-buddy/auth"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Sign In</div></Link> });
+  }
 
   return (
     <Layout className="layout" style={{ minHeight: "100vh", height: "100vh" }}>
@@ -50,7 +69,7 @@ const LayoutComponent = () => {
             type="text"
             icon={<MenuOutlined color='white' />}
             onClick={showDrawer}
-            style={{ color: "white", fontSize: "large", fontWeight: "bold",height:"100%" }}
+            style={{ color: "white", fontSize: "large", fontWeight: "bold", height: "100%" }}
           />
         </div>
         <Drawer
@@ -62,32 +81,14 @@ const LayoutComponent = () => {
         >
           <Menu
             mode="inline"
-            items={[
-              { key: 1, label: <Link to="my-buddy/todo"><div >Todo</div></Link> },
-              { key: 2, label: <Link to="my-buddy/timer"><div >Timer</div></Link> },
-              { key: 3, label: <Link to="my-buddy/expense"><div >Expense Tracker</div></Link> },
-              { key: 4, label: <Link to="my-buddy/cal"><div >Calendar</div></Link> },
-              { key: 5, label: <Link to="/my-buddy/calview"><div >Calendar View</div></Link> },
-              { key: 6, label: <Link to="/my-buddy/battery"><div >Battery</div></Link> },
-              { key: 7, label: <Link to="/my-buddy/admin"><div >Local Store Manager</div></Link> },
-              { key: 8, label: <Link to="/my-buddy/dump"><div >Dump</div></Link> }
-            ]}
+            items={menuItems}
           />
         </Drawer>
         <Menu
           theme="dark"
           mode="horizontal"
           className="desktop-menu"
-          items={[
-            { key: 1, label: <Link to="my-buddy/todo"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Todo</div></Link> },
-            { key: 2, label: <Link to="my-buddy/timer"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Timer</div></Link> },
-            { key: 3, label: <Link to="my-buddy/expense"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Expense Tracker</div></Link> },
-            // { key: 4, label: <Link to="my-buddy/cal"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar</div></Link> },
-            { key: 5, label: <Link to="/my-buddy/calview"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Calendar View</div></Link> },
-            { key: 6, label: <Link to="/my-buddy/battery"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Battery</div></Link> },
-            { key: 7, label: <Link to="/my-buddy/admin"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>LocalStorageManager</div></Link> },
-            { key: 8, label: <Link to="/my-buddy/dump"><div style={{ color: "white", fontSize: "large", fontWeight: "bold" }}>Dump</div></Link> }
-          ]}
+          items={menuItemsHor}
         />
       </Header>}
       <Content className="content-div">

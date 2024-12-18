@@ -4,9 +4,10 @@ import dayjs from 'dayjs';
 import TodoDetail from './TodoDetail';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
-import { dateToString, isMobile } from '../../common/utils';
+import { COLLECTION_NAME, dateToString, DOC_ID_TODO, isMobile } from '../../common/utils';
 import { CloudDownloadOutlined, CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { copyToClipboard } from '../../common/utils';
+import { saveData, saveDataTesting } from '../../common/dbUtils';
 
 const TodoTracker = () => {
   const [todos, setTodos] = useState(() => {
@@ -36,12 +37,19 @@ const TodoTracker = () => {
     setArchivedTodos(archivedTodosWithDayjsDates);
   }, []);
 
-  const saveTodos = (newTodos) => {
+  const saveTodos = async (newTodos) => {
+    console.log('newTodos2', newTodos);
     const todosToStore = newTodos.map(todo => ({
       ...todo,
       date: dateToString(todo.date),
+      description: todo.description || '',
+      checklist: todo.checklist || [],
     }));
     localStorage.setItem('todos', JSON.stringify(todosToStore));
+    console.log('todosToStore', todosToStore);
+
+    const results = await saveData(COLLECTION_NAME, DOC_ID_TODO,{'todo-array': todosToStore});
+    console.log(results);
     setTodos(newTodos);
   };
 
