@@ -8,3 +8,8 @@ export const routes = [
     { key: 7, slug: "admin", name:"Local Store Manager", isPrivate: true },
     { key: 8, slug: "dump", name:"Dump" }
 ];
+
+
+export const TODO_KEY = "todo";
+
+export const TODO_ARCHIVE = "todo-archived";

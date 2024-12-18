@@ -7,7 +7,9 @@ import 'react-quill/dist/quill.snow.css'; // Import Quill styles
 import { COLLECTION_NAME, dateToString, DOC_ID_TODO, isMobile } from '../../common/utils';
 import { CloudDownloadOutlined, CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { copyToClipboard } from '../../common/utils';
-import { saveData, saveDataTesting } from '../../common/dbUtils';
+import { fetchData, saveData, saveDataTesting } from '../../common/dbUtils';
+import { getCurrentUser } from '../../common/authUtils';
+import { TODO_KEY } from '../../common/constants';
 
 const TodoTracker = () => {
   const [todos, setTodos] = useState(() => {
@@ -21,6 +23,29 @@ const TodoTracker = () => {
   const [form] = Form.useForm();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [enableRowSelection, setEnableRowSelection] = useState(false);
+  // useEffect(() => {
+  //   const fetchDataFromFirestore = async () => {
+  //     let datafromFirestore = await fetchData(COLLECTION_NAME, getCurrentUser().uid);
+  //     console.log(datafromFirestore);
+  //     if(datafromFirestore.success) {
+  //       const storedTodos = datafromFirestore.data['todo-array'];
+  //       const todosWithDayjsDates = storedTodos.map(todo => ({
+  //         ...todo,
+  //         date: dayjs(todo.date),
+  //       }));
+  //       setTodos(todosWithDayjsDates);
+  //     }
+
+  //     const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
+  //     const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({
+  //       ...todo,
+  //       date: dayjs(todo.date),
+  //     }));
+  //     setArchivedTodos(archivedTodosWithDayjsDates);
+  //   };
+
+  //   fetchDataFromFirestore();
+  // }, []);
 
   useEffect(() => {
     const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
@@ -38,7 +63,6 @@ const TodoTracker = () => {
   }, []);
 
   const saveTodos = async (newTodos) => {
-    console.log('newTodos2', newTodos);
     const todosToStore = newTodos.map(todo => ({
       ...todo,
       date: dateToString(todo.date),
@@ -46,19 +70,20 @@ const TodoTracker = () => {
       checklist: todo.checklist || [],
     }));
     localStorage.setItem('todos', JSON.stringify(todosToStore));
-    console.log('todosToStore', todosToStore);
 
-    const results = await saveData(COLLECTION_NAME, DOC_ID_TODO,{'todo-array': todosToStore});
+    const results = await saveData(COLLECTION_NAME, getCurrentUser().uid,{TODO_KEY: todosToStore});
     console.log(results);
     setTodos(newTodos);
   };
 
-  const saveArchivedTodos = (newArchivedTodos) => {
+  const saveArchivedTodos = async (newArchivedTodos) => {
     const archivedTodosToStore = newArchivedTodos.map(todo => ({
       ...todo,
       date: dateToString(todo.date),
     }));
     localStorage.setItem('archivedTodos', JSON.stringify(archivedTodosToStore));
+    const results = await saveData(COLLECTION_NAME, getCurrentUser().uid,{TODO_ARCHIVE: archivedTodosToStore});
+    console.log(results);
     setArchivedTodos(newArchivedTodos);
   };
 
