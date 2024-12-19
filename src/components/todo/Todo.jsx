@@ -17,50 +17,52 @@ const TodoTracker = () => {
     return savedTodos || [];
   });
 
+  const [loading, setLoading] = useState(true);  
   const [archivedTodos, setArchivedTodos] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTodo, setEditingTodo] = useState(null);
   const [form] = Form.useForm();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [enableRowSelection, setEnableRowSelection] = useState(false);
-  // useEffect(() => {
-  //   const fetchDataFromFirestore = async () => {
-  //     let datafromFirestore = await fetchData(COLLECTION_NAME, getCurrentUser().uid);
-  //     console.log(datafromFirestore);
-  //     if(datafromFirestore.success) {
-  //       const storedTodos = datafromFirestore.data['todo-array'];
-  //       const todosWithDayjsDates = storedTodos.map(todo => ({
-  //         ...todo,
-  //         date: dayjs(todo.date),
-  //       }));
-  //       setTodos(todosWithDayjsDates);
-  //     }
-
-  //     const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
-  //     const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({
-  //       ...todo,
-  //       date: dayjs(todo.date),
-  //     }));
-  //     setArchivedTodos(archivedTodosWithDayjsDates);
-  //   };
-
-  //   fetchDataFromFirestore();
-  // }, []);
-
   useEffect(() => {
-    const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
-    const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
-    const todosWithDayjsDates = storedTodos.map(todo => ({
-      ...todo,
-      date: dayjs(todo.date),
-    }));
-    const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({
-      ...todo,
-      date: dayjs(todo.date),
-    }));
-    setTodos(todosWithDayjsDates);
-    setArchivedTodos(archivedTodosWithDayjsDates);
+    const fetchDataFromFirestore = async () => {
+      let datafromFirestore = await fetchData(COLLECTION_NAME, getCurrentUser().uid);
+      console.log(datafromFirestore);
+      if(datafromFirestore.success) {
+        const storedTodos = datafromFirestore.data['TODO_KEY'] || [];
+        const todosWithDayjsDates = storedTodos.map(todo => ({
+          ...todo,
+          date: dayjs(todo.date),
+        }));
+        setTodos(todosWithDayjsDates);
+      }
+
+      const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
+      const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({
+        ...todo,
+        date: dayjs(todo.date),
+      }));
+      setArchivedTodos(archivedTodosWithDayjsDates);
+      setLoading(false);
+    };
+
+    fetchDataFromFirestore();
   }, []);
+
+  // useEffect(() => {
+  //   const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
+  //   const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
+  //   const todosWithDayjsDates = storedTodos.map(todo => ({
+  //     ...todo,
+  //     date: dayjs(todo.date),
+  //   }));
+  //   const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({
+  //     ...todo,
+  //     date: dayjs(todo.date),
+  //   }));
+  //   setTodos(todosWithDayjsDates);
+  //   setArchivedTodos(archivedTodosWithDayjsDates);
+  // }, []);
 
   const saveTodos = async (newTodos) => {
     const todosToStore = newTodos.map(todo => ({
@@ -245,6 +247,10 @@ const TodoTracker = () => {
   } : null;
 
   const [newCheckList, setNewCheckList] = useState('');
+
+  if (loading) {
+    return <h1>Loading...</h1>;
+  }
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-container-div'>
