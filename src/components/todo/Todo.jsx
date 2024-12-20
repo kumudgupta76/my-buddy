@@ -11,13 +11,29 @@ import { COLLECTION_NAME, dateToString, DOC_ID_TODO, isMobile } from '../../comm
 
 const TodoTracker = () => {
   const [todos, setTodos] = useState([]);
-  const [loading, setLoading] = useState(true);  
-  const [archivedTodos, setArchivedTodos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deletedTodos, setDeletedTodos] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTodo, setEditingTodo] = useState(null);
   const [form] = Form.useForm();
   const [selectedRowKeys, setSelectedRowKeys] = useState([]);
   const [enableRowSelection, setEnableRowSelection] = useState(false);
+
+  const prepareTodosForStorage = (todos) => {
+    return todos.map(todo => ({
+      ...todo,
+      date: dateToString(todo.date),
+      description: todo.description || '',
+      checklist: todo.checklist || [],
+    }));
+  };
+
+  const prepareTodosFromStorage = (todos) => {
+    return todos.map(todo => ({
+      ...todo,
+      date: dayjs(todo.date),
+    }));
+  };
 
   useEffect(() => {
     const fetchDataFromFirestore = async () => {
@@ -31,18 +47,11 @@ const TodoTracker = () => {
       const todoDatafromFirestore = await fetchData(COLLECTION_NAME, currentUser.uid);
       if (todoDatafromFirestore.success) {
         const storedTodos = todoDatafromFirestore.data["todo-data"] || [];
-        const storedArchivedTodos = todoDatafromFirestore.data["archive-todo-data"] || [];
-        const todosWithDayjsDates = storedTodos.map(todo => ({
-          ...todo,
-          date: dayjs(todo.date),
-        }));
+        const deleltedArchivedTodos = todoDatafromFirestore.data["deleted-todo-data"] || [];
+        const todosWithDayjsDates = prepareTodosFromStorage(storedTodos);
+        const deletedTodosWithDayjsDate = prepareTodosFromStorage(deleltedArchivedTodos);
 
-        const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({  
-          ...todo,
-          date: dayjs(todo.date),
-        }));
-
-        setArchivedTodos(archivedTodosWithDayjsDates);
+        setDeletedTodos(deletedTodosWithDayjsDate);
         setTodos(todosWithDayjsDates);
       }
 
@@ -56,40 +65,24 @@ const TodoTracker = () => {
   //   saveTodos(todos);
   // }, [todos]);
 
-
-  const prepareTodosForStorage = (todos) => {
-    return todos.map(todo => ({
-      ...todo,
-      date: dateToString(todo.date),
-      description: todo.description || '',
-      checklist: todo.checklist || [],
-    }));
-  };
   const saveTodos = async (newTodos) => {
     setTodos(newTodos);
     const todosToStore = prepareTodosForStorage(newTodos);
-    const archivedTodosToStore = prepareTodosForStorage(archivedTodos);
-    console.log(todosToStore);
-    // Save to Firestore
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      const results = await saveData(COLLECTION_NAME, currentUser.uid, { "todo-data": todosToStore, "archive-todo-data": archivedTodosToStore });
-      console.log(results);
-    }
+    const deletedTodosToStore = prepareTodosForStorage(deletedTodos);
+
+    const results = await saveData(COLLECTION_NAME, getCurrentUser().uid, { "todo-data": todosToStore, "deleted-todo-data": deletedTodosToStore });
+    console.log(results);
+
   };
 
-  const saveArchivedTodos = async (newArchivedTodos) => {
-    
-    setArchivedTodos(newArchivedTodos);
-    const todosToStore = prepareTodosForStorage(todos);
-    const archivedTodosToStore = prepareTodosForStorage(newArchivedTodos);
+  const saveDeletedTodos = async (deletedTodos, filterdTodos) => {
+    setTodos(filterdTodos);
+    setDeletedTodos(deletedTodos);
+    const todosToStore = prepareTodosForStorage(filterdTodos);
+    const deletedTodosToStore = prepareTodosForStorage(deletedTodos);
 
-    // Save to Firestore
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      const results = await saveData(COLLECTION_NAME, currentUser.uid, { "todo-data": todosToStore, "archive-todo-data": archivedTodosToStore });
-      console.log(results);
-    }
+    const results = await saveData(COLLECTION_NAME, getCurrentUser().uid, { "todo-data": todosToStore, "deleted-todo-data": deletedTodosToStore });
+    console.log(results);
   };
 
   const handleAddTodo = () => {
@@ -126,7 +119,7 @@ const TodoTracker = () => {
 
   const handleDeleteTodo = (key) => {
     const updatedTodos = todos.filter((todo) => todo.key !== key);
-    saveArchivedTodos(updatedTodos);
+    saveDeletedTodos([...deletedTodos, ...todos.filter((todo) => todo.key === key)], updatedTodos);
     message.success('Todo deleted successfully');
   };
 
@@ -205,7 +198,7 @@ const TodoTracker = () => {
         <Space>
           <Tooltip title="Edit Entry">
             <Button onClick={() => handleEditTodo(record)} icon={<EditOutlined />}>
-              {isMobile() ? "" : "Edit"} 
+              {isMobile() ? "" : "Edit"}
             </Button>
           </Tooltip>
           <Tooltip title="Archive Entry">
@@ -315,7 +308,7 @@ const TodoTracker = () => {
           ),
         }}
       />
-      <h3 style={{ marginTop: 20 }}>Archived Todos ({archivedTodos ? archivedTodos.length : 0})</h3>
+      <h3 style={{ marginTop: 20 }}>Archived Todos ({todos ? todos.filter((todo) => todo.archived).length : 0})</h3>
       <Table
         dataSource={todos.filter((todo) => todo.archived)}
         columns={archivedColumns}
@@ -346,7 +339,7 @@ const TodoTracker = () => {
             </Row>)
         }}
       />
-
+      Deleted Todo - ({deletedTodos.length})
       <Modal
         title={editingTodo ? 'Edit Todo' : 'Add Todo'}
         open={isModalVisible}
