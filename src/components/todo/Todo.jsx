@@ -1,19 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Form, Input, Button, Table, Modal, message, Switch, Row, Col, DatePicker, Checkbox, Tooltip, Space } from 'antd';
+import { Form, Input, Button, Table, Modal, message, Row, Col, DatePicker, Checkbox, Tooltip, Space } from 'antd';
 import dayjs from 'dayjs';
 import TodoDetail from './TodoDetail';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // Import Quill styles
-import { dateToString, isMobile } from '../../common/utils';
 import { CloudDownloadOutlined, CloudUploadOutlined, DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
-import { copyToClipboard } from '../../common/utils';
+import { fetchData, saveData } from '../../common/dbUtils';
+import { getCurrentUser } from '../../common/authUtils';
+import { COLLECTION_NAME, dateToString, DOC_ID_TODO, isMobile } from '../../common/utils';
 
 const TodoTracker = () => {
-  const [todos, setTodos] = useState(() => {
-    const savedTodos = JSON.parse(localStorage.getItem('todos'));
-    return savedTodos || [];
-  });
-
+  const [todos, setTodos] = useState([]);
+  const [loading, setLoading] = useState(true);  
   const [archivedTodos, setArchivedTodos] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTodo, setEditingTodo] = useState(null);
@@ -22,36 +20,76 @@ const TodoTracker = () => {
   const [enableRowSelection, setEnableRowSelection] = useState(false);
 
   useEffect(() => {
-    const storedTodos = JSON.parse(localStorage.getItem('todos')) || [];
-    const storedArchivedTodos = JSON.parse(localStorage.getItem('archivedTodos')) || [];
-    const todosWithDayjsDates = storedTodos.map(todo => ({
-      ...todo,
-      date: dayjs(todo.date),
-    }));
-    const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({
-      ...todo,
-      date: dayjs(todo.date),
-    }));
-    setTodos(todosWithDayjsDates);
-    setArchivedTodos(archivedTodosWithDayjsDates);
+    const fetchDataFromFirestore = async () => {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        setLoading(false);
+        return;
+      }
+
+      // Fetch todos from Firestore
+      const todoDatafromFirestore = await fetchData(COLLECTION_NAME, currentUser.uid);
+      if (todoDatafromFirestore.success) {
+        const storedTodos = todoDatafromFirestore.data["todo-data"] || [];
+        const storedArchivedTodos = todoDatafromFirestore.data["archive-todo-data"] || [];
+        const todosWithDayjsDates = storedTodos.map(todo => ({
+          ...todo,
+          date: dayjs(todo.date),
+        }));
+
+        const archivedTodosWithDayjsDates = storedArchivedTodos.map(todo => ({  
+          ...todo,
+          date: dayjs(todo.date),
+        }));
+
+        setArchivedTodos(archivedTodosWithDayjsDates);
+        setTodos(todosWithDayjsDates);
+      }
+
+      setLoading(false);
+    };
+
+    fetchDataFromFirestore();
   }, []);
 
-  const saveTodos = (newTodos) => {
-    const todosToStore = newTodos.map(todo => ({
+  // useEffect(() => {
+  //   saveTodos(todos);
+  // }, [todos]);
+
+
+  const prepareTodosForStorage = (todos) => {
+    return todos.map(todo => ({
       ...todo,
       date: dateToString(todo.date),
+      description: todo.description || '',
+      checklist: todo.checklist || [],
     }));
-    localStorage.setItem('todos', JSON.stringify(todosToStore));
+  };
+  const saveTodos = async (newTodos) => {
     setTodos(newTodos);
+    const todosToStore = prepareTodosForStorage(newTodos);
+    const archivedTodosToStore = prepareTodosForStorage(archivedTodos);
+    console.log(todosToStore);
+    // Save to Firestore
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      const results = await saveData(COLLECTION_NAME, currentUser.uid, { "todo-data": todosToStore, "archive-todo-data": archivedTodosToStore });
+      console.log(results);
+    }
   };
 
-  const saveArchivedTodos = (newArchivedTodos) => {
-    const archivedTodosToStore = newArchivedTodos.map(todo => ({
-      ...todo,
-      date: dateToString(todo.date),
-    }));
-    localStorage.setItem('archivedTodos', JSON.stringify(archivedTodosToStore));
+  const saveArchivedTodos = async (newArchivedTodos) => {
+    
     setArchivedTodos(newArchivedTodos);
+    const todosToStore = prepareTodosForStorage(todos);
+    const archivedTodosToStore = prepareTodosForStorage(newArchivedTodos);
+
+    // Save to Firestore
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      const results = await saveData(COLLECTION_NAME, currentUser.uid, { "todo-data": todosToStore, "archive-todo-data": archivedTodosToStore });
+      console.log(results);
+    }
   };
 
   const handleAddTodo = () => {
@@ -64,7 +102,7 @@ const TodoTracker = () => {
         saveTodos(updatedTodos);
         setEditingTodo(null);
       } else {
-        const newTodo = { ...values, key: Date.now().toString(), checklist: [] }; // Add checklist as empty
+        const newTodo = { ...values, key: Date.now().toString(), checklist: [], archived: false }; // Add checklist as empty
         const newTodos = [newTodo, ...todos];
         saveTodos(newTodos);
       }
@@ -87,26 +125,30 @@ const TodoTracker = () => {
   };
 
   const handleDeleteTodo = (key) => {
-    const updatedTodos = archivedTodos.filter((todo) => todo.key !== key);
+    const updatedTodos = todos.filter((todo) => todo.key !== key);
     saveArchivedTodos(updatedTodos);
     message.success('Todo deleted successfully');
   };
 
   const handleArchiveTodo = (key) => {
-    const todoToArchive = todos.find(todo => todo.key === key);
-    const updatedTodos = todos.filter(todo => todo.key !== key);
-    const updatedArchivedTodos = [...archivedTodos, { ...todoToArchive, archived: true }];
-    saveTodos(updatedTodos);
-    saveArchivedTodos(updatedArchivedTodos);
+    todos.find(todo => todo.key === key).archived = true;
+    saveTodos([...todos]);
+    // const todoToArchive = todos.find(todo => todo.key === key);
+    // const updatedTodos = todos.filter(todo => todo.key !== key);
+    // const updatedArchivedTodos = [...archivedTodos, { ...todoToArchive, archived: true }];
+    // saveTodos(updatedTodos);
+    // saveArchivedTodos(updatedArchivedTodos);
     message.success('Todo archived successfully');
   };
 
   const handleUnarchiveTodo = (key) => {
-    const todoToUnarchive = archivedTodos.find(todo => todo.key === key);
-    const updatedArchivedTodos = archivedTodos.filter(todo => todo.key !== key);
-    const updatedTodos = [...todos, { ...todoToUnarchive, archived: false }];
-    saveTodos(updatedTodos);
-    saveArchivedTodos(updatedArchivedTodos);
+    todos.find(todo => todo.key === key).archived = false;
+    saveTodos([...todos]);
+    // const todoToUnarchive = archivedTodos.find(todo => todo.key === key);
+    // const updatedArchivedTodos = archivedTodos.filter(todo => todo.key !== key);
+    // const updatedTodos = [...todos, { ...todoToUnarchive, archived: false }];
+    // saveTodos(updatedTodos);
+    // saveArchivedTodos(updatedArchivedTodos);
     message.success('Todo unarchived successfully');
   };
 
@@ -122,6 +164,7 @@ const TodoTracker = () => {
       }
       return todo;
     });
+    // setTodos(updatedTodos);
     saveTodos(updatedTodos);
     setNewCheckList('');
   };
@@ -136,6 +179,7 @@ const TodoTracker = () => {
       }
       return todo;
     });
+    // setTodos(updatedTodos);
     saveTodos(updatedTodos);
   };
 
@@ -147,6 +191,7 @@ const TodoTracker = () => {
       }
       return todo;
     });
+    // setTodos(updatedTodos);
     saveTodos(updatedTodos);
   };
 
@@ -158,17 +203,17 @@ const TodoTracker = () => {
       width: '20%',
       render: (_, record) => (
         <Space>
-        <Tooltip title="Edit Entry">
-          <Button onClick={() => handleEditTodo(record)} icon={<EditOutlined/>}>
-          {isMobile() ? "" : "Edit"} 
-          </Button>
+          <Tooltip title="Edit Entry">
+            <Button onClick={() => handleEditTodo(record)} icon={<EditOutlined />}>
+              {isMobile() ? "" : "Edit"} 
+            </Button>
           </Tooltip>
           <Tooltip title="Archive Entry">
-          {!record.archived && (
-            <Button onClick={() => handleArchiveTodo(record.key)} icon={<CloudUploadOutlined/>} danger>
-              {isMobile() ? "" : "Archive"}
-            </Button>
-          )}
+            {!record.archived && (
+              <Button onClick={() => handleArchiveTodo(record.key)} icon={<CloudUploadOutlined />} danger>
+                {isMobile() ? "" : "Archive"}
+              </Button>
+            )}
           </Tooltip>
         </Space>
       ),
@@ -193,11 +238,7 @@ const TodoTracker = () => {
             </Button>
           </Tooltip>
           <Tooltip title="Unarchive Entry">
-            <Button 
-              onClick={() => handleUnarchiveTodo(record.key)} 
-             
-              icon={<CloudDownloadOutlined />}
-            >
+            <Button onClick={() => handleUnarchiveTodo(record.key)} icon={<CloudDownloadOutlined />}>
               {isMobile() ? "" : "Unarchive"}
             </Button>
           </Tooltip>
@@ -213,22 +254,25 @@ const TodoTracker = () => {
 
   const [newCheckList, setNewCheckList] = useState('');
 
+  if (loading) {
+    return <h1>Loading...</h1>;
+  }
+
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-container-div'>
       <Row>
         <Col style={{ width: "100%" }}>
           <Button type="primary" onClick={() => setIsModalVisible(true)} block>
-            <PlusOutlined></PlusOutlined> Todo
+            <PlusOutlined /> Todo
           </Button>
         </Col>
       </Row>
-      <h3 style={{ marginTop: 20 }}>Active Todos ({todos ? todos.length : 0})</h3>
+      <h3 style={{ marginTop: 20 }}>Active Todos ({todos ? todos.filter((todos) => !todos.archived).length : 0})</h3>
       <Table
         rowSelection={rowSelection}
-        dataSource={todos}
+        dataSource={todos.filter((todo) => !todo.archived)}
         columns={columns}
         style={{ marginTop: 20 }}
-        // scroll={{ x: 'max-content' }}
         expandable={{
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
@@ -273,10 +317,9 @@ const TodoTracker = () => {
       />
       <h3 style={{ marginTop: 20 }}>Archived Todos ({archivedTodos ? archivedTodos.length : 0})</h3>
       <Table
-        dataSource={archivedTodos}
+        dataSource={todos.filter((todo) => todo.archived)}
         columns={archivedColumns}
         style={{ marginTop: 20 }}
-        // scroll={{ x: 'max-content' }}
         expandable={{
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
@@ -328,8 +371,7 @@ const TodoTracker = () => {
           <Form.Item
             name="description"
             label="Description"
-            rules={[{ required: false, message: 'Please enter the description' }]}
-          >
+            rules={[{ required: false, message: 'Please enter the description' }]}>
             <ReactQuill
               theme="snow"
               placeholder="Write your description here..."
@@ -340,8 +382,8 @@ const TodoTracker = () => {
                   ['bold', 'italic', 'blockquote'],
                   ['link', 'image'],
                   [{ 'list': 'ordered' }, { 'list': 'bullet' }],
-                  ['checklist'], // Add checklist button
-                  ['clean'], // Remove formatting button
+                  ['checklist'],
+                  ['clean'],
                 ],
               }}
             />

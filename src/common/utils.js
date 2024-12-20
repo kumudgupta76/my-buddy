@@ -2,7 +2,12 @@ import { message } from "antd";
 import moment from "moment";
 
 export function dateToString(date) {
-    return date && date instanceof moment ? date.format('YYYY-MM-DD') : date;
+    try {
+        return moment(date).format('YYYY-MM-DD');
+    } catch (error) {
+        console.error('Error formatting date:', error, date);
+        return date;
+    }
 }
 
 export function isMobile() {
@@ -20,6 +25,9 @@ export function copyToClipboard(textToCopy) {
 }
 
 const ERROR_KEY = 'errorMessages';
+
+export const COLLECTION_NAME = 'my-buddy';
+export const DOC_ID_TODO = 'todo';
 
 /**
  * Retrieve the current errors from local storage.
