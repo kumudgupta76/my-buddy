@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages with ENV
 
 on:
   push:
@@ -55,3 +55,4 @@ jobs:
           publish_dir: ./build
           user_name: 'github-actions'  # Optional
           user_email: 'actions@github.com'  # Optional
+

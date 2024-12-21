@@ -205,11 +205,13 @@ const LocalStorageManager = () => {
         </Col>
       </Row>
       <h3>Local Store Data</h3>
-      <Table dataSource={data} columns={columns} rowKey="key" expandable={{expandedRowRender: (record) => {
-        return (
-          <p style={{ margin: 0 }}>{JSON.stringify(record.value)}</p>
-        );
-      }}}/>
+      <Table dataSource={data} columns={columns} rowKey="key" expandable={{
+        expandedRowRender: (record) => {
+          return (
+            <p style={{ margin: 0 }}>{JSON.stringify(record.value)}</p>
+          );
+        }
+      }} />
 
       {editKey !== null && (
         <div style={{ marginTop: '20px' }}>
@@ -217,14 +219,16 @@ const LocalStorageManager = () => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Edit value"
-            style={{ width: '300px', marginRight: '10px' }}
+            style={{ width: '100%', marginRight: '10px' }}
           />
-          <Button type="primary" onClick={handleSave}>
-            Save
-          </Button>
-          <Button style={{ marginLeft: "10px" }} type="info" onClick={() => setEditKey(null)}>
-            Cancel
-          </Button>
+          <Space style={{ marginTop: '10px' }}>
+            <Button type="primary" onClick={handleSave}>
+              Save
+            </Button>
+            <Button type="info" onClick={() => setEditKey(null)}>
+              Cancel
+            </Button>
+          </Space>
         </div>
       )}
     </div>
