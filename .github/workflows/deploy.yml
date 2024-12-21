@@ -33,6 +33,7 @@ jobs:
             echo "REACT_APP_ENV=development" >> $GITHUB_ENV
             echo "REACT_APP_API_URL=https://kumudgupta76.github.io/my-buddy/develop" >> $GITHUB_ENV
           fi
+
       - name: Set up secret environment variables using GitHub Secrets
         run: |
           echo "REACT_APP_FIREBASE_API_KEY=${{ secrets.REACT_APP_FIREBASE_API_KEY }}" >> $GITHUB_ENV
@@ -43,6 +44,7 @@ jobs:
           echo "REACT_APP_FIREBASE_APP_ID=${{ secrets.REACT_APP_FIREBASE_APP_ID }}" >> $GITHUB_ENV
           echo "REACT_APP_FIREBASE_MEASUREMENT_ID=${{ secrets.REACT_APP_FIREBASE_MEASUREMENT_ID }}" >> $GITHUB_ENV
           echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.REACT_APP_FIREBASE_AUTH_DOMAIN }}"
+
       - name: Build React app
         run: npm run build
 
@@ -53,3 +55,4 @@ jobs:
           publish_dir: ./build
           user_name: 'github-actions'  # Optional
           user_email: 'actions@github.com'  # Optional
+
