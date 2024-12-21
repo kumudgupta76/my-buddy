@@ -159,7 +159,7 @@ const ExpenseTracker = () => {
       dataIndex: 'date',
       key: 'date',
       render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-      sorter: (a, b) => dayjs(a.date).isAfter(dayjs(b.date)) ? 1 : -1,  // Sort based on raw date values
+      sorter: (a, b) => dayjs(a.date).unix() - dayjs(b.date).unix(),  // Sort based on raw date values
       sortDirections: ['ascend', 'descend'],  // Enable both ascending and descending sorting
     },
     {
@@ -247,8 +247,8 @@ const ExpenseTracker = () => {
       title: 'Date',
       dataIndex: 'date',
       key: 'date',
-      render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm:ss'),
-      sorter: (a, b) => dayjs(a.date).isAfter(dayjs(b.date)) ? 1 : -1,  // Sort based on raw date values
+      render: (text) => text.toISOString(),
+      sorter: (a, b) => dayjs(a.date).unix() - dayjs(b.date).unix(),  // Sort based on raw date values
       sortDirections: ['ascend', 'descend'],  // Enable both ascending and descending sorting
     },
     {
