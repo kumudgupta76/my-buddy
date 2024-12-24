@@ -87,7 +87,6 @@ const TodoTracker = () => {
 
   const handleAddTodo = () => {
     form.validateFields().then((values) => {
-      values.date = dateToString(values.date); // Convert to string before saving
       if (editingTodo) {
         const updatedTodos = todos.map((todo) =>
           todo.key === editingTodo.key ? { ...todo, ...values } : todo
@@ -214,7 +213,10 @@ const TodoTracker = () => {
   ];
 
   const archivedColumns = [
-    { title: 'Title', dataIndex: 'title', key: 'title', width: '80%' },
+    { title: 'Title', key: 'title', width: '80%', render: (_, record) => <>
+    <strong>{record.title}</strong>
+    
+    </> },
     {
       title: 'Action',
       key: 'action',
@@ -383,7 +385,7 @@ const TodoTracker = () => {
           </Form.Item>
           <Form.Item
             name="date"
-            label="Date"
+            label="Due Date"
             rules={[{ required: true, message: 'Please select the date!' }]}
             initialValue={dayjs()}
           >

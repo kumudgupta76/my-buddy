@@ -3,7 +3,7 @@ import moment from "moment";
 
 export function dateToString(date) {
     try {
-        return moment(date).format('YYYY-MM-DD');
+        return date.toISOString();
     } catch (error) {
         console.error('Error formatting date:', error, date);
         return date;
