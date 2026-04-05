@@ -51,21 +51,16 @@ const Home = () => {
 
     return (
         <div style={{ maxWidth: 800, margin: '0 auto' }}>
-            <div style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
-                <Title level={2} style={{ marginBottom: 'var(--space-xs)', fontWeight: 700, letterSpacing: '-0.02em' }}>
-                    Welcome to My Buddy
+            <div style={{ textAlign: 'center', marginBottom: 'var(--space-md)' }}>
+                <Title level={3} style={{ marginBottom: 0, fontWeight: 700, letterSpacing: '-0.02em' }}>
+                    My Buddy
                 </Title>
-                <Text type="secondary" style={{ fontSize: 'var(--text-base)' }}>
+                <Text type="secondary" style={{ fontSize: 'var(--text-sm)' }}>
                     Your personal productivity toolkit
                 </Text>
             </div>
 
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
-                gap: 'var(--space-md)',
-                marginBottom: 'var(--space-xl)',
-            }}>
+            <div className="home-grid">
                 {routes.map(route => {
                     const isDisabled = route.isPrivate && !user;
                     return (
@@ -78,29 +73,23 @@ const Home = () => {
                                 opacity: isDisabled ? 0.45 : 1,
                             }}
                         >
-                            <div className="info-card" style={{
-                                textAlign: 'center',
-                                padding: 'var(--space-lg)',
+                            <div className="info-card home-card" style={{
                                 cursor: isDisabled ? 'not-allowed' : 'pointer',
                                 position: 'relative',
                             }}>
                                 {isDisabled && (
                                     <LockOutlined style={{
                                         position: 'absolute',
-                                        top: 8,
-                                        right: 8,
-                                        fontSize: 12,
+                                        top: 6,
+                                        right: 6,
+                                        fontSize: 10,
                                         color: 'var(--color-text-muted)'
                                     }} />
                                 )}
-                                <div style={{ marginBottom: 'var(--space-sm)' }}>
+                                <div className="home-card-icon">
                                     {iconMap[route.slug] || <AppstoreOutlined style={{ fontSize: 24, color: 'var(--color-text-muted)' }} />}
                                 </div>
-                                <div style={{
-                                    fontWeight: 600,
-                                    fontSize: 'var(--text-sm)',
-                                    color: 'var(--color-text)',
-                                }}>
+                                <div className="home-card-label">
                                     {route.name}
                                 </div>
                             </div>
@@ -112,13 +101,14 @@ const Home = () => {
             <div style={{
                 display: 'flex',
                 justifyContent: 'center',
-                gap: 'var(--space-md)',
-                flexWrap: 'wrap'
+                gap: 'var(--space-sm)',
+                flexWrap: 'wrap',
+                marginTop: 'var(--space-md)',
             }}>
                 {user ? (
-                    <Button onClick={signOutUser} danger>Sign Out</Button>
+                    <Button onClick={signOutUser} danger size="small">Sign Out</Button>
                 ) : (
-                    <Link to="/my-buddy/auth"><Button type="primary">Sign In</Button></Link>
+                    <Link to="/my-buddy/auth"><Button type="primary" size="small">Sign In</Button></Link>
                 )}
                 <ReloadButton />
             </div>
