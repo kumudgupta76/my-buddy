@@ -1,21 +1,12 @@
-const CACHE_NAME = 'my-pwa-cache-v1';
+const CACHE_NAME = 'my-pwa-cache-v2';
 const urlsToCache = [
-  '/',
-  '/cal',
-  '/my-buddy'
-  // '/index.html',
-  // '/manifest.json',
-  // '/battery.png',
-  // '/battery_64.png',
-  // '/battery_128.png',
-  // '/battery_256.png',
-  // '/battery_512.png',
-  // '/icon.png',
-  // Add other assets you want to cache
+  '/my-buddy/',
+  '/my-buddy/index.html',
+  '/my-buddy/offline.html',
 ];
 
 self.addEventListener("install", event => {
-  self.skipWaiting(); // Force the waiting service worker to become the active service worker
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
@@ -24,35 +15,49 @@ self.addEventListener("install", event => {
 });
 
 self.addEventListener("fetch", event => {
+  const { request } = event;
+
+  // Skip non-GET requests
+  if (request.method !== 'GET') return;
+
+  // For navigation requests and app assets (JS/CSS): network-first
+  // Only fall back to cache when network fails (offline)
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        return response || fetch(event.request).then(fetchResponse => {
-          return caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, fetchResponse.clone());
-            return fetchResponse;
+    fetch(request)
+      .then(networkResponse => {
+        // Cache the fresh response for offline use
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(request, responseClone);
           });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        // Network failed — try cache
+        return caches.match(request).then(cachedResponse => {
+          return cachedResponse || caches.match('/my-buddy/offline.html');
         });
-      }).catch(() => {
-        return caches.match('/index.html');
       })
   );
 });
 
 self.addEventListener("activate", event => {
-  const cacheWhitelist = [CACHE_NAME];
+  // Delete all caches that don't match the current version
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (!cacheWhitelist.includes(cacheName)) {
+          if (cacheName !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
     })
   );
-  self.clients.claim(); // Ensure that the service worker takes control of the page immediately
+  self.clients.claim();
 });
 
 self.addEventListener("push", event => {
