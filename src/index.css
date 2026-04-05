@@ -94,6 +94,30 @@ code {
   padding: 6px 16px !important;
 }
 
+/* Icon-only buttons need square dimensions, not text padding */
+.ant-btn-icon-only {
+  padding: 0 !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.ant-btn-icon-only.ant-btn-sm {
+  width: 24px !important;
+  height: 24px !important;
+}
+
+.ant-btn-icon-only.ant-btn-lg {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.ant-btn-icon-only.ant-btn-circle {
+  border-radius: 50% !important;
+}
+
 .ant-btn-primary {
   background: var(--color-primary) !important;
   border-color: var(--color-primary) !important;

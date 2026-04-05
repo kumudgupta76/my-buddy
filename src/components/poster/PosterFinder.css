@@ -1,0 +1,262 @@
+/* ─── Poster Finder Page ─────────────────────────────────────────────────── */
+.poster-page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-md);
+}
+
+/* ─── Settings ───────────────────────────────────────────────────────────── */
+.poster-settings-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.poster-settings-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+/* ─── Search Bar ─────────────────────────────────────────────────────────── */
+.poster-search-bar {
+  display: flex;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.poster-search-bar .ant-input-affix-wrapper {
+  flex: 1;
+  border-radius: var(--radius-md) !important;
+}
+
+/* ─── Action Bar ─────────────────────────────────────────────────────────── */
+.poster-action-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-md);
+}
+
+.poster-action-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  flex-wrap: wrap;
+}
+
+.poster-action-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+/* ─── Loading ────────────────────────────────────────────────────────────── */
+.poster-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) 0;
+}
+
+/* ─── Title Group ────────────────────────────────────────────────────────── */
+.poster-title-group {
+  margin-bottom: var(--space-lg);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+}
+
+.poster-title-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.poster-title-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.poster-title-actions {
+  display: flex;
+  gap: var(--space-xs);
+}
+
+/* ─── Badge ──────────────────────────────────────────────────────────────── */
+.poster-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.poster-badge-movie {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.poster-badge-tv {
+  background: rgba(168, 85, 247, 0.15);
+  color: #a855f7;
+}
+
+/* ─── Image Grid ─────────────────────────────────────────────────────────── */
+.poster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-sm);
+}
+
+.poster-card {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all var(--transition);
+  background: var(--color-background);
+}
+
+.poster-card:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.poster-card-selected {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* ─── Image Wrapper ──────────────────────────────────────────────────────── */
+.poster-img-wrapper {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1/1;
+}
+
+.poster-img-wrapper img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.poster-card:hover .poster-img-wrapper img {
+  transform: scale(1.05);
+}
+
+/* ─── Overlay ────────────────────────────────────────────────────────────── */
+.poster-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: var(--space-xs);
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+
+.poster-card:hover .poster-overlay,
+.poster-card-selected .poster-overlay {
+  opacity: 1;
+}
+
+.poster-card-selected .poster-overlay {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.poster-checkbox {
+  align-self: flex-start;
+}
+
+.poster-checkbox .ant-checkbox-inner {
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+}
+
+.poster-overlay-actions {
+  align-self: flex-end;
+  display: flex;
+  gap: 4px;
+}
+
+.poster-overlay-actions .ant-btn {
+  background: rgba(255, 255, 255, 0.9) !important;
+  border: none !important;
+  box-shadow: var(--shadow-sm);
+}
+
+.poster-overlay-actions .ant-btn:hover {
+  background: #fff !important;
+}
+
+/* ─── Card Label ─────────────────────────────────────────────────────────── */
+.poster-card-label {
+  padding: 4px var(--space-xs);
+  text-align: center;
+}
+
+/* ─── Error / Empty ──────────────────────────────────────────────────────── */
+.poster-error {
+  padding: var(--space-lg) 0;
+}
+
+.poster-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-xl) var(--space-md);
+  text-align: center;
+}
+
+.poster-empty-icon {
+  font-size: 64px;
+  margin-bottom: var(--space-md);
+  opacity: 0.6;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+
+  .poster-card-label {
+    font-size: 11px;
+  }
+
+  .poster-action-bar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .poster-search-bar {
+    flex-direction: column;
+  }
+}

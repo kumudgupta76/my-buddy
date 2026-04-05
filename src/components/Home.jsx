@@ -15,6 +15,7 @@ import {
   DatabaseOutlined,
   AppstoreOutlined,
   LockOutlined,
+  PictureOutlined,
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -24,9 +25,9 @@ const iconMap = {
   'timer': <ClockCircleOutlined style={{ fontSize: 24, color: '#06b6d4' }} />,
   'expense': <DollarOutlined style={{ fontSize: 24, color: '#10b981' }} />,
   'cal': <CalendarOutlined style={{ fontSize: 24, color: '#f59e0b' }} />,
-  'calview': <CalendarOutlined style={{ fontSize: 24, color: '#8b5cf6' }} />,
   'battery': <ThunderboltOutlined style={{ fontSize: 24, color: '#ef4444' }} />,
   'admin': <DatabaseOutlined style={{ fontSize: 24, color: '#64748b' }} />,
+  'poster': <PictureOutlined style={{ fontSize: 24, color: '#8b5cf6' }} />,
   'dump': <AppstoreOutlined style={{ fontSize: 24, color: '#94a3b8' }} />,
 };
 
