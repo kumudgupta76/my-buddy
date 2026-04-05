@@ -6,7 +6,7 @@ import { UserOutlined, LockOutlined } from '@ant-design/icons';
 const { Title, Text } = Typography;
 
 const AuthActions = () => {
-    const [isSignUp, setIsSignUp] = useState(true); // Toggle state for Sign Up/Sign In
+    const [isSignUp, setIsSignUp] = useState(false); // Toggle state for Sign Up/Sign In
     const [user, setUser] = useState(null);
 
     // Listen for auth state changes
