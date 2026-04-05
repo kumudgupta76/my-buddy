@@ -250,24 +250,35 @@ const TodoTracker = () => {
   const [newCheckList, setNewCheckList] = useState('');
 
   if (loading) {
-    return <h1>Loading...</h1>;
+    return (
+      <div className="loading-container">
+        <div style={{ fontSize: 40, color: 'var(--color-primary)' }}>
+          <PlusOutlined spin />
+        </div>
+        <div style={{ fontSize: 'var(--text-base)', fontWeight: 500 }}>Loading your todos...</div>
+      </div>
+    );
   }
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-container-div'>
-      <Row>
-        <Col style={{ width: "100%" }}>
-          <Button type="primary" onClick={() => setIsModalVisible(true)} block>
-            <PlusOutlined /> Todo
-          </Button>
-        </Col>
-      </Row>
-      <h3 style={{ marginTop: 20 }}>Active Todos ({todos ? todos.filter((todos) => !todos.archived).length : 0})</h3>
+      <Button type="primary" onClick={() => setIsModalVisible(true)} block size="large" icon={<PlusOutlined />}
+        style={{ borderRadius: 'var(--radius-md)', height: 48, fontSize: 'var(--text-base)', fontWeight: 600 }}>
+        New Todo
+      </Button>
+
+      {/* Active Todos */}
+      <div className="section-header">
+        <h3>
+          Active Todos
+          <span className="badge">{todos ? todos.filter((todos) => !todos.archived).length : 0}</span>
+        </h3>
+      </div>
       <Table
         rowSelection={rowSelection}
         dataSource={todos.filter((todo) => !todo.archived)}
         columns={columns}
-        style={{ marginTop: 20 }}
+        size="middle"
         expandable={{
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
@@ -275,32 +286,41 @@ const TodoTracker = () => {
                 <TodoDetail todo={record} />
               </Col>
               <Col md={12} sm={24} style={{ width: "100%" }}>
-                <div style={{ backgroundColor: "white", padding: "10px", marginTop: "10px", borderRadius: "10px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div className="info-card" style={{ marginTop: 'var(--space-sm)' }}>
+                  <div style={{ display: "flex", gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
                     <Input
-                      placeholder="Add checklist item"
+                      placeholder="Add checklist item..."
                       onChange={(e) => setNewCheckList(e.target.value)}
                       onPressEnter={(e) => handleAddChecklistItem(record.key, e.target.value)}
                       value={newCheckList}
+                      style={{ flex: 1 }}
                     />
-                    <Button disabled={newCheckList.length == 0} onClick={() => handleAddChecklistItem(record.key, newCheckList)}><PlusOutlined /></Button>
+                    <Button disabled={newCheckList.length == 0} onClick={() => handleAddChecklistItem(record.key, newCheckList)} icon={<PlusOutlined />} type="primary" />
                   </div>
                   {record.checklist && record.checklist.map((item) => (
-                    <div key={item.id} style={{ display: "flex", justifyContent: "space-between", marginTop: "10px" }}>
+                    <div key={item.id} style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: 'center',
+                      padding: 'var(--space-sm) 0',
+                      borderBottom: '1px solid var(--color-border-light)',
+                    }}>
                       <Checkbox
                         checked={item.completed}
                         onChange={() => handleToggleChecklistCompletion(record.key, item.id)}
                       >
-                        <span
-                          style={{
-                            textDecoration: item.completed ? 'line-through' : 'none',
-                          }}
-                        >{item.text}</span>
+                        <span style={{
+                          textDecoration: item.completed ? 'line-through' : 'none',
+                          color: item.completed ? 'var(--color-text-muted)' : 'var(--color-text)',
+                          transition: 'all var(--transition-fast)',
+                        }}>{item.text}</span>
                       </Checkbox>
                       <Button
                         type="text"
                         icon={<DeleteOutlined />}
                         onClick={() => handleDeleteChecklistItem(record.key, item.id)}
+                        size="small"
+                        danger
                       />
                     </div>
                   ))}
@@ -310,11 +330,18 @@ const TodoTracker = () => {
           ),
         }}
       />
-      <h3 style={{ marginTop: 20 }}>Archived Todos ({todos ? todos.filter((todo) => todo.archived).length : 0})</h3>
+
+      {/* Archived Todos */}
+      <div className="section-header">
+        <h3>
+          Archived Todos
+          <span className="badge">{todos ? todos.filter((todo) => todo.archived).length : 0}</span>
+        </h3>
+      </div>
       <Table
         dataSource={todos.filter((todo) => todo.archived)}
         columns={archivedColumns}
-        style={{ marginTop: 20 }}
+        size="middle"
         expandable={{
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
@@ -322,17 +349,19 @@ const TodoTracker = () => {
                 <TodoDetail todo={record} />
               </Col>
               <Col md={12} sm={24}>
-                <div style={{ backgroundColor: "white", padding: "10px", marginTop: "10px", borderRadius: "10px" }}>
+                <div className="info-card" style={{ marginTop: 'var(--space-sm)' }}>
                   {record.checklist && record.checklist.map((item) => (
-                    <div key={item.id} style={{ display: "flex", justifyContent: "space-between", marginTop: "10px" }}>
-                      <Checkbox
-                        checked={item.completed}
-                      >
-                        <span
-                          style={{
-                            textDecoration: item.completed ? 'line-through' : 'none',
-                          }}
-                        >{item.text}</span>
+                    <div key={item.id} style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: 'var(--space-sm) 0',
+                      borderBottom: '1px solid var(--color-border-light)',
+                    }}>
+                      <Checkbox checked={item.completed}>
+                        <span style={{
+                          textDecoration: item.completed ? 'line-through' : 'none',
+                          color: item.completed ? 'var(--color-text-muted)' : 'var(--color-text)',
+                        }}>{item.text}</span>
                       </Checkbox>
                     </div>
                   ))}
@@ -341,7 +370,9 @@ const TodoTracker = () => {
             </Row>)
         }}
       />
-      Deleted Todo - ({deletedTodos.length})
+      <div style={{ marginTop: 'var(--space-md)', fontSize: 'var(--text-sm)', color: 'var(--color-text-muted)' }}>
+        Deleted Todos: {deletedTodos.length}
+      </div>
       <Modal
         title={editingTodo ? 'Edit Todo' : 'Add Todo'}
         open={isModalVisible}
@@ -358,6 +389,8 @@ const TodoTracker = () => {
             Save
           </Button>,
         ]}
+        centered
+        destroyOnClose
       >
         <Form form={form} layout="vertical" onFinish={handleAddTodo}>
           <Form.Item name="title" label="Title" rules={[{ required: true, message: 'Please input the title!' }]}>

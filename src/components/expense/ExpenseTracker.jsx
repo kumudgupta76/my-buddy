@@ -346,59 +346,70 @@ const ExpenseTracker = () => {
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='expense-continer-div'>
-      <Row gutter={[16, 16]}>
-        <Col sm={12} md={24} style={{ display: "flex", justifyContent: "space-between" }}>
-        <Tooltip title="Add Expense">
-          <Button className='expense-btn' onClick={() => setIsModalVisible(true)}>
-            {isMobile() ? <PlusOutlined/> :"Add Expense"}
-          </Button>
+      {/* Action Bar */}
+      <div className="action-bar" style={{ justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+          <Tooltip title="Add Expense">
+            <Button className='expense-btn' type="primary" onClick={() => setIsModalVisible(true)} icon={<PlusOutlined />}>
+              {isMobile() ? null : "Add Expense"}
+            </Button>
           </Tooltip>
           <Tooltip title="Copy All Rows">
-            <Button className='expense-btn' onClick={() => copyToClipboard({ copyAll: true })}>
-            {isMobile() ? <CopyOutlined/> :"Copy All"}
-          </Button>
+            <Button className='expense-btn' onClick={() => copyToClipboard({ copyAll: true })} icon={<CopyOutlined />}>
+              {isMobile() ? null : "Copy All"}
+            </Button>
           </Tooltip>
           <Tooltip title="Archive All Rows">
-            <Button className='expense-btn' onClick={() => handleArchiveExpense(expenses.map(e => e.key))}>
-            {isMobile() ? <DatabaseOutlined/> :"Archive All" }
-          </Button>
+            <Button className='expense-btn' onClick={() => handleArchiveExpense(expenses.map(e => e.key))} icon={<DatabaseOutlined />}>
+              {isMobile() ? null : "Archive All"}
+            </Button>
           </Tooltip>
-        </Col>
-        <Col sm={12} md={24}>
-          <Dropdown.Button
-            menu={{
-              items,
-              onClick: onMenuClick,
-            }}
-            onClick={copyToClipboard}
-            disabled={selectedRowKeys.length === 0}
-          >
-            {isMobile() ? <CopyOutlined/> : `Copy Selected (${selectedRowKeys.length})`}
-          </Dropdown.Button>
-        </Col>
-      </Row>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <h3 style={{ marginTop: 20 }}>Active Expenses ({expenses ? expenses.length : 0})</h3>
-        <h4 style={{ marginTop: 20 }}>
-          Total ({selectedRowKeys.length} selected) - {expenses.filter(expense => selectedRowKeys.includes(expense.key)).reduce((accumulator, currentItem) => {
+        </div>
+        <Dropdown.Button
+          menu={{
+            items,
+            onClick: onMenuClick,
+          }}
+          onClick={copyToClipboard}
+          disabled={selectedRowKeys.length === 0}
+        >
+          {isMobile() ? <CopyOutlined /> : `Copy Selected (${selectedRowKeys.length})`}
+        </Dropdown.Button>
+      </div>
+
+      {/* Active Expenses */}
+      <div className="section-header">
+        <h3>
+          Active Expenses
+          <span className="badge">{expenses ? expenses.length : 0}</span>
+        </h3>
+        <span className="stat-pill">
+          {selectedRowKeys.length} selected &middot; Total: {expenses.filter(expense => selectedRowKeys.includes(expense.key)).reduce((accumulator, currentItem) => {
             return accumulator + Number(currentItem.amount);
           }, 0)}
-        </h4>
+        </span>
       </div>
 
       <Table
         rowSelection={rowSelection}
         dataSource={expenses}
         columns={columns}
-        style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
+        size="middle"
       />
-      <h3 style={{ marginTop: 20 }}>Archived Expenses ({archivedExpenses ? archivedExpenses.length : 0})</h3>
+
+      {/* Archived Expenses */}
+      <div className="section-header">
+        <h3>
+          Archived Expenses
+          <span className="badge">{archivedExpenses ? archivedExpenses.length : 0}</span>
+        </h3>
+      </div>
       <Table
         dataSource={archivedExpenses}
         columns={archivedColumns}
-        style={{ marginTop: 20 }}
         scroll={{ x: 'max-content' }}
+        size="middle"
       />
 
       <Modal
@@ -417,6 +428,8 @@ const ExpenseTracker = () => {
             Save
           </Button>,
         ]}
+        centered
+        destroyOnClose
       >
         <Form form={form} layout="vertical">
           <Form.Item

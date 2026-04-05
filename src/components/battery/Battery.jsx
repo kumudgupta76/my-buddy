@@ -1,28 +1,13 @@
 import { Col, Row, Typography, Progress, Spin } from 'antd'
 import React, { useEffect, useState } from 'react'
-import { LoadingOutlined } from '@ant-design/icons';
-const { Title } = Typography;
-
-// const month = [
-//   'January',
-//   'February',
-//   'March',
-//   'April',
-//   'May',
-//   'June',
-//   'July',
-//   'August',
-//   'September',
-//   'October',
-//   'November',
-//   'December'
-// ]
+import { LoadingOutlined, ThunderboltOutlined } from '@ant-design/icons';
+const { Title, Text } = Typography;
 
 const Cal = () => {
   const conicColors = {
-    '0%': '#ffccc7',
-    '50%': '#ffe58f',
-    '100%': '#87d068'
+    '0%': '#ef4444',
+    '50%': '#f59e0b',
+    '100%': '#10b981'
   }
 
   const [value, setValue] = useState(() => 0)
@@ -68,31 +53,42 @@ const Cal = () => {
   }
 
   return (
-
     <div className='outer-container'>
       {
         batterySupported ?
-          value === 0 ? <Spin
-            indicator={
-              <LoadingOutlined
-                style={{
-                  fontSize: 100,
-                }}
-                spin
+          value === 0 ? (
+            <div className="loading-container">
+              <Spin
+                indicator={
+                  <LoadingOutlined
+                    style={{ fontSize: 48, color: 'var(--color-primary)' }}
+                    spin
+                  />
+                }
               />
-            }
-          /> : <Row>
-            <Col span={24} style={{ textAlign: 'center', justifyContent: "center" }}>
-              <Title level={4}> Battery Status</Title>
-            </Col>
-            <Col span={24} style={{ textAlign: 'center', marginTop: '30px' }}>
-              <Progress type='dashboard' percent={value} strokeColor={conicColors} size='large' />
-            </Col>
-            <Col span={24} style={{ textAlign: 'center', marginTop: '30px' }}>
-              <Progress steps={5} percent={value} strokeWidth={30} />
-            </Col>
-          </Row>
-          : <Title level={3}> Battery Status API not supported</Title>
+              <Text type="secondary">Reading battery status...</Text>
+            </div>
+          ) : (
+            <div style={{ maxWidth: 400, width: '100%', textAlign: 'center' }}>
+              <div style={{ marginBottom: 'var(--space-lg)' }}>
+                <ThunderboltOutlined style={{ fontSize: 24, color: 'var(--color-primary)', marginBottom: 'var(--space-sm)' }} />
+                <Title level={4} style={{ margin: 0 }}>Battery Status</Title>
+              </div>
+              <div className="info-card" style={{ padding: 'var(--space-xl)', marginBottom: 'var(--space-lg)' }}>
+                <Progress type='dashboard' percent={value} strokeColor={conicColors} size='default' strokeWidth={8} />
+              </div>
+              <div className="info-card" style={{ padding: 'var(--space-lg)' }}>
+                <Progress steps={5} percent={value} strokeWidth={24} />
+              </div>
+            </div>
+          )
+          : (
+            <div className="empty-state">
+              <ThunderboltOutlined className="empty-state-icon" />
+              <Title level={4} style={{ color: 'var(--color-text-muted)' }}>Battery Status API not supported</Title>
+              <Text type="secondary">Your browser doesn't support the Battery Status API</Text>
+            </div>
+          )
       }
     </div>
   )

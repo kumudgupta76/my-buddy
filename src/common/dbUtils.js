@@ -3,9 +3,12 @@ import { doc, setDoc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 // Save JSON data (Create/Update)
 export const saveData = async (collectionName, docId, data) => {
+  console.log(collectionName, docId, data); 
   try {
     const docRef = doc(db, collectionName, docId);
     await setDoc(docRef, data);
+
+    console.log('Document written successfully!');
     return { success: true, message: 'Data saved successfully' };
   } catch (error) {
     console.error('Error saving data: ', error);

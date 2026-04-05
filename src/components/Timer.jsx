@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Input, notification, Tooltip, Radio } from 'antd';
+import { Button, Input, notification, Tooltip, Radio, Typography, Card } from 'antd';
 import { PlayCircleOutlined, PauseCircleOutlined, ReloadOutlined, PlusCircleOutlined, MinusCircleOutlined } from '@ant-design/icons';
+
+const { Title, Text } = Typography;
 
 const Timer = () => {
     const [mins, setMins] = useState(30); // Initial 30 minutes
@@ -78,45 +80,69 @@ const Timer = () => {
     };
 
     return (
-        <div style={{ bottom: '10px', right: '10px', zIndex: 1000 }}>
-            <div style={{ marginBottom: '10px' }}>
-                <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{ display: "flex", justifyContent: "space-between" }}>
-                    <Tooltip title="1 min offset"><Radio.Button value={1} style={{ marginRight: '10px' }}>1 min</Radio.Button></Tooltip>
-                    <Tooltip title="5 min offset"><Radio.Button value={5} style={{ marginRight: '10px' }}>5 min</Radio.Button></Tooltip>
-                    <Tooltip title="15 min offset"><Radio.Button value={15}>15 min</Radio.Button></Tooltip>
-                </Radio.Group>
-            </div>
-
-            <div style={{ marginBottom: '10px', display: "flex", justifyContent: "space-between" }}>
-                <Button onClick={() => setMins(mins - 1)} style={{ marginRight: '10px' }}>
-                    <MinusCircleOutlined />
-                </Button>
-                <Input
-                    placeholder="Mins"
-                    type="number"
-                    value={mins}
-                    onChange={(e) => setMins(Number(e.target.value))}
-                    style={{ width: '113px', marginRight: '10px' }}
-                />
-                <Button onClick={() => setMins(mins + 1)}>
-                    <PlusCircleOutlined />
-                </Button>
-            </div>
-
-            <div style={{
-                backgroundColor: 'white',
-                padding: '10px',
-                borderRadius: '5px',
-                boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+        <div style={{ maxWidth: 400, margin: '0 auto' }}>
+            <Card style={{
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border-light)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: 'var(--shadow-md)',
             }}>
-                <div>Take a Break in</div>
-                <div style={{ fontSize: '30px' }}>{formatTime(remainingTime)}
+                <div style={{ marginBottom: 'var(--space-lg)' }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: 'var(--space-sm)', display: 'block' }}>Offset</Text>
+                    <Radio.Group value={offset} onChange={(e) => setOffset(e.target.value)} style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                        <Tooltip title="1 min offset"><Radio.Button value={1}>1m</Radio.Button></Tooltip>
+                        <Tooltip title="5 min offset"><Radio.Button value={5}>5m</Radio.Button></Tooltip>
+                        <Tooltip title="15 min offset"><Radio.Button value={15}>15m</Radio.Button></Tooltip>
+                    </Radio.Group>
                 </div>
-            </div>
-            <div style={{ marginTop: '10px', display: "flex", alignContent: "space-between" }}>
-                <Button onClick={handleReset} style={{ width: '50px', marginRight: '10px' }}><ReloadOutlined /></Button>
-                <Button onClick={() => isPaused ? handlePlay() : handlePause()}>{isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}</Button>
-            </div>
+
+                <div style={{ marginBottom: 'var(--space-lg)' }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--text-sm)', fontWeight: 500, marginBottom: 'var(--space-sm)', display: 'block' }}>Minutes</Text>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                        <Button onClick={() => setMins(mins - 1)} icon={<MinusCircleOutlined />} shape="circle" />
+                        <Input
+                            placeholder="Mins"
+                            type="number"
+                            value={mins}
+                            onChange={(e) => setMins(Number(e.target.value))}
+                            style={{ width: 100, textAlign: 'center', fontWeight: 600, fontSize: 'var(--text-lg)' }}
+                        />
+                        <Button onClick={() => setMins(mins + 1)} icon={<PlusCircleOutlined />} shape="circle" />
+                    </div>
+                </div>
+
+                <div style={{
+                    background: 'var(--color-bg)',
+                    padding: 'var(--space-lg)',
+                    borderRadius: 'var(--radius-md)',
+                    textAlign: 'center',
+                    marginBottom: 'var(--space-lg)',
+                    border: '1px solid var(--color-border-light)',
+                }}>
+                    <Text type="secondary" style={{ fontSize: 'var(--text-sm)', display: 'block', marginBottom: 'var(--space-xs)' }}>Take a Break in</Text>
+                    <div style={{
+                        fontSize: 40,
+                        fontWeight: 700,
+                        letterSpacing: '-0.02em',
+                        fontFamily: 'var(--font-mono)',
+                        color: remainingTime === 0 ? 'var(--color-danger)' : 'var(--color-text)',
+                    }}>
+                        {formatTime(remainingTime)}
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                    <Button onClick={handleReset} icon={<ReloadOutlined />} style={{ flex: 1 }}>Reset</Button>
+                    <Button
+                        onClick={() => isPaused ? handlePlay() : handlePause()}
+                        type={isPaused ? 'primary' : 'default'}
+                        icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />}
+                        style={{ flex: 1 }}
+                    >
+                        {isPaused ? 'Play' : 'Pause'}
+                    </Button>
+                </div>
+            </Card>
         </div>
     );
 };

@@ -1,4 +1,5 @@
 import { Button } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import React from 'react';
 
 const ReloadButton = () => {
@@ -7,9 +8,9 @@ const ReloadButton = () => {
   };
 
   return (
-    <Button danger onClick={handleReload}>
+    <Button onClick={handleReload} icon={<ReloadOutlined />}>
       Reload Page
-    </Button >
+    </Button>
   );
 };
 

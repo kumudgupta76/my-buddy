@@ -1,82 +1,84 @@
 /* src/components/CalendarView.css */
 .calendar-container {
-    padding: 10px;
-  }
-  
+  padding: var(--space-sm);
+}
+
 .calendar-date-cell {
-  padding: 5px;
+  padding: 4px;
 }
 
 .calendar-task {
-  padding: 2px;
-  margin-bottom: 5px;
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* This adds the shadow */
-  transition: box-shadow 0.3s ease-in-out;
+  padding: 3px 6px;
+  margin-bottom: 4px;
+  background: var(--color-primary-light);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-primary);
+  transition: all var(--transition-fast);
 }
 
 .calendar-task:hover {
-  box-shadow: 0px 6px 8px rgba(0, 0, 0, 0.15); /* Slightly increased shadow on hover */
+  background: #ddd6fe;
+  transform: translateX(2px);
 }
 
 @media screen and (max-width: 576px) {
   .calendar-task {
-    height: 5px;
-    width: 5px;
-    background-color: #0dbe16;
-    border-radius: 5%;
+    height: 6px;
+    width: 6px;
+    background-color: var(--color-primary);
+    border-radius: var(--radius-full);
     display: inline-block;
-    }
+    border-left: none;
+    padding: 0;
+    margin: 1px;
+  }
   .date-cell-title {
     display: none;
   }
   .ant-picker-calendar-date-value {
     padding: 5px 8px;
-    border-radius: 100%;
-    background-color: #f0fbfe;
-    transition: all 0.4s ease-in-out;
+    border-radius: var(--radius-full);
+    background-color: var(--color-bg);
+    transition: all 0.3s ease-in-out;
     height: 35px;
     width: 35px;
 
     &:hover {
-      border: 2px solid;
-      transform: scale(1.2);
+      border: 2px solid var(--color-primary);
+      transform: scale(1.1);
       background-color: transparent;
       padding: 3px 6px;
     }
 
     &_disabled {
       pointer-events: none;
-      color: pink;
-      background: repeating-linear-gradient(
-        45deg,
-        #ffffff 0px,
-        #c3dbe7 5px,
-        #ffffff 5px,
-        #ffffff 10px
-      );
+      color: var(--color-text-muted);
     }
   }
 
-  .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner, .ant-picker-cell-in-view.ant-picker-cell-range-start .ant-picker-cell-inner, .ant-picker-cell-in-view.ant-picker-cell-range-end .ant-picker-cell-inner, .ant-picker-cell-in-view.ant-picker-cell-range .ant-picker-cell-inner {
-    color: black;
-    background-color: white;
-    font-weight: bold;
+  .ant-picker-cell-in-view.ant-picker-cell-selected .ant-picker-cell-inner,
+  .ant-picker-cell-in-view.ant-picker-cell-range-start .ant-picker-cell-inner,
+  .ant-picker-cell-in-view.ant-picker-cell-range-end .ant-picker-cell-inner,
+  .ant-picker-cell-in-view.ant-picker-cell-range .ant-picker-cell-inner {
+    color: var(--color-text);
+    background-color: var(--color-primary-light);
+    font-weight: 600;
   }
 
   .ant-picker-date-panel .ant-picker-content th {
-    color: #52aeef;
+    color: var(--color-primary);
+    font-weight: 600;
   }
 
   .ant-picker-cell-in-view.ant-picker-cell-today .ant-picker-cell-inner::before {
-    border: none;   
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-full);
   }
 }
 
 
 .calendar-modal .ant-modal-body {
-  padding: 10px;
+  padding: var(--space-md);
 }
 
 .task-list-item {
@@ -87,16 +89,17 @@
 
 @media (max-width: 576px) {
   .calendar-task {
-    font-size: 12px;
+    font-size: var(--text-xs);
   }
   
   .calendar-modal .ant-modal-body {
-    padding: 5px;
+    padding: var(--space-sm);
   }
 }
 
 .completed-task {
   text-decoration: line-through;
-  opacity: 0.6;
+  opacity: 0.5;
+}
 }
   

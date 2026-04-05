@@ -1,5 +1,5 @@
 import React from 'react';
-import { List, Button, Checkbox, Typography, Row,Col } from 'antd';
+import { List, Button, Checkbox, Typography, Row, Col } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 
 const { Title } = Typography;
@@ -21,37 +21,49 @@ const TodoTracker = ({ todos, onTodosChange }) => {
 
   return (
     <div>
-      <Title level={4}>All Tasks</Title>
+      <div className="section-header">
+        <h3>All Tasks<span className="badge">{todos.length}</span></h3>
+      </div>
       <List
         dataSource={todos}
         renderItem={todo => (
-          <List.Item key={todo.id} className={todo.completed ? 'completed-task' : ''}>
-            <Row >
-              <Col>
-              <div style={{display:"flex", justifyContent:"flex-ends"}}>
-                <Checkbox
-                checked={todo.completed}
-                onChange={() => handleToggleCompleted(todo.id)}
-              >
-                {todo.title}
-              </Checkbox>
-              
-              <Button
-                icon={<DeleteOutlined />}
-                onClick={() => handleDeleteTask(todo.id)}
-                size="small"
-              />
-              </div>
-              
+          <List.Item key={todo.id} className={todo.completed ? 'completed-task' : ''} style={{ padding: 'var(--space-sm) var(--space-md)' }}>
+            <Row style={{ width: '100%' }}>
+              <Col span={24}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <Checkbox
+                    checked={todo.completed}
+                    onChange={() => handleToggleCompleted(todo.id)}
+                  >
+                    <span style={{
+                      textDecoration: todo.completed ? 'line-through' : 'none',
+                      color: todo.completed ? 'var(--color-text-muted)' : 'var(--color-text)',
+                      fontWeight: 500,
+                    }}>
+                      {todo.title}
+                    </span>
+                  </Checkbox>
+                  <Button
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDeleteTask(todo.id)}
+                    size="small"
+                    type="text"
+                    danger
+                  />
+                </div>
               </Col>
-              <Col>
-              <div style={{overflow:"auto"}} dangerouslySetInnerHTML={{ __html: todo.description }} />
-              </Col>
+              {todo.description && (
+                <Col span={24}>
+                  <div style={{
+                    overflow: "auto",
+                    fontSize: 'var(--text-sm)',
+                    color: 'var(--color-text-secondary)',
+                    paddingLeft: 24,
+                    marginTop: 'var(--space-xs)',
+                  }} dangerouslySetInnerHTML={{ __html: todo.description }} />
+                </Col>
+              )}
             </Row>
-            <Row>
-              
-            </Row>
-            
           </List.Item>
         )}
       />

@@ -174,58 +174,68 @@ const LocalStorageManager = () => {
 
   return (
     <div style={{ maxWidth: '100%', overflowX: 'auto' }}>
-      <Row gutter={[16, 16]}>
-        <Col md={24}>
-          <Space>
-            <Button onClick={handleBackup}>Backup localStorage</Button>
-            <Button onClick={handleRestore}>Restore localStorage</Button>
+      {/* Action Bar */}
+      <div className="action-bar" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-md)' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+          <Button onClick={handleBackup} type="primary">Backup</Button>
+          <Button onClick={handleRestore}>Restore</Button>
+          <Button onClick={handleBackupJson}>Backup to JSON</Button>
+          <Button onClick={() => document.getElementById('restoreFileInput').click()}>Restore from JSON</Button>
+        </div>
+        <input
+          type="file"
+          accept=".json"
+          onChange={handleRestoreJson}
+          style={{ display: 'none' }}
+          id="restoreFileInput"
+        />
+        <TextArea
+          value={backupString}
+          onChange={(e) => setBackupString(e.target.value)}
+          rows="3"
+          placeholder='Paste backup string here...'
+          style={{ width: '100%', borderRadius: 'var(--radius-sm)' }}
+        />
+      </div>
 
-            <Button onClick={handleBackupJson}>Backup localStorage to Json File</Button>
-            <Button onClick={() => document.getElementById('restoreFileInput').click()}>Restore localStorage from Json File</Button>
-          </Space>
-        </Col>
-        <Col md={24}>
-          {/* Button for restore (file input hidden) */}
-          <input
-            type="file"
-            accept=".json"
-            onChange={handleRestoreJson}
-            style={{ display: 'none' }} // Hidden input to trigger the file selection dialog
-            id="restoreFileInput"
-          />
-        </Col>
-        <Col md={24}>
-          <TextArea
-            value={backupString}
-            onChange={(e) => setBackupString(e.target.value)}
-            rows="3"
-            placeholder='Paste backup string here'
-            width="100%"
-          />
-        </Col>
-      </Row>
-      <h3>Local Store Data</h3>
-      <Table dataSource={data} columns={columns} rowKey="key" expandable={{
+      <div className="section-header">
+        <h3>
+          Local Storage Data
+          <span className="badge">{data.length}</span>
+        </h3>
+      </div>
+
+      <Table dataSource={data} columns={columns} rowKey="key" size="middle" expandable={{
         expandedRowRender: (record) => {
           return (
-            <p style={{ margin: 0 }}>{JSON.stringify(record.value)}</p>
+            <pre style={{
+              margin: 0,
+              padding: 'var(--space-md)',
+              background: 'var(--color-bg)',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: 'var(--text-xs)',
+              overflow: 'auto',
+              maxHeight: 300,
+              border: '1px solid var(--color-border-light)',
+            }}>{JSON.stringify(record.value, null, 2)}</pre>
           );
         }
       }} />
 
       {editKey !== null && (
-        <div style={{ marginTop: '20px' }}>
+        <div className="info-card" style={{ marginTop: 'var(--space-md)' }}>
           <TextArea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="Edit value"
-            style={{ width: '100%', marginRight: '10px' }}
+            style={{ width: '100%', marginBottom: 'var(--space-sm)' }}
+            rows={4}
           />
-          <Space style={{ marginTop: '10px' }}>
+          <Space>
             <Button type="primary" onClick={handleSave}>
               Save
             </Button>
-            <Button type="info" onClick={() => setEditKey(null)}>
+            <Button onClick={() => setEditKey(null)}>
               Cancel
             </Button>
           </Space>

@@ -1,4 +1,4 @@
-import { Button, Checkbox, Typography } from 'antd';
+import { Checkbox, Typography } from 'antd';
 import dayjs from 'dayjs';
 import React from 'react';
 import { ClockCircleOutlined } from '@ant-design/icons';
@@ -37,22 +37,31 @@ const TodoDetail = ({ todo }) => {
     return <> <Text type={{type}}><ClockCircleOutlined /> {timeRemaining}</Text> ({dueDate.format("Do MMM YY")})</>;
 }
   return (
-    <div style={{ backgroundColor: "white", padding: "10px", marginTop: "10px", borderRadius: "10px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between" }}>
-        <span>{todo.title}</span>
-        <span>{ getDisplayDueDate(todo.date)}</span>
+    <div className="info-card" style={{ marginTop: 'var(--space-sm)' }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+        <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{todo.title}</span>
+        <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{ getDisplayDueDate(todo.date)}</span>
       </div>
-      <hr />
-      <div style={{ margin: 0, whiteSpace: "pre-wrap", overflow: "auto" }}>
+      <div style={{
+        height: 1,
+        background: 'var(--color-border-light)',
+        margin: 'var(--space-sm) 0',
+      }} />
+      <div style={{ margin: 0, whiteSpace: "pre-wrap", overflow: "auto", fontSize: 'var(--text-sm)', lineHeight: 1.7 }}>
         <div dangerouslySetInnerHTML={{ __html: todo.description }} />
         {todo.checklist && todo.checklist.map((item) => (
-          <div key={item.id} style={{ display: "flex", justifyContent: "space-between", marginTop: "10px" }}>
+          <div key={item.id} style={{
+            display: "flex",
+            justifyContent: "space-between",
+            padding: 'var(--space-xs) 0',
+          }}>
             <Checkbox
               checked={item.completed}
             >
               <span
                 style={{
                   textDecoration: item.completed ? 'line-through' : 'none',
+                  color: item.completed ? 'var(--color-text-muted)' : 'var(--color-text)',
                 }}
               >{item.text}</span>
             </Checkbox>

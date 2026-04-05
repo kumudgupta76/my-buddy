@@ -78,17 +78,15 @@ const CalendarView = () => {
 
   return (
     <div className="calendar-container">
-      <Row gutter={[16, 16]}>
-        <Col sm={24} md={12}>
-          <Button onClick={() => setIsModalVisible(true)}>Add Task</Button>
-          <Button style={{ marginLeft: "10px" }} onClick={() => setSelectedDate(moment())}>Today</Button>
-        </Col>
-        <Col sm={24} md={12}>
-          <div style={{ border: "1px solid", borderRadius: "2px", padding: "4px" }}>
-            {`Date - ${selectedDate.format("YYYY-MM-DD")}`}
-          </div>
-        </Col>
-      </Row>
+      <div className="action-bar" style={{ justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+          <Button type="primary" onClick={() => setIsModalVisible(true)} icon={<span>+</span>}>Add Task</Button>
+          <Button onClick={() => setSelectedDate(moment())}>Today</Button>
+        </div>
+        <div className="stat-pill">
+          {selectedDate.format("ddd, MMM D, YYYY")}
+        </div>
+      </div>
 
       <Calendar
         onSelect={handleDateClick}
@@ -123,6 +121,7 @@ const CalendarView = () => {
             Save
           </Button>,
         ]}
+        centered
       >
         <Form form={form} layout="vertical">
           <Form.Item
@@ -150,7 +149,18 @@ const CalendarView = () => {
           </Form.Item>
         </Form>
       </Modal>
-      {todos.map(todo => <div style={{ backgroundColor: "#f9f9f9", padding: "10px", marginTop: "10px", borderRadius: "10px" }}><TodoDetail todo={todo} /> </div>)}
+      {todos.length > 0 && (
+        <div style={{ marginTop: 'var(--space-lg)' }}>
+          <div className="section-header">
+            <h3>All Tasks<span className="badge">{todos.length}</span></h3>
+          </div>
+          {todos.map(todo => (
+            <div key={todo.key}>
+              <TodoDetail todo={todo} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
