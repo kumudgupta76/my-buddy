@@ -1,7 +1,7 @@
 const CACHE_NAME = 'my-pwa-cache-v1';
 const urlsToCache = [
   '/',
-  '/calview',
+  '/cal',
   '/my-buddy'
   // '/index.html',
   // '/manifest.json',
