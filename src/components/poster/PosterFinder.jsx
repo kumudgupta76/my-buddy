@@ -1,9 +1,8 @@
-import React, { useState, useCallback } from 'react';
-import { Typography, Input, Button, Spin, Modal, Checkbox, message, Empty, Tooltip } from 'antd';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { Typography, Input, Button, Spin, Modal, Checkbox, message, Empty, Tooltip, AutoComplete, Tag } from 'antd';
 import {
   SearchOutlined, DownloadOutlined, DeleteOutlined,
-  EyeOutlined, CheckSquareOutlined,
-  BorderOutlined, SwapOutlined,
+  EyeOutlined,
 } from '@ant-design/icons';
 import { isMobile } from '../../common/utils';
 import './PosterFinder.css';
@@ -11,7 +10,9 @@ import './PosterFinder.css';
 const { Title, Text } = Typography;
 
 const ITUNES_BASE = 'https://itunes.apple.com/search';
-const CACHE_KEY = 'poster-finder-cache';
+const OMDB_BASE = 'https://www.omdbapi.com/';
+const OMDB_KEY = process.env.REACT_APP_OMDB_API_KEY;
+const CACHE_KEY = 'poster-finder-cache-v2';
 
 const getCachedResults = () => {
   try {
@@ -30,11 +31,14 @@ const resizeArtwork = (url, size) => url.replace(/\d+x\d+bb/, `${size}x${size}bb
 
 const PosterFinder = () => {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]); // [{title, images: [{id, url, urlHD, label}], error?}]
-  const [selected, setSelected] = useState({}); // { titleIndex: Set of image ids }
+  const [results, setResults] = useState([]); // [{title, image: {url, urlHD, label, kind, year, source}, error?, imdbID?}]
+  const [selected, setSelected] = useState(() => new Set()); // Set<titleIdx>
   const [loading, setLoading] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [downloading, setDownloading] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
+  const suggestDebounceRef = useRef(null);
+  const suggestAbortRef = useRef(null);
 
   const fetchWithTimeout = async (url, timeoutMs = 10000) => {
     const controller = new AbortController();
@@ -59,124 +63,257 @@ const PosterFinder = () => {
     if (titles.length === 0) return;
 
     setLoading(true);
-    setSelected({});
     const cache = getCachedResults();
-    const newResults = [];
+    const fetched = [];
 
     for (const title of titles) {
-      // Check cache
-      if (cache[title.toLowerCase()]) {
-        newResults.push(cache[title.toLowerCase()]);
-        continue;
-      }
-
-      try {
-        // Search movies first, then TV shows, combine results
-        const movieUrl = `${ITUNES_BASE}?term=${encodeURIComponent(title)}&media=movie&entity=movie&limit=5`;
-        const tvUrl = `${ITUNES_BASE}?term=${encodeURIComponent(title)}&media=tvShow&entity=tvSeason&limit=5`;
-
-        const [movieRes, tvRes] = await Promise.all([
-          fetchWithTimeout(movieUrl),
-          fetchWithTimeout(tvUrl),
-        ]);
-
-        const movieData = await movieRes.json();
-        const tvData = await tvRes.json();
-
-        const allHits = [
-          ...(movieData.results || []).map(r => ({ ...r, _kind: 'movie' })),
-          ...(tvData.results || []).map(r => ({ ...r, _kind: 'tv' })),
-        ];
-
-        if (allHits.length === 0) {
-          newResults.push({ title, images: [], error: 'No results found' });
-          continue;
-        }
-
-        // Deduplicate by artwork URL (different editions may share the same poster)
-        const seen = new Set();
-        const images = [];
-        for (const hit of allHits) {
-          const artUrl = hit.artworkUrl100;
-          if (!artUrl || seen.has(artUrl)) continue;
-          seen.add(artUrl);
-
-          const displayName = hit.trackName || hit.collectionName || title;
-          images.push({
-            id: `img-${images.length}`,
-            url: resizeArtwork(artUrl, 600),
-            urlHD: resizeArtwork(artUrl, 1200),
-            label: displayName,
-            kind: hit._kind === 'tv' ? 'TV' : 'Movie',
-            year: hit.releaseDate ? new Date(hit.releaseDate).getFullYear() : null,
-          });
-
-          if (images.length >= 8) break;
-        }
-
-        // Pick the best display title from the top result
-        const displayTitle = allHits[0].trackName || allHits[0].collectionName || title;
-
-        const entry = { title: displayTitle, images };
-        newResults.push(entry);
-        cache[title.toLowerCase()] = entry;
-      } catch (err) {
-        const errMsg = err.name === 'AbortError' ? 'Request timed out' : (err.message || 'Network error');
-        newResults.push({ title, images: [], error: errMsg });
-      }
+      const entry = await fetchTitle(title, cache);
+      fetched.push(entry);
     }
 
     setCachedResults(cache);
-    setResults(newResults);
+    // Append to existing results, skipping titles that are already added.
+    setResults(prev => {
+      const have = new Set(prev.map(r => (r.imdbID || r.title).toLowerCase()));
+      const merged = [...prev];
+      let skipped = 0;
+      fetched.forEach(entry => {
+        const key = (entry.imdbID || entry.title || '').toLowerCase();
+        if (have.has(key)) { skipped += 1; return; }
+        have.add(key);
+        merged.push(entry);
+      });
+      if (skipped > 0) {
+        message.info(`${skipped} title(s) were already added`);
+      }
+      return merged;
+    });
+    setQuery('');
+    setSuggestions([]);
     setLoading(false);
   }, [query]);
 
-  const toggleSelect = (titleIdx, imgId) => {
-    setSelected(prev => {
-      const copy = { ...prev };
-      const set = new Set(copy[titleIdx] || []);
-      if (set.has(imgId)) set.delete(imgId);
-      else set.add(imgId);
-      copy[titleIdx] = set;
-      return copy;
-    });
+  // Clear all results, selections, and the input.
+  const clearAll = () => {
+    setResults([]);
+    setSelected(new Set());
+    setQuery('');
+    setSuggestions([]);
   };
 
-  const selectAllForTitle = (titleIdx) => {
-    const images = results[titleIdx]?.images || [];
-    setSelected(prev => {
-      const copy = { ...prev };
-      const current = new Set(copy[titleIdx] || []);
-      const allSelected = images.every(img => current.has(img.id));
-      if (allSelected) {
-        copy[titleIdx] = new Set();
-      } else {
-        copy[titleIdx] = new Set(images.map(img => img.id));
+  // Fetch a single best poster for a free-text title.
+  // Mutates the provided cache object in-place when a fresh entry is created.
+  const fetchTitle = async (title, cache) => {
+    if (cache[title.toLowerCase()]) {
+      return cache[title.toLowerCase()];
+    }
+
+    try {
+      const movieUrl = `${ITUNES_BASE}?term=${encodeURIComponent(title)}&media=movie&entity=movie&limit=1`;
+      const tvUrl = `${ITUNES_BASE}?term=${encodeURIComponent(title)}&media=tvShow&entity=tvSeason&limit=1`;
+      const omdbUrl = OMDB_KEY
+        ? `${OMDB_BASE}?apikey=${OMDB_KEY}&t=${encodeURIComponent(title)}`
+        : null;
+
+      const fetches = [
+        fetchWithTimeout(movieUrl).then(r => r.json()).catch(() => ({ results: [] })),
+        fetchWithTimeout(tvUrl).then(r => r.json()).catch(() => ({ results: [] })),
+        omdbUrl
+          ? fetchWithTimeout(omdbUrl).then(r => r.json()).catch(() => ({}))
+          : Promise.resolve({}),
+      ];
+
+      const [movieData, tvData, omdbData] = await Promise.all(fetches);
+
+      // Prefer OMDB exact-title match (canonical poster)
+      if (omdbData && omdbData.Response === 'True' && omdbData.Poster && omdbData.Poster !== 'N/A') {
+        const yearNum = omdbData.Year ? parseInt(String(omdbData.Year).slice(0, 4), 10) || omdbData.Year : null;
+        const entry = {
+          title: yearNum ? `${omdbData.Title} (${yearNum})` : omdbData.Title || title,
+          imdbID: omdbData.imdbID,
+          image: {
+            url: omdbData.Poster,
+            urlHD: omdbData.Poster.replace(/SX\d+/, 'SX1200'),
+            label: omdbData.Title || title,
+            kind: omdbData.Type === 'series' ? 'TV' : 'Movie',
+            year: yearNum,
+            source: 'OMDB',
+          },
+        };
+        cache[title.toLowerCase()] = entry;
+        return entry;
       }
-      return copy;
-    });
-  };
 
-  const getSelectedCount = () => {
-    return Object.values(selected).reduce((sum, set) => sum + set.size, 0);
-  };
-
-  const clearSelection = () => setSelected({});
-
-  const shuffleImages = (titleIdx) => {
-    setResults(prev => {
-      const copy = [...prev];
-      if (titleIdx === 'all') {
-        copy.forEach((r, i) => {
-          copy[i] = { ...r, images: [...r.images].sort(() => Math.random() - 0.5) };
-        });
-      } else {
-        const r = copy[titleIdx];
-        copy[titleIdx] = { ...r, images: [...r.images].sort(() => Math.random() - 0.5) };
+      // Fallback to first iTunes hit (movie preferred over TV)
+      const hit = (movieData.results && movieData.results[0]) || (tvData.results && tvData.results[0]);
+      if (hit && hit.artworkUrl100) {
+        const isTv = !!(tvData.results && tvData.results[0] === hit);
+        const year = hit.releaseDate ? new Date(hit.releaseDate).getFullYear() : null;
+        const label = hit.trackName || hit.collectionName || title;
+        const entry = {
+          title: year ? `${label} (${year})` : label,
+          image: {
+            url: resizeArtwork(hit.artworkUrl100, 600),
+            urlHD: resizeArtwork(hit.artworkUrl100, 1200),
+            label,
+            kind: isTv ? 'TV' : 'Movie',
+            year,
+            source: 'iTunes',
+          },
+        };
+        cache[title.toLowerCase()] = entry;
+        return entry;
       }
-      return copy;
+
+      return { title, image: null, error: 'No results found' };
+    } catch (err) {
+      const errMsg = err.name === 'AbortError' ? 'Request timed out' : (err.message || 'Network error');
+      return { title, image: null, error: errMsg };
+    }
+  };
+
+  // Add a single title (e.g. picked from autocomplete) and append it to results.
+  const addSingleTitle = async (title) => {
+    const trimmed = (title || '').trim();
+    if (!trimmed) return;
+
+    // Avoid duplicates (case-insensitive title match)
+    const exists = results.some(r => r.title.toLowerCase() === trimmed.toLowerCase());
+    if (exists) {
+      message.info(`"${trimmed}" is already added`);
+      setQuery('');
+      setSuggestions([]);
+      return;
+    }
+
+    setLoading(true);
+    const cache = getCachedResults();
+    const entry = await fetchTitle(trimmed, cache);
+    setCachedResults(cache);
+    setResults(prev => [...prev, entry]);
+    setQuery('');
+    setSuggestions([]);
+    setLoading(false);
+  };
+
+  // Fetch the single best poster for an EXACT item picked from autocomplete.
+  const addExactTitle = async (suggestion) => {
+    const { title, year, type, imdbID, poster } = suggestion;
+    const displayTitle = year ? `${title} (${year})` : title;
+
+    // De-dupe by imdbID first, then by display title
+    const exists = results.some(r =>
+      (imdbID && r.imdbID === imdbID) ||
+      r.title.toLowerCase() === displayTitle.toLowerCase()
+    );
+    if (exists) {
+      message.info(`"${displayTitle}" is already added`);
+      setQuery('');
+      setSuggestions([]);
+      return;
+    }
+
+    setLoading(true);
+    const yearNum = year ? parseInt(String(year).slice(0, 4), 10) : null;
+    const isTv = type === 'series';
+    let image = null;
+
+    try {
+      // 1) OMDB by imdbID — the canonical single poster for that exact title
+      if (OMDB_KEY && imdbID) {
+        try {
+          const res = await fetchWithTimeout(
+            `${OMDB_BASE}?apikey=${OMDB_KEY}&i=${encodeURIComponent(imdbID)}`
+          );
+          const data = await res.json();
+          const p = data && data.Poster && data.Poster !== 'N/A' ? data.Poster : poster;
+          if (p) {
+            image = {
+              url: p,
+              urlHD: p.replace(/SX\d+/, 'SX1200'),
+              label: data.Title || title,
+              kind: (data.Type || type) === 'series' ? 'TV' : 'Movie',
+              year: data.Year ? parseInt(String(data.Year).slice(0, 4), 10) || data.Year : yearNum,
+              source: 'OMDB',
+            };
+          }
+        } catch { /* ignore, fall through */ }
+      } else if (poster) {
+        image = {
+          url: poster,
+          urlHD: poster.replace(/SX\d+/, 'SX1200'),
+          label: title,
+          kind: isTv ? 'TV' : 'Movie',
+          year: yearNum,
+          source: 'OMDB',
+        };
+      }
+
+      // 2) Fallback to iTunes (year-matched) only if OMDB had no poster
+      if (!image) {
+        const itunesUrl = isTv
+          ? `${ITUNES_BASE}?term=${encodeURIComponent(title)}&media=tvShow&entity=tvSeason&limit=10`
+          : `${ITUNES_BASE}?term=${encodeURIComponent(title)}&media=movie&entity=movie&limit=10`;
+        try {
+          const res = await fetchWithTimeout(itunesUrl);
+          const data = await res.json();
+          const hit = (data.results || []).find(h => {
+            if (!h.artworkUrl100) return false;
+            if (!yearNum) return true;
+            const hy = h.releaseDate ? new Date(h.releaseDate).getFullYear() : null;
+            if (isTv) return hy ? hy >= yearNum : false;
+            return hy ? Math.abs(hy - yearNum) <= 1 : false;
+          });
+          if (hit) {
+            image = {
+              url: resizeArtwork(hit.artworkUrl100, 600),
+              urlHD: resizeArtwork(hit.artworkUrl100, 1200),
+              label: hit.trackName || hit.collectionName || title,
+              kind: isTv ? 'TV' : 'Movie',
+              year: hit.releaseDate ? new Date(hit.releaseDate).getFullYear() : yearNum,
+              source: 'iTunes',
+            };
+          }
+        } catch { /* ignore */ }
+      }
+
+      const entry = {
+        title: displayTitle,
+        imdbID,
+        image,
+        ...(image ? {} : { error: 'No poster found' }),
+      };
+      setResults(prev => [...prev, entry]);
+    } finally {
+      setQuery('');
+      setSuggestions([]);
+      setLoading(false);
+    }
+  };
+
+  // Remove a title (and its selection) from the results.
+  const removeTitle = (idx) => {
+    setResults(prev => prev.filter((_, i) => i !== idx));
+    setSelected(prev => {
+      const next = new Set();
+      prev.forEach(i => {
+        if (i === idx) return;
+        next.add(i > idx ? i - 1 : i);
+      });
+      return next;
     });
   };
+
+  const toggleSelect = (titleIdx) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(titleIdx)) next.delete(titleIdx);
+      else next.add(titleIdx);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelected(new Set());
 
   const downloadImage = async (url, filename) => {
     try {
@@ -198,27 +335,21 @@ const PosterFinder = () => {
   const downloadSelected = async () => {
     const items = [];
     results.forEach((r, tIdx) => {
-      const sel = selected[tIdx];
-      if (!sel || sel.size === 0) return;
-      r.images.forEach(img => {
-        if (sel.has(img.id)) {
-          const safeName = r.title.replace(/[^a-zA-Z0-9]/g, '_');
-          items.push({ url: img.urlHD || img.url, filename: `${safeName}_${img.id}.jpg` });
-        }
-      });
+      if (!selected.has(tIdx) || !r.image) return;
+      const safeName = r.title.replace(/[^a-zA-Z0-9]/g, '_');
+      items.push({ url: r.image.urlHD || r.image.url, filename: `${safeName}.jpg` });
     });
 
     if (items.length === 0) {
-      message.warning('No images selected');
+      message.warning('No posters selected');
       return;
     }
 
     setDownloading(true);
-    message.info(`Downloading ${items.length} image(s)...`);
+    message.info(`Downloading ${items.length} poster(s)...`);
 
     for (const item of items) {
       await downloadImage(item.url, item.filename);
-      // Small delay between downloads to avoid overwhelming the browser
       await new Promise(resolve => setTimeout(resolve, 300));
     }
 
@@ -231,8 +362,93 @@ const PosterFinder = () => {
     message.success('Cache cleared');
   };
 
+  // ─── Autocomplete ────────────────────────────────────────────────────────
+  // Suggest based on the last comma-separated fragment.
+  const getActiveFragment = (val) => {
+    const parts = val.split(',');
+    return {
+      prefix: parts.slice(0, -1).join(',').trim(),
+      term: (parts[parts.length - 1] || '').trim(),
+    };
+  };
+
+  const fetchSuggestions = useCallback((term) => {
+    if (!term || term.length < 2 || !OMDB_KEY) {
+      setSuggestions([]);
+      return;
+    }
+    if (suggestAbortRef.current) suggestAbortRef.current.abort();
+    const controller = new AbortController();
+    suggestAbortRef.current = controller;
+
+    const url = `${OMDB_BASE}?apikey=${OMDB_KEY}&s=${encodeURIComponent(term)}`;
+    fetch(url, { signal: controller.signal })
+      .then(r => r.json())
+      .then(data => {
+        const items = (data.Search || []).slice(0, 8).map(it => ({
+          title: it.Title,
+          year: it.Year,
+          type: it.Type,
+          imdbID: it.imdbID,
+          poster: it.Poster && it.Poster !== 'N/A' ? it.Poster : null,
+        }));
+        // Deduplicate by imdbID (preferred) or title+year
+        const seen = new Set();
+        const unique = items.filter(it => {
+          const k = it.imdbID || `${it.title}|${it.year}`;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          return true;
+        });
+        setSuggestions(unique);
+      })
+      .catch(() => { /* ignored */ });
+  }, []);
+
+  const handleQueryChange = (val) => {
+    setQuery(val);
+    const { term } = getActiveFragment(val);
+    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+    suggestDebounceRef.current = setTimeout(() => fetchSuggestions(term), 300);
+  };
+
+  const handleSuggestionSelect = (_value, option) => {
+    const suggestion = option?.suggestion;
+    if (suggestion) {
+      addExactTitle(suggestion);
+    } else {
+      addSingleTitle(_value);
+    }
+  };
+
+  useEffect(() => () => {
+    if (suggestDebounceRef.current) clearTimeout(suggestDebounceRef.current);
+    if (suggestAbortRef.current) suggestAbortRef.current.abort();
+  }, []);
+
+  const autocompleteOptions = suggestions.map((s, i) => ({
+    value: `${s.title}__${s.imdbID || s.year || i}`,
+    suggestion: s,
+    key: `${s.imdbID || s.title}-${s.year}-${i}`,
+    label: (
+      <div className="poster-suggest-item">
+        {s.poster ? (
+          <img src={s.poster} alt="" className="poster-suggest-thumb" />
+        ) : (
+          <div className="poster-suggest-thumb poster-suggest-thumb-empty">🎬</div>
+        )}
+        <div className="poster-suggest-meta">
+          <div className="poster-suggest-title">{s.title}</div>
+          <div className="poster-suggest-sub">
+            {s.year}{s.type ? ` · ${s.type}` : ''}
+          </div>
+        </div>
+      </div>
+    ),
+  }));
+
   const mobile = isMobile();
-  const selectedCount = getSelectedCount();
+  const selectedCount = selected.size;
 
   return (
     <div className="poster-page">
@@ -240,7 +456,7 @@ const PosterFinder = () => {
         🎬 Poster Finder
       </Title>
       <Text type="secondary" style={{ display: 'block', marginBottom: 'var(--space-md)' }}>
-        Search for movie &amp; TV series posters. Enter titles separated by commas. No API key needed.
+        Search for movie &amp; TV series posters from iTunes &amp; OMDB. Enter titles separated by commas.
       </Text>
 
       {/* Cache clear */}
@@ -252,16 +468,24 @@ const PosterFinder = () => {
 
       {/* Search Input */}
       <div className="poster-search-bar">
-        <Input
-          placeholder="e.g. Inception, Breaking Bad, Interstellar"
+        <AutoComplete
           value={query}
-          onChange={e => setQuery(e.target.value)}
-          onPressEnter={searchTitles}
-          prefix={<SearchOutlined style={{ color: 'var(--color-text-muted)' }} />}
-          size="large"
-          allowClear
+          options={autocompleteOptions}
+          onChange={handleQueryChange}
+          onSelect={handleSuggestionSelect}
+          style={{ flex: 1 }}
+          popupClassName="poster-suggest-dropdown"
           disabled={loading}
-        />
+        >
+          <Input
+            placeholder="e.g. Inception, Breaking Bad, Interstellar"
+            onPressEnter={searchTitles}
+            prefix={<SearchOutlined style={{ color: 'var(--color-text-muted)' }} />}
+            size="large"
+            allowClear
+            disabled={loading}
+          />
+        </AutoComplete>
         <Button
           type="primary"
           size="large"
@@ -273,12 +497,29 @@ const PosterFinder = () => {
         </Button>
       </div>
 
+      {/* Selected title tags */}
+      {results.length > 0 && (
+        <div className="poster-tags-bar">
+          {results.map((r, idx) => (
+            <Tag
+              key={`tag-${idx}-${r.title}`}
+              closable
+              onClose={(e) => { e.preventDefault(); removeTitle(idx); }}
+              className="poster-title-tag"
+              color={r.error ? 'error' : 'blue'}
+            >
+              {r.title}
+            </Tag>
+          ))}
+        </div>
+      )}
+
       {/* Action Bar */}
       {results.length > 0 && (
         <div className="poster-action-bar">
           <div className="poster-action-left">
             <Text type="secondary">
-              {results.length} title(s) · {results.reduce((s, r) => s + r.images.length, 0)} images
+              {results.length} title(s)
             </Text>
             {selectedCount > 0 && (
               <Text strong style={{ color: 'var(--color-primary)' }}>
@@ -287,13 +528,13 @@ const PosterFinder = () => {
             )}
           </div>
           <div className="poster-action-right">
-            <Tooltip title="Shuffle all">
-              <Button icon={<SwapOutlined />} size="small" onClick={() => shuffleImages('all')} />
-            </Tooltip>
+            <Button icon={<DeleteOutlined />} size="small" onClick={clearAll}>
+              Clear all
+            </Button>
             {selectedCount > 0 && (
               <>
                 <Button icon={<DeleteOutlined />} size="small" onClick={clearSelection}>
-                  Clear
+                  Deselect
                 </Button>
                 <Button
                   type="primary"
@@ -318,111 +559,79 @@ const PosterFinder = () => {
         </div>
       )}
 
-      {/* Results */}
-      {!loading && results.map((result, tIdx) => (
-        <div key={tIdx} className="poster-title-group">
-          <div className="poster-title-header">
-            <div className="poster-title-info">
-              <Title level={4} style={{ margin: 0 }}>{result.title}</Title>
-              {!result.error && (
-                <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                  {result.images.length} image(s)
-                </Text>
-              )}
-            </div>
-            <div className="poster-title-actions">
-              <Tooltip title="Shuffle">
-                <Button icon={<SwapOutlined />} size="small" onClick={() => shuffleImages(tIdx)} />
-              </Tooltip>
-              <Tooltip title={
-                results[tIdx]?.images?.length > 0 &&
-                results[tIdx].images.every(img => selected[tIdx]?.has(img.id))
-                  ? 'Deselect all' : 'Select all'
-              }>
-                <Button
-                  icon={
-                    results[tIdx]?.images?.length > 0 &&
-                    results[tIdx].images.every(img => selected[tIdx]?.has(img.id))
-                      ? <CheckSquareOutlined /> : <BorderOutlined />
-                  }
-                  size="small"
-                  onClick={() => selectAllForTitle(tIdx)}
-                />
-              </Tooltip>
-            </div>
-          </div>
-
-          {result.error ? (
-            <div className="poster-error">
-              <Empty
-                description={<Text type="secondary">{result.error} for "{result.title}"</Text>}
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            </div>
-          ) : result.images.length === 0 ? (
-            <div className="poster-error">
-              <Empty
-                description={<Text type="secondary">No images found for "{result.title}"</Text>}
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-              />
-            </div>
-          ) : (
-            <div className="poster-grid">
-              {result.images.map(img => {
-                const isSelected = selected[tIdx]?.has(img.id);
-                return (
-                  <div
-                    key={img.id}
-                    className={`poster-card ${isSelected ? 'poster-card-selected' : ''}`}
-                    onClick={() => toggleSelect(tIdx, img.id)}
-                  >
-                    <div className="poster-img-wrapper">
-                      <img
-                        src={img.url}
-                        alt={img.label}
-                        loading="lazy"
-                      />
-                      <div className="poster-overlay">
-                        <Checkbox checked={isSelected} className="poster-checkbox" />
-                        <div className="poster-overlay-actions">
-                          <Tooltip title="Preview">
-                            <Button
-                              icon={<EyeOutlined />}
-                              size="small"
-                              shape="circle"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPreviewImg({ ...img, title: result.title });
-                              }}
-                            />
-                          </Tooltip>
-                          <Tooltip title="Download">
-                            <Button
-                              icon={<DownloadOutlined />}
-                              size="small"
-                              shape="circle"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const safeName = result.title.replace(/[^a-zA-Z0-9]/g, '_');
-                                downloadImage(img.urlHD || img.url, `${safeName}_${img.id}.jpg`);
-                              }}
-                            />
-                          </Tooltip>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="poster-card-label">
+      {/* Results — one poster per title */}
+      {!loading && results.length > 0 && (
+        <div className="poster-grid">
+          {results.map((result, tIdx) => {
+            if (result.error || !result.image) {
+              return (
+                <div key={tIdx} className="poster-card poster-card-error">
+                  <Empty
+                    description={
                       <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                        {img.label}{img.year ? ` (${img.year})` : ''} · {img.kind}
+                        {result.error || 'No poster'} — "{result.title}"
                       </Text>
+                    }
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  />
+                </div>
+              );
+            }
+
+            const img = result.image;
+            const isSelected = selected.has(tIdx);
+            return (
+              <div
+                key={tIdx}
+                className={`poster-card ${isSelected ? 'poster-card-selected' : ''}`}
+                onClick={() => toggleSelect(tIdx)}
+              >
+                <div className="poster-img-wrapper">
+                  <img src={img.url} alt={img.label} loading="lazy" />
+                  <div className="poster-overlay">
+                    <Checkbox checked={isSelected} className="poster-checkbox" />
+                    <div className="poster-overlay-actions">
+                      <Tooltip title="Preview">
+                        <Button
+                          icon={<EyeOutlined />}
+                          size="small"
+                          shape="circle"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewImg({ ...img, title: result.title });
+                          }}
+                        />
+                      </Tooltip>
+                      <Tooltip title="Download">
+                        <Button
+                          icon={<DownloadOutlined />}
+                          size="small"
+                          shape="circle"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const safeName = result.title.replace(/[^a-zA-Z0-9]/g, '_');
+                            downloadImage(img.urlHD || img.url, `${safeName}.jpg`);
+                          }}
+                        />
+                      </Tooltip>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
+                </div>
+                <div className="poster-card-label">
+                  <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                    {result.title} · {img.kind}
+                  </Text>
+                  {img.source && (
+                    <div className={`poster-source poster-source-${img.source.toLowerCase()}`}>
+                      {img.source}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      ))}
+      )}
 
       {/* Empty state */}
       {!loading && results.length === 0 && (
@@ -445,7 +654,7 @@ const PosterFinder = () => {
           <Button key="download" type="primary" icon={<DownloadOutlined />} onClick={() => {
             if (!previewImg) return;
             const safeName = previewImg.title.replace(/[^a-zA-Z0-9]/g, '_');
-            downloadImage(previewImg.urlHD || previewImg.url, `${safeName}_${previewImg.id}.jpg`);
+            downloadImage(previewImg.urlHD || previewImg.url, `${safeName}.jpg`);
           }}>
             Download HD
           </Button>,
