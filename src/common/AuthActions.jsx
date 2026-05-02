@@ -119,9 +119,9 @@ const AuthActions = () => {
                         <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>OR</Text>
                     </Divider>
 
-                    <Button type="text" onClick={toggleAuthMode} block style={{ color: 'var(--color-primary)' }}>
+                    {/* <Button type="text" onClick={toggleAuthMode} block style={{ color: 'var(--color-primary)' }}>
                         {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-                    </Button>
+                    </Button> */}
                 </>
             )}
             </div>

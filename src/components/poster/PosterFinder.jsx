@@ -459,13 +459,6 @@ const PosterFinder = () => {
         Search for movie &amp; TV series posters from iTunes &amp; OMDB. Enter titles separated by commas.
       </Text>
 
-      {/* Cache clear */}
-      <div className="poster-settings-bar">
-        <Tooltip title="Clear cache">
-          <Button icon={<DeleteOutlined />} size="small" onClick={clearCache}>Clear Cache</Button>
-        </Tooltip>
-      </div>
-
       {/* Search Input */}
       <div className="poster-search-bar">
         <AutoComplete
