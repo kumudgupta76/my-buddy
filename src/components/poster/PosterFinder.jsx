@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Typography, Input, Button, Spin, Modal, Checkbox, message, Empty, Tooltip, AutoComplete, Tag } from 'antd';
+import { Typography, Input, Button, Spin, Modal, Checkbox, message, Empty, Tooltip, AutoComplete, Tag, Upload, Slider } from 'antd';
 import {
   SearchOutlined, DownloadOutlined, DeleteOutlined,
-  EyeOutlined,
+  EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
 } from '@ant-design/icons';
 import { isMobile } from '../../common/utils';
 import './PosterFinder.css';
@@ -13,6 +13,7 @@ const ITUNES_BASE = 'https://itunes.apple.com/search';
 const OMDB_BASE = 'https://www.omdbapi.com/';
 const OMDB_KEY = process.env.REACT_APP_OMDB_API_KEY;
 const CACHE_KEY = 'poster-finder-cache-v2';
+const DEFAULT_BG_URL = `${process.env.PUBLIC_URL || ''}/assets/background.png`;
 
 const getCachedResults = () => {
   try {
@@ -32,11 +33,26 @@ const resizeArtwork = (url, size) => url.replace(/\d+x\d+bb/, `${size}x${size}bb
 const PosterFinder = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]); // [{title, image: {url, urlHD, label, kind, year, source}, error?, imdbID?}]
-  const [selected, setSelected] = useState(() => new Set()); // Set<titleIdx>
+  const [selectedOrder, setSelectedOrder] = useState([]); // ordered array of titleIdx
   const [loading, setLoading] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const [collageOpen, setCollageOpen] = useState(false);
+  const [collageTitle, setCollageTitle] = useState('Watch Of The Week # 4');
+  const [collageTitleSize, setCollageTitleSize] = useState(56); // canvas px
+  const [collageTitleColor, setCollageTitleColor] = useState('#ffd84a');
+  const [collageBg, setCollageBg] = useState(null); // dataURL of user-uploaded bg
+  const [useDefaultBg, setUseDefaultBg] = useState(true);
+  const [collageRendering, setCollageRendering] = useState(false);
+  // Per-poster adjustments keyed by titleIdx: { scale: 1..3, offsetX: -100..100, offsetY: -100..100 }
+  const [adjustments, setAdjustments] = useState({});
+  const [activeSlot, setActiveSlot] = useState(0); // index within selectedOrder
+  // Manual poster modal
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualImage, setManualImage] = useState(null); // dataURL
+  const [manualUrl, setManualUrl] = useState('');
   const suggestDebounceRef = useRef(null);
   const suggestAbortRef = useRef(null);
 
@@ -96,7 +112,7 @@ const PosterFinder = () => {
   // Clear all results, selections, and the input.
   const clearAll = () => {
     setResults([]);
-    setSelected(new Set());
+    setSelectedOrder([]);
     setQuery('');
     setSuggestions([]);
   };
@@ -294,26 +310,33 @@ const PosterFinder = () => {
   // Remove a title (and its selection) from the results.
   const removeTitle = (idx) => {
     setResults(prev => prev.filter((_, i) => i !== idx));
-    setSelected(prev => {
-      const next = new Set();
-      prev.forEach(i => {
-        if (i === idx) return;
-        next.add(i > idx ? i - 1 : i);
+    setSelectedOrder(prev => prev
+      .filter(i => i !== idx)
+      .map(i => (i > idx ? i - 1 : i))
+    );
+    setAdjustments(prev => {
+      const next = {};
+      Object.keys(prev).forEach(k => {
+        const ki = parseInt(k, 10);
+        if (ki === idx) return;
+        next[ki > idx ? ki - 1 : ki] = prev[k];
       });
       return next;
     });
   };
 
   const toggleSelect = (titleIdx) => {
-    setSelected(prev => {
-      const next = new Set(prev);
-      if (next.has(titleIdx)) next.delete(titleIdx);
-      else next.add(titleIdx);
-      return next;
+    setSelectedOrder(prev => {
+      if (prev.includes(titleIdx)) return prev.filter(i => i !== titleIdx);
+      if (prev.length >= 4) {
+        message.info('You can select up to 4 posters for a collage');
+        return prev;
+      }
+      return [...prev, titleIdx];
     });
   };
 
-  const clearSelection = () => setSelected(new Set());
+  const clearSelection = () => setSelectedOrder([]);
 
   const downloadImage = async (url, filename) => {
     try {
@@ -334,8 +357,9 @@ const PosterFinder = () => {
 
   const downloadSelected = async () => {
     const items = [];
-    results.forEach((r, tIdx) => {
-      if (!selected.has(tIdx) || !r.image) return;
+    selectedOrder.forEach(tIdx => {
+      const r = results[tIdx];
+      if (!r || !r.image) return;
       const safeName = r.title.replace(/[^a-zA-Z0-9]/g, '_');
       items.push({ url: r.image.urlHD || r.image.url, filename: `${safeName}.jpg` });
     });
@@ -426,6 +450,15 @@ const PosterFinder = () => {
     if (suggestAbortRef.current) suggestAbortRef.current.abort();
   }, []);
 
+  // Clamp the active slot whenever selection changes
+  useEffect(() => {
+    if (selectedOrder.length === 0) {
+      setActiveSlot(0);
+    } else if (activeSlot >= selectedOrder.length) {
+      setActiveSlot(selectedOrder.length - 1);
+    }
+  }, [selectedOrder, activeSlot]);
+
   const autocompleteOptions = suggestions.map((s, i) => ({
     value: `${s.title}__${s.imdbID || s.year || i}`,
     suggestion: s,
@@ -448,7 +481,301 @@ const PosterFinder = () => {
   }));
 
   const mobile = isMobile();
-  const selectedCount = selected.size;
+  const selectedCount = selectedOrder.length;
+
+  // ─── Collage helpers ─────────────────────────────────────────────────────
+  const handleBgUpload = (file) => {
+    const reader = new FileReader();
+    reader.onload = (e) => setCollageBg(e.target.result);
+    reader.readAsDataURL(file);
+    return false; // prevent antd auto-upload
+  };
+
+  // ─── Manual poster ──────────────────────────────────────────────────────────
+  const openManualModal = () => {
+    setManualTitle('');
+    setManualImage(null);
+    setManualUrl('');
+    setManualOpen(true);
+  };
+
+  const handleManualImageUpload = (file) => {
+    if (!file.type || !file.type.startsWith('image/')) {
+      message.error('Please select an image file');
+      return false;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => setManualImage(e.target.result);
+    reader.readAsDataURL(file);
+    return false;
+  };
+
+  const submitManualPoster = () => {
+    const title = manualTitle.trim();
+    if (!title) {
+      message.warning('Please enter a title');
+      return;
+    }
+    const src = manualImage || manualUrl.trim();
+    if (!src) {
+      message.warning('Please upload an image or paste an image URL');
+      return;
+    }
+    if (results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
+      message.info(`"${title}" is already added`);
+      return;
+    }
+    const entry = {
+      title,
+      image: {
+        url: src,
+        urlHD: src,
+        label: title,
+        kind: 'Manual',
+        year: null,
+        source: 'Manual',
+      },
+    };
+    setResults(prev => [...prev, entry]);
+    setManualOpen(false);
+    message.success(`Added "${title}"`);
+  };
+
+  const fetchAsImage = (url) => new Promise((resolve, reject) => {
+    fetch(url)
+      .then(r => r.blob())
+      .then(blob => {
+        const objectUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => { resolve({ img, objectUrl }); };
+        img.onerror = (e) => { URL.revokeObjectURL(objectUrl); reject(e); };
+        img.src = objectUrl;
+      })
+      .catch(reject);
+  });
+
+  // Compute poster slot rectangles inside a content box [x,y,w,h] for n posters.
+  const computeSlots = (n, x, y, w, h, gap) => {
+    if (n === 2) {
+      const cw = (w - gap) / 2;
+      return [
+        { x, y, w: cw, h },
+        { x: x + cw + gap, y, w: cw, h },
+      ];
+    }
+    if (n === 3) {
+      // Big left, two stacked right
+      const lw = (w - gap) * 0.55;
+      const rw = w - gap - lw;
+      const rh = (h - gap) / 2;
+      return [
+        { x, y, w: lw, h },
+        { x: x + lw + gap, y, w: rw, h: rh },
+        { x: x + lw + gap, y: y + rh + gap, w: rw, h: rh },
+      ];
+    }
+    // 4 posters: 2x2
+    const cw = (w - gap) / 2;
+    const ch = (h - gap) / 2;
+    return [
+      { x, y, w: cw, h: ch },
+      { x: x + cw + gap, y, w: cw, h: ch },
+      { x, y: y + ch + gap, w: cw, h: ch },
+      { x: x + cw + gap, y: y + ch + gap, w: cw, h: ch },
+    ];
+  };
+
+  const roundRectPath = (ctx, x, y, w, h, r) => {
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  };
+
+  // Draw `img` into rect using object-fit: cover.
+  const drawCover = (ctx, img, x, y, w, h) => {
+    const ir = img.width / img.height;
+    const tr = w / h;
+    let sx, sy, sw, sh;
+    if (ir > tr) {
+      sh = img.height;
+      sw = img.height * tr;
+      sx = (img.width - sw) / 2;
+      sy = 0;
+    } else {
+      sw = img.width;
+      sh = img.width / tr;
+      sx = 0;
+      sy = (img.height - sh) / 2;
+    }
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  };
+
+  // Draw with cover + per-poster scale (zoom) and pan offset in -100..100 (% of pannable range).
+  const drawCoverAdjusted = (ctx, img, x, y, w, h, adj) => {
+    const scale = Math.max(1, adj?.scale || 1);
+    const ox = (adj?.offsetX || 0) / 100; // -1..1
+    const oy = (adj?.offsetY || 0) / 100;
+    const ir = img.width / img.height;
+    const tr = w / h;
+    let sw, sh;
+    if (ir > tr) {
+      sh = img.height;
+      sw = img.height * tr;
+    } else {
+      sw = img.width;
+      sh = img.width / tr;
+    }
+    sw /= scale;
+    sh /= scale;
+    const maxSx = img.width - sw;
+    const maxSy = img.height - sh;
+    const sx = Math.min(Math.max(0, maxSx / 2 + (maxSx / 2) * ox), maxSx);
+    const sy = Math.min(Math.max(0, maxSy / 2 + (maxSy / 2) * oy), maxSy);
+    ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h);
+  };
+
+  const downloadCollage = async () => {
+    const items = selectedOrder.map(i => results[i]).filter(r => r && r.image);
+    if (items.length < 2 || items.length > 4) {
+      message.warning('Select 2 to 4 posters');
+      return;
+    }
+
+    setCollageRendering(true);
+    const W = 1200;
+    const H = 1500;
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    const objectUrls = [];
+
+    try {
+      // Background: user upload > default > gradient
+      const activeBg = collageBg || (useDefaultBg ? DEFAULT_BG_URL : null);
+      if (activeBg) {
+        try {
+          const bgImg = await new Promise((res, rej) => {
+            const im = new Image();
+            im.crossOrigin = 'anonymous';
+            im.onload = () => res(im);
+            im.onerror = rej;
+            im.src = activeBg;
+          });
+          drawCover(ctx, bgImg, 0, 0, W, H);
+          ctx.fillStyle = 'rgba(0,0,0,0.35)';
+          ctx.fillRect(0, 0, W, H);
+        } catch {
+          ctx.fillStyle = '#1a0b2e';
+          ctx.fillRect(0, 0, W, H);
+        }
+      } else {
+        const grad = ctx.createLinearGradient(0, 0, W, H);
+        grad.addColorStop(0, '#2b0a3d');
+        grad.addColorStop(1, '#1a0b2e');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
+      }
+
+      // Title
+      const titleSize = Math.max(20, Math.min(140, collageTitleSize || 56));
+      const titleY = Math.max(40, Math.round(titleSize * 0.9));
+      ctx.fillStyle = collageTitleColor || '#ffd84a';
+      ctx.font = `bold ${titleSize}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.shadowColor = 'rgba(0,0,0,0.6)';
+      ctx.shadowBlur = 12;
+      ctx.fillText(collageTitle, W / 2, titleY);
+      ctx.shadowBlur = 0;
+
+      // Posters area (top padding scales with title size)
+      const padX = 80;
+      const top = titleY + titleSize + 60;
+      const bottom = 120;
+      const slots = computeSlots(items.length, padX, top, W - padX * 2, H - top - bottom, 28);
+
+      // Load images concurrently
+      const loaded = await Promise.all(items.map(it => fetchAsImage(it.image.urlHD || it.image.url)));
+      loaded.forEach(l => objectUrls.push(l.objectUrl));
+
+      slots.forEach((s, i) => {
+        const tIdx = selectedOrder[i];
+        const adj = adjustments[tIdx];
+
+        // Outer padded "card" frame (like the sample) with shadow
+        const cardR = 28;
+        const innerPad = 14;
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.55)';
+        ctx.shadowBlur = 28;
+        ctx.shadowOffsetY = 10;
+        roundRectPath(ctx, s.x, s.y, s.w, s.h, cardR);
+        ctx.fillStyle = 'rgba(20, 8, 36, 0.55)';
+        ctx.fill();
+        ctx.restore();
+
+        // Card border (subtle, matches the reference)
+        ctx.save();
+        roundRectPath(ctx, s.x + 1, s.y + 1, s.w - 2, s.h - 2, cardR);
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+
+        // Inner poster rect (with padding)
+        const ix = s.x + innerPad;
+        const iy = s.y + innerPad;
+        const iw = s.w - innerPad * 2;
+        const ih = s.h - innerPad * 2;
+        const innerR = cardR - innerPad + 4;
+
+        ctx.save();
+        roundRectPath(ctx, ix, iy, iw, ih, innerR);
+        ctx.clip();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(ix, iy, iw, ih);
+        drawCoverAdjusted(ctx, loaded[i].img, ix, iy, iw, ih, adj);
+        ctx.restore();
+
+        // Inner subtle border
+        ctx.save();
+        roundRectPath(ctx, ix + 0.5, iy + 0.5, iw - 1, ih - 1, innerR);
+        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Trigger download
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          message.error('Failed to generate collage');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const safe = collageTitle.replace(/[^a-zA-Z0-9]+/g, '_');
+        a.download = `${safe || 'collage'}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        message.success('Collage downloaded');
+      }, 'image/png');
+    } catch (e) {
+      message.error('Failed to render collage. Some images may be blocked by CORS.');
+    } finally {
+      objectUrls.forEach(u => URL.revokeObjectURL(u));
+      setCollageRendering(false);
+    }
+  };
 
   return (
     <div className="poster-page">
@@ -488,6 +815,15 @@ const PosterFinder = () => {
         >
           {mobile ? '' : 'Search'}
         </Button>
+        <Tooltip title="Add a poster manually (when OMDB has no result)">
+          <Button
+            size="large"
+            icon={<PlusOutlined />}
+            onClick={openManualModal}
+          >
+            {mobile ? '' : 'Add manually'}
+          </Button>
+        </Tooltip>
       </div>
 
       {/* Selected title tags */}
@@ -524,6 +860,17 @@ const PosterFinder = () => {
             <Button icon={<DeleteOutlined />} size="small" onClick={clearAll}>
               Clear all
             </Button>
+            {selectedCount >= 2 && selectedCount <= 4 && (
+              <Button
+                type="primary"
+                ghost
+                icon={<AppstoreOutlined />}
+                size="small"
+                onClick={() => setCollageOpen(true)}
+              >
+                Create Collage ({selectedCount})
+              </Button>
+            )}
             {selectedCount > 0 && (
               <>
                 <Button icon={<DeleteOutlined />} size="small" onClick={clearSelection}>
@@ -572,7 +919,8 @@ const PosterFinder = () => {
             }
 
             const img = result.image;
-            const isSelected = selected.has(tIdx);
+            const orderIdx = selectedOrder.indexOf(tIdx);
+            const isSelected = orderIdx !== -1;
             return (
               <div
                 key={tIdx}
@@ -581,6 +929,11 @@ const PosterFinder = () => {
               >
                 <div className="poster-img-wrapper">
                   <img src={img.url} alt={img.label} loading="lazy" />
+                  {isSelected && (
+                    <div className="poster-order-badge" title={`Position ${orderIdx + 1}`}>
+                      {orderIdx + 1}
+                    </div>
+                  )}
                   <div className="poster-overlay">
                     <Checkbox checked={isSelected} className="poster-checkbox" />
                     <div className="poster-overlay-actions">
@@ -664,6 +1017,297 @@ const PosterFinder = () => {
             style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: 'var(--radius-md)' }}
           />
         )}
+      </Modal>
+
+      {/* Collage Modal */}
+      <Modal
+        open={collageOpen}
+        onCancel={() => setCollageOpen(false)}
+        title="Create Poster Collage"
+        width={mobile ? '98%' : 1080}
+        centered
+        className="collage-modal"
+        bodyStyle={{ padding: 0 }}
+        footer={[
+          <Button key="cancel" onClick={() => setCollageOpen(false)}>Close</Button>,
+          <Button
+            key="bg-clear"
+            onClick={() => setCollageBg(null)}
+            disabled={!collageBg}
+          >
+            Reset background
+          </Button>,
+          <Button
+            key="dl"
+            type="primary"
+            icon={<DownloadOutlined />}
+            loading={collageRendering}
+            onClick={downloadCollage}
+            disabled={selectedCount < 2}
+          >
+            Download collage
+          </Button>,
+        ]}
+      >
+        <div className="collage-workspace">
+          {/* ── Preview pane ───────────────────────────────────────── */}
+          <div className="collage-stage">
+            {selectedCount < 2 ? (
+              <div className="collage-stage-empty">
+                <PictureOutlined style={{ fontSize: 48, opacity: 0.5 }} />
+                <Text type="secondary" style={{ marginTop: 8 }}>
+                  Select 2 to 4 posters in the grid to start building your collage.
+                </Text>
+              </div>
+            ) : (
+              <div
+                className={`collage-preview collage-preview-${selectedCount}`}
+                style={(() => {
+                  const bg = collageBg || (useDefaultBg ? DEFAULT_BG_URL : null);
+                  return bg ? { backgroundImage: `url(${bg})` } : {};
+                })()}
+              >
+                <div className="collage-preview-overlay" />
+                <div
+                  className="collage-preview-title"
+                  style={{
+                    color: collageTitleColor,
+                    fontSize: `${(collageTitleSize / 1200) * 100}cqw`,
+                  }}
+                >
+                  {collageTitle}
+                </div>
+                <div className={`collage-grid collage-grid-${selectedCount}`}>
+                  {selectedOrder.map((tIdx, i) => {
+                    const r = results[tIdx];
+                    if (!r || !r.image) return null;
+                    const adj = adjustments[tIdx] || { scale: 1, offsetX: 0, offsetY: 0 };
+                    const isActive = activeSlot === i;
+                    return (
+                      <div
+                        key={tIdx}
+                        className={`collage-slot collage-slot-${i + 1} ${isActive ? 'collage-slot-active' : ''}`}
+                        onClick={() => setActiveSlot(i)}
+                      >
+                        <div className="collage-slot-inner">
+                          <img
+                            src={r.image.url}
+                            alt={r.title}
+                            style={{
+                              transform: `translate(${adj.offsetX / 2}%, ${adj.offsetY / 2}%) scale(${adj.scale})`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Side panel ─────────────────────────────────────────── */}
+          <div className="collage-side">
+            <div className="collage-side-section">
+              <div className="collage-side-label">Title</div>
+              <Input
+                value={collageTitle}
+                onChange={(e) => setCollageTitle(e.target.value)}
+                placeholder="Watch Of The Week # 4"
+                prefix={<PictureOutlined />}
+                allowClear
+              />
+              <div className="collage-adjust-row" style={{ marginTop: 8 }}>
+                <span className="collage-adjust-label">Size</span>
+                <Slider
+                  min={24}
+                  max={120}
+                  step={1}
+                  value={collageTitleSize}
+                  onChange={setCollageTitleSize}
+                  tooltip={{ formatter: (v) => `${v}px` }}
+                />
+              </div>
+              <div className="collage-adjust-row">
+                <span className="collage-adjust-label">Color</span>
+                <div className="collage-color-row">
+                  <input
+                    type="color"
+                    className="collage-color-swatch"
+                    value={collageTitleColor}
+                    onChange={(e) => setCollageTitleColor(e.target.value)}
+                    aria-label="Title color"
+                  />
+                  <div className="collage-color-presets">
+                    {['#ffd84a', '#ffffff', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
+                      <button
+                        key={c}
+                        type="button"
+                        className={`collage-color-preset ${collageTitleColor.toLowerCase() === c ? 'active' : ''}`}
+                        style={{ background: c }}
+                        onClick={() => setCollageTitleColor(c)}
+                        aria-label={`Set title color ${c}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="collage-side-section">
+              <div className="collage-side-label">Background</div>
+              <div className="collage-bg-row">
+                <Upload
+                  accept="image/*"
+                  showUploadList={false}
+                  beforeUpload={handleBgUpload}
+                >
+                  <Button icon={<UploadOutlined />} size="small">
+                    {collageBg ? 'Change' : 'Upload'}
+                  </Button>
+                </Upload>
+                {collageBg && (
+                  <Button
+                    icon={<DeleteOutlined />}
+                    size="small"
+                    onClick={() => setCollageBg(null)}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <Checkbox
+                checked={useDefaultBg}
+                onChange={(e) => setUseDefaultBg(e.target.checked)}
+                disabled={!!collageBg}
+                style={{ marginTop: 8 }}
+              >
+                Use default background
+              </Checkbox>
+            </div>
+
+            {selectedCount >= 2 && (
+              <div className="collage-side-section">
+                <div className="collage-side-label">
+                  Posters · click to adjust
+                </div>
+                <div className="collage-thumbs">
+                  {selectedOrder.map((tIdx, i) => {
+                    const r = results[tIdx];
+                    if (!r || !r.image) return null;
+                    return (
+                      <button
+                        type="button"
+                        key={tIdx}
+                        className={`collage-thumb ${activeSlot === i ? 'collage-thumb-active' : ''}`}
+                        onClick={() => setActiveSlot(i)}
+                        title={r.title}
+                      >
+                        <img src={r.image.url} alt={r.title} />
+                        <span className="collage-thumb-num">{i + 1}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {selectedCount >= 2 && selectedOrder[activeSlot] != null && (() => {
+              const tIdx = selectedOrder[activeSlot];
+              const r = results[tIdx];
+              const adj = adjustments[tIdx] || { scale: 1, offsetX: 0, offsetY: 0 };
+              const setAdj = (patch) => setAdjustments(prev => ({
+                ...prev,
+                [tIdx]: { scale: 1, offsetX: 0, offsetY: 0, ...prev[tIdx], ...patch },
+              }));
+              return (
+                <div className="collage-side-section">
+                  <div className="collage-adjust-header">
+                    <span className="collage-side-label" style={{ marginBottom: 0 }}>
+                      Adjust #{activeSlot + 1}
+                    </span>
+                    <Button
+                      size="small"
+                      type="text"
+                      icon={<ReloadOutlined />}
+                      onClick={() => setAdjustments(prev => {
+                        const next = { ...prev };
+                        delete next[tIdx];
+                        return next;
+                      })}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                  <Text type="secondary" ellipsis style={{ display: 'block', fontSize: 'var(--text-xs)', marginBottom: 8 }}>
+                    {r ? r.title : ''}
+                  </Text>
+                  <div className="collage-adjust-row">
+                    <span className="collage-adjust-label">Zoom</span>
+                    <Slider min={1} max={3} step={0.05} value={adj.scale} onChange={(v) => setAdj({ scale: v })} />
+                  </div>
+                  <div className="collage-adjust-row">
+                    <span className="collage-adjust-label">Pan X</span>
+                    <Slider min={-100} max={100} step={1} value={adj.offsetX} onChange={(v) => setAdj({ offsetX: v })} />
+                  </div>
+                  <div className="collage-adjust-row">
+                    <span className="collage-adjust-label">Pan Y</span>
+                    <Slider min={-100} max={100} step={1} value={adj.offsetY} onChange={(v) => setAdj({ offsetY: v })} />
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Manual Poster Modal */}
+      <Modal
+        open={manualOpen}
+        onCancel={() => setManualOpen(false)}
+        title="Add poster manually"
+        width={mobile ? '95%' : 520}
+        centered
+        okText="Add poster"
+        onOk={submitManualPoster}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+          <Input
+            value={manualTitle}
+            onChange={(e) => setManualTitle(e.target.value)}
+            placeholder="Title (e.g. My Custom Movie)"
+            allowClear
+          />
+          <Upload
+            accept="image/*"
+            showUploadList={false}
+            beforeUpload={handleManualImageUpload}
+          >
+            <Button icon={<UploadOutlined />} block>
+              {manualImage ? 'Change image' : 'Upload poster image'}
+            </Button>
+          </Upload>
+          <Input
+            value={manualUrl}
+            onChange={(e) => setManualUrl(e.target.value)}
+            placeholder="…or paste an image URL"
+            allowClear
+            disabled={!!manualImage}
+          />
+          {(manualImage || manualUrl) && (
+            <div className="manual-preview">
+              <img
+                src={manualImage || manualUrl}
+                alt="preview"
+                onError={() => message.warning('Image failed to load — check the URL')}
+              />
+            </div>
+          )}
+          <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+            Tip: uploaded images are embedded locally. URLs must allow cross-origin access for the
+            collage download to render them; otherwise upload the file directly.
+          </Text>
+        </div>
       </Modal>
     </div>
   );
