@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Typography, Input, Button, Spin, Modal, Checkbox, message, Empty, Tooltip, AutoComplete, Tag, Upload, Slider } from 'antd';
+import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Empty, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented } from 'antd';
 import {
   SearchOutlined, DownloadOutlined, DeleteOutlined,
   EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
+  FontSizeOutlined, BgColorsOutlined, EditOutlined,
 } from '@ant-design/icons';
 import { isMobile } from '../../common/utils';
 import './PosterFinder.css';
@@ -13,7 +14,44 @@ const ITUNES_BASE = 'https://itunes.apple.com/search';
 const OMDB_BASE = 'https://www.omdbapi.com/';
 const OMDB_KEY = process.env.REACT_APP_OMDB_API_KEY;
 const CACHE_KEY = 'poster-finder-cache-v2';
+const SETTINGS_KEY = 'poster-finder-settings-v1';
 const DEFAULT_BG_URL = `${process.env.PUBLIC_URL || ''}/assets/background.png`;
+
+const DEFAULT_SETTINGS = {
+  collageTitle: 'Watch Of The Week #$(Counter)',
+  collageTitleSize: 56,
+  collageTitleColor: '#ffd84a',
+  namesColor: '#ffffff',
+  namesSize: 96,
+  useDefaultBg: true,
+  bgAdjust: { fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 },
+  counter: 1,
+};
+
+const loadSettings = () => {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return { ...DEFAULT_SETTINGS };
+    const parsed = JSON.parse(raw);
+    return {
+      ...DEFAULT_SETTINGS,
+      ...parsed,
+      bgAdjust: { ...DEFAULT_SETTINGS.bgAdjust, ...(parsed.bgAdjust || {}) },
+    };
+  } catch {
+    return { ...DEFAULT_SETTINGS };
+  }
+};
+
+const saveSettings = (settings) => {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch { /* storage full */ }
+};
+
+// Replace tokens in the title template — currently just $(Counter).
+const resolveTitle = (template, counter) =>
+  String(template || '').replace(/\$\(Counter\)/gi, String(counter ?? ''));
 
 const getCachedResults = () => {
   try {
@@ -39,21 +77,31 @@ const PosterFinder = () => {
   const [downloading, setDownloading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [collageOpen, setCollageOpen] = useState(false);
-  const [collageTitle, setCollageTitle] = useState('Watch Of The Week # 4');
-  const [collageTitleSize, setCollageTitleSize] = useState(56); // canvas px
-  const [collageTitleColor, setCollageTitleColor] = useState('#ffd84a');
+  // Persisted settings (lazy-init from localStorage)
+  const initialSettings = (() => loadSettings())();
+  const [collageTitle, setCollageTitle] = useState(initialSettings.collageTitle);
+  const [collageTitleSize, setCollageTitleSize] = useState(initialSettings.collageTitleSize); // canvas px
+  const [collageTitleColor, setCollageTitleColor] = useState(initialSettings.collageTitleColor);
   const [collageBg, setCollageBg] = useState(null); // dataURL of user-uploaded bg
-  const [useDefaultBg, setUseDefaultBg] = useState(true);
+  const [useDefaultBg, setUseDefaultBg] = useState(initialSettings.useDefaultBg);
   // Background adjustments: fit ('stretch' | 'cover' | 'contain'), scale 1..3, offsetX/Y -100..100, dim 0..0.7
-  const [bgAdjust, setBgAdjust] = useState({ fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 });
+  const [bgAdjust, setBgAdjust] = useState(initialSettings.bgAdjust);
   const [collageRendering, setCollageRendering] = useState(false);
   // Per-poster adjustments keyed by titleIdx: { scale: 1..3, offsetX: -100..100, offsetY: -100..100 }
   const [adjustments, setAdjustments] = useState({});
   const [activeSlot, setActiveSlot] = useState(0); // index within selectedOrder
   // Editable names overlay (per-slot text override). Keyed by titleIdx.
   const [nameOverrides, setNameOverrides] = useState({});
-  const [namesColor, setNamesColor] = useState('#ffffff');
+  // Star ratings per titleIdx. Default 4 stars (0..5).
+  const [ratings, setRatings] = useState({});
+  const getRating = (tIdx) => (ratings[tIdx] == null ? 4 : ratings[tIdx]);
+  const setRating = (tIdx, n) =>
+    setRatings(prev => ({ ...prev, [tIdx]: Math.max(0, Math.min(5, n)) }));
+  const [namesColor, setNamesColor] = useState(initialSettings.namesColor);
+  const [namesSize, setNamesSize] = useState(initialSettings.namesSize);
   const [previewMode, setPreviewMode] = useState('posters'); // 'posters' | 'names'
+  // Title $(Counter) token value. Incremented only after a successful download.
+  const [counter, setCounter] = useState(initialSettings.counter);
   // Manual poster modal
   const [manualOpen, setManualOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
@@ -61,6 +109,20 @@ const PosterFinder = () => {
   const [manualUrl, setManualUrl] = useState('');
   const suggestDebounceRef = useRef(null);
   const suggestAbortRef = useRef(null);
+
+  // Persist collage settings to localStorage whenever they change.
+  useEffect(() => {
+    saveSettings({
+      collageTitle,
+      collageTitleSize,
+      collageTitleColor,
+      namesColor,
+      namesSize,
+      useDefaultBg,
+      bgAdjust,
+      counter,
+    });
+  }, [collageTitle, collageTitleSize, collageTitleColor, namesColor, namesSize, useDefaultBg, bgAdjust, counter]);
 
   const fetchWithTimeout = async (url, timeoutMs = 10000) => {
     const controller = new AbortController();
@@ -561,33 +623,94 @@ const PosterFinder = () => {
   });
 
   // Compute poster slot rectangles inside a content box [x,y,w,h] for n posters.
+  // Layouts:
+  //  - 2 posters: staggered diagonal — first top-left, second bottom-right.
+  //  - 3 posters: pyramid — two on top row, one centered below.
+  //  - 4 posters: 2x2 grid.
+  // All tiles within a layout share the same size and 2:3 aspect.
   const computeSlots = (n, x, y, w, h, gap) => {
+    const ASPECT = 1.5; // height / width for a standard movie poster
+
+    const fitTile = (cols, rows, hOverlap = 0) => {
+      // hOverlap shrinks the effective total height since rows overlap vertically.
+      const wByW = (w - (cols - 1) * gap) / cols;
+      const hAvail = h + (rows - 1) * hOverlap; // gain back overlap
+      const hByH = (hAvail - (rows - 1) * gap) / rows;
+      const tileW = Math.min(wByW, hByH / ASPECT);
+      return { tileW, tileH: tileW * ASPECT };
+    };
+
     if (n === 2) {
-      const cw = (w - gap) / 2;
+      // Staggered: two tiles arranged on a diagonal. Tile #1 sits to the left and
+      // slightly higher; tile #2 sits to the right and slightly lower. They share
+      // a horizontal overlap so the composition feels denser.
+      const overlapX = 0.18; // 18% horizontal overlap
+      // Effective horizontal footprint: 2*tileW - overlapX*tileW
+      // Solve for tileW so 2*tileW*(1 - overlapX/2) fits w (with no inner gap).
+      const wByW = w / (2 - overlapX);
+      const offsetY = 0.18; // vertical stagger (fraction of tileH)
+      // Block height: tileH * (1 + offsetY)
+      const hByH = h / (1 + offsetY);
+      const tileW = Math.min(wByW, hByH / ASPECT);
+      const tileH = tileW * ASPECT;
+      const blockW = 2 * tileW - overlapX * tileW;
+      const blockH = tileH * (1 + offsetY);
+      const ox = x + (w - blockW) / 2;
+      const oy = y + (h - blockH) / 2;
+      // Other diagonal: tile #1 top-right, tile #2 bottom-left.
       return [
-        { x, y, w: cw, h },
-        { x: x + cw + gap, y, w: cw, h },
+        {
+          x: ox + tileW - overlapX * tileW,
+          y: oy,
+          w: tileW,
+          h: tileH,
+        },
+        {
+          x: ox,
+          y: oy + tileH * offsetY,
+          w: tileW,
+          h: tileH,
+        },
       ];
     }
+
     if (n === 3) {
-      // Big left, two stacked right
-      const lw = (w - gap) * 0.55;
-      const rw = w - gap - lw;
-      const rh = (h - gap) / 2;
+      // Pyramid: top row of 2, bottom row centered single. Two rows, but tiles
+      // overlap vertically slightly so the bottom tile tucks under the top pair.
+      const overlapY = 0.18; // 18% of tileH
+      const { tileW, tileH } = fitTile(2, 2, tileForY => 0); // first pass: rough
+      // We need a real solver: total width = 2*tileW + gap; total height = 2*tileH + gap - overlapY*tileH
+      // i.e. (2 - overlapY)*tileH + gap. Solve for tileW vs both constraints.
+      const wByW = (w - gap) / 2;
+      const hByH = (h - gap) / (2 - overlapY);
+      const finalW = Math.min(wByW, hByH / ASPECT);
+      const finalH = finalW * ASPECT;
+      void tileW; void tileH;
+
+      const topBlockW = 2 * finalW + gap;
+      const totalH = 2 * finalH + gap - overlapY * finalH;
+      const ox = x + (w - topBlockW) / 2;
+      const oy = y + (h - totalH) / 2;
+      const row2Y = oy + finalH + gap - overlapY * finalH;
+      const row2X = x + (w - finalW) / 2; // centered single tile
       return [
-        { x, y, w: lw, h },
-        { x: x + lw + gap, y, w: rw, h: rh },
-        { x: x + lw + gap, y: y + rh + gap, w: rw, h: rh },
+        { x: ox, y: oy, w: finalW, h: finalH },
+        { x: ox + finalW + gap, y: oy, w: finalW, h: finalH },
+        { x: row2X, y: row2Y, w: finalW, h: finalH },
       ];
     }
-    // 4 posters: 2x2
-    const cw = (w - gap) / 2;
-    const ch = (h - gap) / 2;
+
+    // 4 posters: 2x2.
+    const { tileW, tileH } = fitTile(2, 2);
+    const blockW = 2 * tileW + gap;
+    const blockH = 2 * tileH + gap;
+    const ox = x + (w - blockW) / 2;
+    const oy = y + (h - blockH) / 2;
     return [
-      { x, y, w: cw, h: ch },
-      { x: x + cw + gap, y, w: cw, h: ch },
-      { x, y: y + ch + gap, w: cw, h: ch },
-      { x: x + cw + gap, y: y + ch + gap, w: cw, h: ch },
+      { x: ox, y: oy, w: tileW, h: tileH },
+      { x: ox + tileW + gap, y: oy, w: tileW, h: tileH },
+      { x: ox, y: oy + tileH + gap, w: tileW, h: tileH },
+      { x: ox + tileW + gap, y: oy + tileH + gap, w: tileW, h: tileH },
     ];
   };
 
@@ -646,7 +769,8 @@ const PosterFinder = () => {
   };
 
   // Render the collage to an off-screen canvas. mode: 'posters' | 'names'
-  const renderCollageCanvas = async (mode) => {
+  // `titleText` is the already-resolved title (counter substituted).
+  const renderCollageCanvas = async (mode, titleText) => {
     const items = selectedOrder.map(i => results[i]).filter(r => r && r.image);
     const W = 1200;
     const H = 1500;
@@ -728,7 +852,7 @@ const PosterFinder = () => {
       ctx.textBaseline = 'top';
       ctx.shadowColor = 'rgba(0,0,0,0.6)';
       ctx.shadowBlur = 12;
-      ctx.fillText(collageTitle, W / 2, titleY);
+      ctx.fillText(titleText, W / 2, titleY);
       ctx.shadowBlur = 0;
 
       // Posters area (top padding scales with title size)
@@ -746,11 +870,15 @@ const PosterFinder = () => {
         const labels = items.map((it, i) => {
           const tIdx = selectedOrder[i];
           const override = (nameOverrides[tIdx] || '').trim();
-          return `${i + 1}. ${override || it.title || ''}`;
+          const name = override || it.title || '';
+          const stars = getRating(tIdx);
+          const starStr = '⭐'.repeat(stars);
+          return stars > 0 ? `${i + 1}. ${name} (${starStr})` : `${i + 1}. ${name}`;
         });
 
         // Auto-fit font size so all lines (with reasonable line height) fit and don't overflow width.
-        let fontSize = 96;
+        // Start from the user-chosen names size, then shrink only if needed.
+        let fontSize = Math.max(24, Math.min(180, namesSize || 96));
         let lineH;
         for (let attempt = 0; attempt < 20; attempt++) {
           ctx.font = `bold ${fontSize}px Georgia, serif`;
@@ -758,7 +886,7 @@ const PosterFinder = () => {
           const totalH = labels.length * lineH;
           const widest = Math.max(...labels.map(l => ctx.measureText(l).width));
           if (totalH <= areaH * 0.95 && widest <= maxTextW) break;
-          fontSize = Math.max(28, Math.round(fontSize * 0.92));
+          fontSize = Math.max(20, Math.round(fontSize * 0.92));
         }
 
         ctx.textAlign = 'center';
@@ -838,11 +966,11 @@ const PosterFinder = () => {
     }
   };
 
-  const triggerDownload = (blob, suffix) => {
+  const triggerDownload = (blob, suffix, titleText) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const safe = (collageTitle || 'collage').replace(/[^a-zA-Z0-9]+/g, '_');
+    const safe = (titleText || 'collage').replace(/[^a-zA-Z0-9]+/g, '_');
     a.download = `${safe}_${suffix}.png`;
     document.body.appendChild(a);
     a.click();
@@ -857,21 +985,29 @@ const PosterFinder = () => {
       return;
     }
 
+    // Resolve $(Counter) using the current counter; this download will use this value,
+    // then increment for next time.
+    const titleText = resolveTitle(collageTitle, counter);
+
     setCollageRendering(true);
     const allObjectUrls = [];
     try {
-      const postersOut = await renderCollageCanvas('posters');
+      const postersOut = await renderCollageCanvas('posters', titleText);
       allObjectUrls.push(...postersOut.objectUrls);
-      const namesOut = await renderCollageCanvas('names');
+      const namesOut = await renderCollageCanvas('names', titleText);
       allObjectUrls.push(...namesOut.objectUrls);
 
       if (!postersOut.blob || !namesOut.blob) {
         message.error('Failed to generate collage');
         return;
       }
-      triggerDownload(postersOut.blob, 'posters');
+      triggerDownload(postersOut.blob, 'posters', titleText);
       // Slight delay so browsers don't block the second download
-      setTimeout(() => triggerDownload(namesOut.blob, 'names'), 250);
+      setTimeout(() => triggerDownload(namesOut.blob, 'names', titleText), 250);
+      // Increment counter only on successful download (and only if template uses it).
+      if (/\$\(Counter\)/i.test(collageTitle)) {
+        setCounter(c => c + 1);
+      }
       message.success('Posters and names collages downloaded');
     } catch (e) {
       message.error('Failed to render collage. Some images may be blocked by CORS.');
@@ -1128,7 +1264,7 @@ const PosterFinder = () => {
         open={collageOpen}
         onCancel={() => setCollageOpen(false)}
         title="Create Poster Collage"
-        width={mobile ? '98%' : 1080}
+        width={mobile ? '98%' : 1180}
         centered
         className="collage-modal"
         bodyStyle={{ padding: 0 }}
@@ -1216,18 +1352,26 @@ const PosterFinder = () => {
                     fontSize: `${(collageTitleSize / 1200) * 100}cqw`,
                   }}
                 >
-                  {collageTitle}
+                  {resolveTitle(collageTitle, counter)}
                 </div>
                 <div className={`collage-grid collage-grid-${selectedCount}`}>
                   {previewMode === 'names' ? (
-                    <div className="collage-names-list" style={{ color: namesColor }}>
+                    <div
+                      className="collage-names-list"
+                      style={{
+                        color: namesColor,
+                        fontSize: `${(namesSize / 1200) * 100}cqw`,
+                      }}
+                    >
                       {selectedOrder.map((tIdx, i) => {
                         const r = results[tIdx];
                         if (!r) return null;
                         const label = (nameOverrides[tIdx] || '').trim() || r.title || '';
+                        const stars = getRating(tIdx);
+                        const starStr = '⭐'.repeat(stars);
                         return (
                           <div key={tIdx} className="collage-names-line">
-                            {i + 1}. {label}
+                            {i + 1}. {label}{stars > 0 ? ` (${starStr})` : ''}
                           </div>
                         );
                       })}
@@ -1264,265 +1408,357 @@ const PosterFinder = () => {
 
           {/* ── Side panel ─────────────────────────────────────────── */}
           <div className="collage-side">
-            <div className="collage-side-section">
-              <div className="collage-side-label">Title</div>
-              <Input
-                value={collageTitle}
-                onChange={(e) => setCollageTitle(e.target.value)}
-                placeholder="Watch Of The Week # 4"
-                prefix={<PictureOutlined />}
-                allowClear
-              />
-              <div className="collage-adjust-row" style={{ marginTop: 8 }}>
-                <span className="collage-adjust-label">Size</span>
-                <Slider
-                  min={24}
-                  max={120}
-                  step={1}
-                  value={collageTitleSize}
-                  onChange={setCollageTitleSize}
-                  tooltip={{ formatter: (v) => `${v}px` }}
-                />
-              </div>
-              <div className="collage-adjust-row">
-                <span className="collage-adjust-label">Color</span>
-                <div className="collage-color-row">
-                  <input
-                    type="color"
-                    className="collage-color-swatch"
-                    value={collageTitleColor}
-                    onChange={(e) => setCollageTitleColor(e.target.value)}
-                    aria-label="Title color"
-                  />
-                  <div className="collage-color-presets">
-                    {['#ffd84a', '#ffffff', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
-                      <button
-                        key={c}
-                        type="button"
-                        className={`collage-color-preset ${collageTitleColor.toLowerCase() === c ? 'active' : ''}`}
-                        style={{ background: c }}
-                        onClick={() => setCollageTitleColor(c)}
-                        aria-label={`Set title color ${c}`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="collage-side-section">
-              <div className="collage-side-label">Background</div>
-              <div className="collage-bg-row">
-                <Upload
-                  accept="image/*"
-                  showUploadList={false}
-                  beforeUpload={handleBgUpload}
-                >
-                  <Button icon={<UploadOutlined />} size="small">
-                    {collageBg ? 'Change' : 'Upload'}
-                  </Button>
-                </Upload>
-                {collageBg && (
-                  <Button
-                    icon={<DeleteOutlined />}
-                    size="small"
-                    onClick={() => setCollageBg(null)}
-                  >
-                    Remove
-                  </Button>
-                )}
-                <Button
-                  icon={<ReloadOutlined />}
-                  size="small"
-                  type="text"
-                  onClick={() => setBgAdjust({ fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 })}
-                >
-                  Reset
-                </Button>
-              </div>
-              <Checkbox
-                checked={useDefaultBg}
-                onChange={(e) => setUseDefaultBg(e.target.checked)}
-                disabled={!!collageBg}
-                style={{ marginTop: 8 }}
-              >
-                Use default background
-              </Checkbox>
-
-              {(collageBg || useDefaultBg) && (
-                <>
-                  <div className="collage-bg-fit-row">
-                    {[
-                      { v: 'stretch', label: 'Stretch' },
-                      { v: 'cover', label: 'Cover' },
-                      { v: 'contain', label: 'Contain' },
-                    ].map(opt => (
-                      <button
-                        key={opt.v}
-                        type="button"
-                        className={`collage-bg-fit ${bgAdjust.fit === opt.v ? 'active' : ''}`}
-                        onClick={() => setBgAdjust(prev => ({ ...prev, fit: opt.v }))}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="collage-adjust-row">
-                    <span className="collage-adjust-label">Zoom</span>
-                    <Slider min={1} max={3} step={0.05} value={bgAdjust.scale}
-                      onChange={(v) => setBgAdjust(prev => ({ ...prev, scale: v }))} />
-                  </div>
-                  <div className="collage-adjust-row">
-                    <span className="collage-adjust-label">Pan X</span>
-                    <Slider min={-100} max={100} step={1} value={bgAdjust.offsetX}
-                      onChange={(v) => setBgAdjust(prev => ({ ...prev, offsetX: v }))} />
-                  </div>
-                  <div className="collage-adjust-row">
-                    <span className="collage-adjust-label">Pan Y</span>
-                    <Slider min={-100} max={100} step={1} value={bgAdjust.offsetY}
-                      onChange={(v) => setBgAdjust(prev => ({ ...prev, offsetY: v }))} />
-                  </div>
-                  <div className="collage-adjust-row">
-                    <span className="collage-adjust-label">Dim</span>
-                    <Slider min={0} max={0.85} step={0.01} value={bgAdjust.dim}
-                      tooltip={{ formatter: (v) => `${Math.round(v * 100)}%` }}
-                      onChange={(v) => setBgAdjust(prev => ({ ...prev, dim: v }))} />
-                  </div>
-                </>
-              )}
-            </div>
-
-            {selectedCount >= 2 && (
-              <div className="collage-side-section">
-                <div className="collage-side-label">
-                  Posters · click to adjust
-                </div>
-                <div className="collage-thumbs">
-                  {selectedOrder.map((tIdx, i) => {
-                    const r = results[tIdx];
-                    if (!r || !r.image) return null;
-                    return (
-                      <button
-                        type="button"
-                        key={tIdx}
-                        className={`collage-thumb ${activeSlot === i ? 'collage-thumb-active' : ''}`}
-                        onClick={() => setActiveSlot(i)}
-                        title={r.title}
-                      >
-                        <img src={r.image.url} alt={r.title} />
-                        <span className="collage-thumb-num">{i + 1}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {selectedCount >= 2 && (
-              <div className="collage-side-section">
-                <div className="collage-adjust-header">
-                  <span className="collage-side-label" style={{ marginBottom: 0 }}>
-                    Names · edit text for the names canvas
-                  </span>
-                  <Button
-                    size="small"
-                    type="text"
-                    icon={<ReloadOutlined />}
-                    onClick={() => setNameOverrides({})}
-                  >
-                    Reset
-                  </Button>
-                </div>
-                <div className="collage-names-edit">
-                  {selectedOrder.map((tIdx, i) => {
-                    const r = results[tIdx];
-                    if (!r) return null;
-                    return (
-                      <div key={tIdx} className="collage-names-edit-row">
-                        <span className="collage-names-edit-num">{i + 1}.</span>
+            <Tabs
+              size="small"
+              defaultActiveKey="names"
+              tabPosition="left"
+              className="collage-tabs"
+              items={[
+                {
+                  key: 'title',
+                  label: (<Tooltip title="Title" placement="right"><EditOutlined /></Tooltip>),
+                  children: (
+                    <div className="collage-tab-body">
+                      <div className="collage-field">
+                        <label className="collage-field-label">Heading</label>
                         <Input
-                          size="small"
-                          value={nameOverrides[tIdx] ?? r.title ?? ''}
-                          onChange={(e) => setNameOverrides(prev => ({ ...prev, [tIdx]: e.target.value }))}
-                          placeholder={r.title}
+                          value={collageTitle}
+                          onChange={(e) => setCollageTitle(e.target.value)}
+                          placeholder="Watch Of The Week #$(Counter)"
+                          prefix={<PictureOutlined />}
                           allowClear
                         />
+                        <Text type="secondary" style={{ display: 'block', fontSize: 'var(--text-xs)', marginTop: 4 }}>
+                          Use <code>$(Counter)</code> to auto-insert the counter (increments on download).
+                        </Text>
                       </div>
-                    );
-                  })}
-                </div>
-                <div className="collage-adjust-row" style={{ marginTop: 8 }}>
-                  <span className="collage-adjust-label">Color</span>
-                  <div className="collage-color-row">
-                    <input
-                      type="color"
-                      className="collage-color-swatch"
-                      value={namesColor}
-                      onChange={(e) => setNamesColor(e.target.value)}
-                      aria-label="Names color"
-                    />
-                    <div className="collage-color-presets">
-                      {['#ffffff', '#ffd84a', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
-                        <button
-                          key={c}
-                          type="button"
-                          className={`collage-color-preset ${namesColor.toLowerCase() === c ? 'active' : ''}`}
-                          style={{ background: c }}
-                          onClick={() => setNamesColor(c)}
-                          aria-label={`Set names color ${c}`}
+                      <div className="collage-adjust-row">
+                        <span className="collage-adjust-label">Counter</span>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <InputNumber
+                            size="small"
+                            min={0}
+                            value={counter}
+                            onChange={(v) => setCounter(Number(v) || 0)}
+                            style={{ width: 90 }}
+                          />
+                          <Button size="small" type="text" onClick={() => setCounter(1)}>Reset</Button>
+                        </div>
+                      </div>
+                      <div className="collage-adjust-row">
+                        <span className="collage-adjust-label">Size</span>
+                        <Slider
+                          min={24}
+                          max={120}
+                          step={1}
+                          value={collageTitleSize}
+                          onChange={setCollageTitleSize}
+                          tooltip={{ formatter: (v) => `${v}px` }}
                         />
-                      ))}
+                      </div>
+                      <div className="collage-adjust-row">
+                        <span className="collage-adjust-label">Color</span>
+                        <div className="collage-color-row">
+                          <input
+                            type="color"
+                            className="collage-color-swatch"
+                            value={collageTitleColor}
+                            onChange={(e) => setCollageTitleColor(e.target.value)}
+                            aria-label="Title color"
+                          />
+                          <div className="collage-color-presets">
+                            {['#ffd84a', '#ffffff', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
+                              <button
+                                key={c}
+                                type="button"
+                                className={`collage-color-preset ${collageTitleColor.toLowerCase() === c ? 'active' : ''}`}
+                                style={{ background: c }}
+                                onClick={() => setCollageTitleColor(c)}
+                                aria-label={`Set title color ${c}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </div>
-            )}
+                  ),
+                },
+                {
+                  key: 'bg',
+                  label: (<Tooltip title="Background" placement="right"><BgColorsOutlined /></Tooltip>),
+                  children: (
+                    <div className="collage-tab-body">
+                      <div className="collage-bg-row">
+                        <Upload
+                          accept="image/*"
+                          showUploadList={false}
+                          beforeUpload={handleBgUpload}
+                        >
+                          <Button icon={<UploadOutlined />} size="small">
+                            {collageBg ? 'Change' : 'Upload'}
+                          </Button>
+                        </Upload>
+                        {collageBg && (
+                          <Button
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            onClick={() => setCollageBg(null)}
+                          >
+                            Remove
+                          </Button>
+                        )}
+                        <Button
+                          icon={<ReloadOutlined />}
+                          size="small"
+                          type="text"
+                          onClick={() => setBgAdjust({ fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 })}
+                        >
+                          Reset
+                        </Button>
+                      </div>
+                      <Checkbox
+                        checked={useDefaultBg}
+                        onChange={(e) => setUseDefaultBg(e.target.checked)}
+                        disabled={!!collageBg}
+                        style={{ marginTop: 4 }}
+                      >
+                        Use default background
+                      </Checkbox>
 
-            {selectedCount >= 2 && selectedOrder[activeSlot] != null && (() => {
-              const tIdx = selectedOrder[activeSlot];
-              const r = results[tIdx];
-              const adj = adjustments[tIdx] || { scale: 1, offsetX: 0, offsetY: 0 };
-              const setAdj = (patch) => setAdjustments(prev => ({
-                ...prev,
-                [tIdx]: { scale: 1, offsetX: 0, offsetY: 0, ...prev[tIdx], ...patch },
-              }));
-              return (
-                <div className="collage-side-section">
-                  <div className="collage-adjust-header">
-                    <span className="collage-side-label" style={{ marginBottom: 0 }}>
-                      Adjust #{activeSlot + 1}
-                    </span>
-                    <Button
-                      size="small"
-                      type="text"
-                      icon={<ReloadOutlined />}
-                      onClick={() => setAdjustments(prev => {
-                        const next = { ...prev };
-                        delete next[tIdx];
-                        return next;
-                      })}
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                  <Text type="secondary" ellipsis style={{ display: 'block', fontSize: 'var(--text-xs)', marginBottom: 8 }}>
-                    {r ? r.title : ''}
-                  </Text>
-                  <div className="collage-adjust-row">
-                    <span className="collage-adjust-label">Zoom</span>
-                    <Slider min={1} max={3} step={0.05} value={adj.scale} onChange={(v) => setAdj({ scale: v })} />
-                  </div>
-                  <div className="collage-adjust-row">
-                    <span className="collage-adjust-label">Pan X</span>
-                    <Slider min={-100} max={100} step={1} value={adj.offsetX} onChange={(v) => setAdj({ offsetX: v })} />
-                  </div>
-                  <div className="collage-adjust-row">
-                    <span className="collage-adjust-label">Pan Y</span>
-                    <Slider min={-100} max={100} step={1} value={adj.offsetY} onChange={(v) => setAdj({ offsetY: v })} />
-                  </div>
-                </div>
-              );
-            })()}
+                      {(collageBg || useDefaultBg) ? (
+                        <>
+                          <div className="collage-adjust-row">
+                            <span className="collage-adjust-label">Fit</span>
+                            <Segmented
+                              size="small"
+                              value={bgAdjust.fit || 'stretch'}
+                              onChange={(v) => setBgAdjust(prev => ({ ...prev, fit: v }))}
+                              options={[
+                                { label: 'Stretch', value: 'stretch' },
+                                { label: 'Cover', value: 'cover' },
+                                { label: 'Contain', value: 'contain' },
+                              ]}
+                            />
+                          </div>
+                          <div className="collage-adjust-row">
+                            <span className="collage-adjust-label">Zoom</span>
+                            <Slider min={1} max={3} step={0.05} value={bgAdjust.scale}
+                              onChange={(v) => setBgAdjust(prev => ({ ...prev, scale: v }))} />
+                          </div>
+                          <div className="collage-adjust-row">
+                            <span className="collage-adjust-label">Pan X</span>
+                            <Slider min={-100} max={100} step={1} value={bgAdjust.offsetX}
+                              onChange={(v) => setBgAdjust(prev => ({ ...prev, offsetX: v }))} />
+                          </div>
+                          <div className="collage-adjust-row">
+                            <span className="collage-adjust-label">Pan Y</span>
+                            <Slider min={-100} max={100} step={1} value={bgAdjust.offsetY}
+                              onChange={(v) => setBgAdjust(prev => ({ ...prev, offsetY: v }))} />
+                          </div>
+                          <div className="collage-adjust-row">
+                            <span className="collage-adjust-label">Dim</span>
+                            <Slider min={0} max={0.85} step={0.01} value={bgAdjust.dim}
+                              tooltip={{ formatter: (v) => `${Math.round(v * 100)}%` }}
+                              onChange={(v) => setBgAdjust(prev => ({ ...prev, dim: v }))} />
+                          </div>
+                        </>
+                      ) : (
+                        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                          No background selected. Upload one or enable the default.
+                        </Text>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'posters',
+                  label: (<Tooltip title="Posters" placement="right"><AppstoreOutlined /></Tooltip>),
+                  disabled: selectedCount < 2,
+                  children: (
+                    <div className="collage-tab-body">
+                      {selectedCount < 2 ? (
+                        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                          Select 2–4 posters in the grid first.
+                        </Text>
+                      ) : (
+                        <>
+                          <Text type="secondary" style={{ fontSize: 'var(--text-xs)', display: 'block', marginBottom: 6 }}>
+                            Pick a poster to adjust its zoom and pan.
+                          </Text>
+                          <div className="collage-thumbs">
+                            {selectedOrder.map((tIdx, i) => {
+                              const r = results[tIdx];
+                              if (!r || !r.image) return null;
+                              return (
+                                <button
+                                  type="button"
+                                  key={tIdx}
+                                  className={`collage-thumb ${activeSlot === i ? 'collage-thumb-active' : ''}`}
+                                  onClick={() => setActiveSlot(i)}
+                                  title={r.title}
+                                >
+                                  <img src={r.image.url} alt={r.title} />
+                                  <span className="collage-thumb-num">{i + 1}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {selectedOrder[activeSlot] != null && (() => {
+                            const tIdx = selectedOrder[activeSlot];
+                            const r = results[tIdx];
+                            const adj = adjustments[tIdx] || { scale: 1, offsetX: 0, offsetY: 0 };
+                            const setAdj = (patch) => setAdjustments(prev => ({
+                              ...prev,
+                              [tIdx]: { scale: 1, offsetX: 0, offsetY: 0, ...prev[tIdx], ...patch },
+                            }));
+                            return (
+                              <div className="collage-active-card">
+                                <div className="collage-adjust-header">
+                                  <span className="collage-side-label" style={{ marginBottom: 0 }}>
+                                    Adjust #{activeSlot + 1}
+                                  </span>
+                                  <Button
+                                    size="small"
+                                    type="text"
+                                    icon={<ReloadOutlined />}
+                                    onClick={() => setAdjustments(prev => {
+                                      const next = { ...prev };
+                                      delete next[tIdx];
+                                      return next;
+                                    })}
+                                  >
+                                    Reset
+                                  </Button>
+                                </div>
+                                <Text type="secondary" ellipsis style={{ display: 'block', fontSize: 'var(--text-xs)', marginBottom: 8 }}>
+                                  {r ? r.title : ''}
+                                </Text>
+                                <div className="collage-adjust-row">
+                                  <span className="collage-adjust-label">Zoom</span>
+                                  <Slider min={1} max={3} step={0.05} value={adj.scale} onChange={(v) => setAdj({ scale: v })} />
+                                </div>
+                                <div className="collage-adjust-row">
+                                  <span className="collage-adjust-label">Pan X</span>
+                                  <Slider min={-100} max={100} step={1} value={adj.offsetX} onChange={(v) => setAdj({ offsetX: v })} />
+                                </div>
+                                <div className="collage-adjust-row">
+                                  <span className="collage-adjust-label">Pan Y</span>
+                                  <Slider min={-100} max={100} step={1} value={adj.offsetY} onChange={(v) => setAdj({ offsetY: v })} />
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  key: 'names',
+                  label: (<Tooltip title="Names" placement="right"><FontSizeOutlined /></Tooltip>),
+                  disabled: selectedCount < 2,
+                  children: (
+                    <div className="collage-tab-body">
+                      {selectedCount < 2 ? (
+                        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                          Select 2–4 posters in the grid first.
+                        </Text>
+                      ) : (
+                        <>
+                          <div className="collage-adjust-header">
+                            <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                              Edit text and rating for the names canvas.
+                            </Text>
+                            <Button
+                              size="small"
+                              type="text"
+                              icon={<ReloadOutlined />}
+                              onClick={() => { setNameOverrides({}); setRatings({}); }}
+                            >
+                              Reset
+                            </Button>
+                          </div>
+                          <div className="collage-names-edit">
+                            {selectedOrder.map((tIdx, i) => {
+                              const r = results[tIdx];
+                              if (!r) return null;
+                              const stars = getRating(tIdx);
+                              return (
+                                <div key={tIdx} className="collage-names-edit-group">
+                                  <div className="collage-names-edit-row">
+                                    <span className="collage-names-edit-num">{i + 1}.</span>
+                                    <Input
+                                      size="small"
+                                      value={nameOverrides[tIdx] ?? r.title ?? ''}
+                                      onChange={(e) => setNameOverrides(prev => ({ ...prev, [tIdx]: e.target.value }))}
+                                      placeholder={r.title}
+                                      allowClear
+                                    />
+                                  </div>
+                                  <div className="collage-names-stars-row">
+                                    <span className="collage-names-stars-label">Rating</span>
+                                    <div className="collage-stars-ctrl" title={`Rating: ${stars}/5`}>
+                                      <Button
+                                        size="small"
+                                        onClick={() => setRating(tIdx, stars - 1)}
+                                        disabled={stars <= 0}
+                                      >−</Button>
+                                      <span className="collage-stars-val">
+                                        {stars > 0 ? '⭐'.repeat(stars) : '—'}
+                                      </span>
+                                      <Button
+                                        size="small"
+                                        onClick={() => setRating(tIdx, stars + 1)}
+                                        disabled={stars >= 5}
+                                      >+</Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="collage-adjust-row">
+                            <span className="collage-adjust-label">Size</span>
+                            <Slider
+                              min={24}
+                              max={160}
+                              step={1}
+                              value={namesSize}
+                              onChange={setNamesSize}
+                              tooltip={{ formatter: (v) => `${v}px` }}
+                            />
+                          </div>
+                          <div className="collage-adjust-row">
+                            <span className="collage-adjust-label">Color</span>
+                            <div className="collage-color-row">
+                              <input
+                                type="color"
+                                className="collage-color-swatch"
+                                value={namesColor}
+                                onChange={(e) => setNamesColor(e.target.value)}
+                                aria-label="Names color"
+                              />
+                              <div className="collage-color-presets">
+                                {['#ffffff', '#ffd84a', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
+                                  <button
+                                    key={c}
+                                    type="button"
+                                    className={`collage-color-preset ${namesColor.toLowerCase() === c ? 'active' : ''}`}
+                                    style={{ background: c }}
+                                    onClick={() => setNamesColor(c)}
+                                    aria-label={`Set names color ${c}`}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ),
+                },
+              ]}
+            />
           </div>
         </div>
       </Modal>
