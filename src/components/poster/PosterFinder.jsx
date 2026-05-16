@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Empty, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented } from 'antd';
+import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented } from 'antd';
 import {
   SearchOutlined, DownloadOutlined, DeleteOutlined,
   EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
@@ -8,7 +8,7 @@ import {
 import { isMobile } from '../../common/utils';
 import './PosterFinder.css';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 const ITUNES_BASE = 'https://itunes.apple.com/search';
 const OMDB_BASE = 'https://www.omdbapi.com/';
@@ -157,18 +157,31 @@ const PosterFinder = () => {
 
     setCachedResults(cache);
     // Append to existing results, skipping titles that are already added.
+    // Auto-select newly added entries (that have an image) up to the 4-poster cap.
     setResults(prev => {
       const have = new Set(prev.map(r => (r.imdbID || r.title).toLowerCase()));
       const merged = [...prev];
+      const newIdxs = [];
       let skipped = 0;
       fetched.forEach(entry => {
         const key = (entry.imdbID || entry.title || '').toLowerCase();
         if (have.has(key)) { skipped += 1; return; }
         have.add(key);
+        if (entry.image) newIdxs.push(merged.length);
         merged.push(entry);
       });
       if (skipped > 0) {
         message.info(`${skipped} title(s) were already added`);
+      }
+      if (newIdxs.length > 0) {
+        setSelectedOrder(sel => {
+          const out = [...sel];
+          for (const i of newIdxs) {
+            if (out.length >= 4) break;
+            if (!out.includes(i)) out.push(i);
+          }
+          return out;
+        });
       }
       return merged;
     });
@@ -274,7 +287,7 @@ const PosterFinder = () => {
     const cache = getCachedResults();
     const entry = await fetchTitle(trimmed, cache);
     setCachedResults(cache);
-    setResults(prev => [...prev, entry]);
+    addEntryWithAutoSelect(entry);
     setQuery('');
     setSuggestions([]);
     setLoading(false);
@@ -367,12 +380,25 @@ const PosterFinder = () => {
         image,
         ...(image ? {} : { error: 'No poster found' }),
       };
-      setResults(prev => [...prev, entry]);
+      addEntryWithAutoSelect(entry);
     } finally {
       setQuery('');
       setSuggestions([]);
       setLoading(false);
     }
+  };
+
+  // Append a single entry and auto-select it (up to the 4-poster cap).
+  const addEntryWithAutoSelect = (entry) => {
+    setResults(prev => {
+      const idx = prev.length;
+      if (entry.image) {
+        setSelectedOrder(sel =>
+          sel.length >= 4 || sel.includes(idx) ? sel : [...sel, idx]
+        );
+      }
+      return [...prev, entry];
+    });
   };
 
   // Remove a title (and its selection) from the results.
@@ -604,7 +630,7 @@ const PosterFinder = () => {
         source: 'Manual',
       },
     };
-    setResults(prev => [...prev, entry]);
+    addEntryWithAutoSelect(entry);
     setManualOpen(false);
     message.success(`Added "${title}"`);
   };
@@ -1019,54 +1045,78 @@ const PosterFinder = () => {
 
   return (
     <div className="poster-page">
-      <Title level={3} style={{ marginBottom: 'var(--space-xs)', color: 'var(--color-text)' }}>
-        🎬 Poster Finder
-      </Title>
-      <Text type="secondary" style={{ display: 'block', marginBottom: 'var(--space-md)' }}>
-        Search for movie &amp; TV series posters from iTunes &amp; OMDB. Enter titles separated by commas.
-      </Text>
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <header className="poster-header">
+        <div className="poster-header-icon" aria-hidden="true">
+          <PictureOutlined />
+        </div>
+        <div className="poster-header-text">
+          <h1 className="poster-header-title">Poster Finder</h1>
+          <p className="poster-header-sub">
+            Search posters from iTunes &amp; OMDB, then build clean collages.
+          </p>
+        </div>
+        {results.length > 0 && (
+          <div className="poster-header-stats">
+            <span className="poster-stat">
+              <strong>{results.length}</strong>
+              <em>title{results.length === 1 ? '' : 's'}</em>
+            </span>
+            <span className="poster-stat poster-stat-accent">
+              <strong>{selectedCount}</strong>
+              <em>selected</em>
+            </span>
+          </div>
+        )}
+      </header>
 
-      {/* Search Input */}
-      <div className="poster-search-bar">
-        <AutoComplete
-          value={query}
-          options={autocompleteOptions}
-          onChange={handleQueryChange}
-          onSelect={handleSuggestionSelect}
-          style={{ flex: 1 }}
-          popupClassName="poster-suggest-dropdown"
-          disabled={loading}
-        >
-          <Input
-            placeholder="e.g. Inception, Breaking Bad, Interstellar"
-            onPressEnter={searchTitles}
-            prefix={<SearchOutlined style={{ color: 'var(--color-text-muted)' }} />}
-            size="large"
-            allowClear
+      {/* ── Search Card ────────────────────────────────────────── */}
+      <section className="poster-search-card">
+        <div className="poster-search-bar">
+          <AutoComplete
+            value={query}
+            options={autocompleteOptions}
+            onChange={handleQueryChange}
+            onSelect={handleSuggestionSelect}
+            style={{ flex: 1 }}
+            popupClassName="poster-suggest-dropdown"
             disabled={loading}
-          />
-        </AutoComplete>
-        <Button
-          type="primary"
-          size="large"
-          icon={<SearchOutlined />}
-          onClick={searchTitles}
-          loading={loading}
-        >
-          {mobile ? '' : 'Search'}
-        </Button>
-        <Tooltip title="Add a poster manually (when OMDB has no result)">
-          <Button
-            size="large"
-            icon={<PlusOutlined />}
-            onClick={openManualModal}
           >
-            {mobile ? '' : 'Add manually'}
+            <Input
+              placeholder="Search a movie or series — e.g. Inception, Breaking Bad"
+              onPressEnter={searchTitles}
+              prefix={<SearchOutlined style={{ color: 'var(--color-text-muted)' }} />}
+              size="large"
+              allowClear
+              disabled={loading}
+            />
+          </AutoComplete>
+          <Button
+            type="primary"
+            size="large"
+            icon={<SearchOutlined />}
+            onClick={searchTitles}
+            loading={loading}
+          >
+            {mobile ? '' : 'Search'}
           </Button>
-        </Tooltip>
-      </div>
+          <Tooltip title="Add a poster manually (when OMDB has no result)">
+            <Button
+              size="large"
+              icon={<PlusOutlined />}
+              onClick={openManualModal}
+            >
+              {mobile ? '' : 'Add manually'}
+            </Button>
+          </Tooltip>
+        </div>
+        <p className="poster-search-hint">
+          Tip: pick from the suggestions for the most accurate poster, or paste several titles
+          separated by commas.
+        </p>
+      </section>
 
-      {/* Selected title tags */}
+      {/* ── Selected title chips ───────────────────────────────── */}
       {results.length > 0 && (
         <div className="poster-tags-bar">
           {results.map((r, idx) => (
@@ -1075,7 +1125,7 @@ const PosterFinder = () => {
               closable
               onClose={(e) => { e.preventDefault(); removeTitle(idx); }}
               className="poster-title-tag"
-              color={r.error ? 'error' : 'blue'}
+              color={r.error ? 'error' : 'default'}
             >
               {r.title}
             </Tag>
@@ -1083,77 +1133,84 @@ const PosterFinder = () => {
         </div>
       )}
 
-      {/* Action Bar */}
+      {/* ── Action toolbar ─────────────────────────────────────── */}
       {results.length > 0 && (
         <div className="poster-action-bar">
           <div className="poster-action-left">
-            <Text type="secondary">
-              {results.length} title(s)
-            </Text>
-            {selectedCount > 0 && (
-              <Text strong style={{ color: 'var(--color-primary)' }}>
-                · {selectedCount} selected
-              </Text>
-            )}
+            <span className="poster-action-summary">
+              {selectedCount > 0
+                ? `${selectedCount} of ${results.length} selected`
+                : `${results.length} title${results.length === 1 ? '' : 's'} ready`}
+            </span>
           </div>
           <div className="poster-action-right">
-            <Button icon={<DeleteOutlined />} size="small" onClick={clearAll}>
+            <Button icon={<DeleteOutlined />} size="middle" onClick={clearAll}>
               Clear all
             </Button>
+            {selectedCount > 0 && (
+              <Button size="middle" onClick={clearSelection}>
+                Deselect
+              </Button>
+            )}
             {selectedCount >= 2 && selectedCount <= 4 && (
               <Button
-                type="primary"
-                ghost
+                type="default"
                 icon={<AppstoreOutlined />}
-                size="small"
+                size="middle"
                 onClick={() => setCollageOpen(true)}
               >
-                Create Collage ({selectedCount})
+                Create collage ({selectedCount})
               </Button>
             )}
             {selectedCount > 0 && (
-              <>
-                <Button icon={<DeleteOutlined />} size="small" onClick={clearSelection}>
-                  Deselect
-                </Button>
-                <Button
-                  type="primary"
-                  icon={<DownloadOutlined />}
-                  size="small"
-                  onClick={downloadSelected}
-                  loading={downloading}
-                >
-                  Download ({selectedCount})
-                </Button>
-              </>
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                size="middle"
+                onClick={downloadSelected}
+                loading={downloading}
+              >
+                Download ({selectedCount})
+              </Button>
             )}
           </div>
         </div>
       )}
 
-      {/* Loading */}
+      {/* ── Loading ────────────────────────────────────────────── */}
       {loading && (
         <div className="poster-loading">
           <Spin size="large" />
-          <Text type="secondary" style={{ marginTop: 'var(--space-sm)' }}>Searching for posters...</Text>
+          <Text type="secondary" style={{ marginTop: 'var(--space-sm)' }}>
+            Fetching posters…
+          </Text>
         </div>
       )}
 
-      {/* Results — one poster per title */}
+      {/* ── Results grid ───────────────────────────────────────── */}
       {!loading && results.length > 0 && (
         <div className="poster-grid">
           {results.map((result, tIdx) => {
             if (result.error || !result.image) {
               return (
                 <div key={tIdx} className="poster-card poster-card-error">
-                  <Empty
-                    description={
-                      <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                        {result.error || 'No poster'} — "{result.title}"
-                      </Text>
-                    }
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  />
+                  <div className="poster-card-error-body">
+                    <PictureOutlined className="poster-card-error-icon" />
+                    <Text strong style={{ fontSize: 'var(--text-sm)' }}>
+                      {result.title}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                      {result.error || 'No poster found'}
+                    </Text>
+                    <Button
+                      size="small"
+                      type="text"
+                      icon={<DeleteOutlined />}
+                      onClick={(e) => { e.stopPropagation(); removeTitle(tIdx); }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 </div>
               );
             }
@@ -1172,6 +1229,11 @@ const PosterFinder = () => {
                   {isSelected && (
                     <div className="poster-order-badge" title={`Position ${orderIdx + 1}`}>
                       {orderIdx + 1}
+                    </div>
+                  )}
+                  {img.source && (
+                    <div className={`poster-source poster-source-${img.source.toLowerCase()}`}>
+                      {img.source}
                     </div>
                   )}
                   <div className="poster-overlay">
@@ -1204,14 +1266,10 @@ const PosterFinder = () => {
                   </div>
                 </div>
                 <div className="poster-card-label">
-                  <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                    {result.title} · {img.kind}
-                  </Text>
-                  {img.source && (
-                    <div className={`poster-source poster-source-${img.source.toLowerCase()}`}>
-                      {img.source}
-                    </div>
-                  )}
+                  <div className="poster-card-title" title={result.title}>
+                    {result.title}
+                  </div>
+                  <div className="poster-card-meta">{img.kind}</div>
                 </div>
               </div>
             );
@@ -1219,16 +1277,16 @@ const PosterFinder = () => {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* ── Empty state ────────────────────────────────────────── */}
       {!loading && results.length === 0 && (
         <div className="poster-empty">
-          <div className="poster-empty-icon">🎥</div>
-          <Title level={5} style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--space-xs)' }}>
-            Search for movies or TV series
-          </Title>
-          <Text type="secondary">
-            Enter one or more titles separated by commas to find posters and images.
-          </Text>
+          <div className="poster-empty-icon">
+            <PictureOutlined />
+          </div>
+          <h3 className="poster-empty-title">Start by searching a title</h3>
+          <p className="poster-empty-sub">
+            Find posters for any movie or series. Select 2–4 to build a collage.
+          </p>
         </div>
       )}
 
@@ -1259,159 +1317,193 @@ const PosterFinder = () => {
         )}
       </Modal>
 
-      {/* Collage Modal */}
+      {/* ── Collage Modal ─────────────────────────────────────── */}
       <Modal
         open={collageOpen}
         onCancel={() => setCollageOpen(false)}
-        title="Create Poster Collage"
+        title={
+          <div className="collage-modal-title">
+            <div className="collage-modal-title-icon" aria-hidden="true">
+              <AppstoreOutlined />
+            </div>
+            <div className='collage-model-title-div'>
+              <div>
+              <div className="collage-modal-title-main">Create poster collage</div>
+              <div className="collage-modal-title-sub">
+                {selectedCount >= 2
+                  ? `Combining ${selectedCount} poster${selectedCount === 1 ? '' : 's'} · output 1200×1500`
+                  : 'Select 2 to 4 posters to start'}
+              </div>
+              </div>
+                       {selectedCount >= 2 && (
+              <div className="collage-stage-toolbar">
+                <div className="collage-preview-tabs" role="tablist" aria-label="Preview mode">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewMode === 'posters'}
+                    className={`collage-preview-tab ${previewMode === 'posters' ? 'active' : ''}`}
+                    onClick={() => setPreviewMode('posters')}
+                  >
+                    <AppstoreOutlined /> Posters
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={previewMode === 'names'}
+                    className={`collage-preview-tab ${previewMode === 'names' ? 'active' : ''}`}
+                    onClick={() => setPreviewMode('names')}
+                  >
+                    <FontSizeOutlined /> Names
+                  </button>
+                </div>
+              </div>
+            )}
+            </div>
+               
+          </div>
+        }
         width={mobile ? '98%' : 1180}
         centered
         className="collage-modal"
         bodyStyle={{ padding: 0 }}
-        footer={[
-          <Button key="cancel" onClick={() => setCollageOpen(false)}>Close</Button>,
-          <Button
-            key="bg-clear"
-            onClick={() => setCollageBg(null)}
-            disabled={!collageBg}
-          >
-            Reset background
-          </Button>,
-          <Button
-            key="dl"
-            type="primary"
-            icon={<DownloadOutlined />}
-            loading={collageRendering}
-            onClick={downloadCollage}
-            disabled={selectedCount < 2}
-          >
-            Download collages
-          </Button>,
-        ]}
+        footer={
+          <div className="collage-footer">
+            <div className="collage-footer-hint">
+              {selectedCount >= 2 && (
+                <span>
+                  Downloads two PNGs: <strong>posters</strong> &amp; <strong>names</strong>.
+                </span>
+              )}
+            </div>
+            <div className="collage-footer-actions">
+              <Button onClick={() => setCollageOpen(false)}>Close</Button>
+              <Button
+                onClick={() => setCollageBg(null)}
+                disabled={!collageBg}
+              >
+                Reset background
+              </Button>
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                loading={collageRendering}
+                onClick={downloadCollage}
+                disabled={selectedCount < 2}
+              >
+                Download collages
+              </Button>
+            </div>
+          </div>
+        }
       >
         <div className="collage-workspace">
-          {/* ── Preview pane ───────────────────────────────────────── */}
+          {/* ── Preview pane ───────────────────────────────────── */}
           <div className="collage-stage">
-            {selectedCount >= 2 && (
-              <div className="collage-preview-tabs">
-                <button
-                  type="button"
-                  className={`collage-preview-tab ${previewMode === 'posters' ? 'active' : ''}`}
-                  onClick={() => setPreviewMode('posters')}
-                >
-                  Posters
-                </button>
-                <button
-                  type="button"
-                  className={`collage-preview-tab ${previewMode === 'names' ? 'active' : ''}`}
-                  onClick={() => setPreviewMode('names')}
-                >
-                  Names
-                </button>
-              </div>
-            )}
-            {selectedCount < 2 ? (
-              <div className="collage-stage-empty">
-                <PictureOutlined style={{ fontSize: 48, opacity: 0.5 }} />
-                <Text type="secondary" style={{ marginTop: 8 }}>
-                  Select 2 to 4 posters in the grid to start building your collage.
-                </Text>
-              </div>
-            ) : (
-              <div
-                className={`collage-preview collage-preview-${selectedCount}`}
-              >
-                {(() => {
-                  const bg = collageBg || (useDefaultBg ? DEFAULT_BG_URL : null);
-                  if (!bg) return null;
-                  const fit = bgAdjust.fit || 'stretch';
-                  const scale = Math.max(1, bgAdjust.scale || 1);
-                  const tx = (bgAdjust.offsetX || 0) / 2; // -50..50 percent
-                  const ty = (bgAdjust.offsetY || 0) / 2;
-                  const objectFit = fit === 'stretch' ? 'fill' : fit;
-                  return (
-                    <img
-                      src={bg}
-                      alt=""
-                      className="collage-preview-bg"
-                      style={{
-                        objectFit,
-                        transform: `translate(${tx}%, ${ty}%) scale(${scale})`,
-                      }}
-                    />
-                  );
-                })()}
-                <div
-                  className="collage-preview-overlay"
-                  style={{ background: `rgba(0,0,0,${bgAdjust.dim ?? 0.12})` }}
-                />
-                <div
-                  className="collage-preview-title"
-                  style={{
-                    color: collageTitleColor,
-                    fontSize: `${(collageTitleSize / 1200) * 100}cqw`,
-                  }}
-                >
-                  {resolveTitle(collageTitle, counter)}
+            <div className="collage-stage-canvas">
+              {selectedCount < 2 ? (
+                <div className="collage-stage-empty">
+                  <div className="collage-stage-empty-icon">
+                    <PictureOutlined />
+                  </div>
+                  <h4 className="collage-stage-empty-title">No posters selected</h4>
+                  <Text type="secondary" style={{ maxWidth: 280 }}>
+                    Pick 2 to 4 posters in the grid to start composing your collage.
+                  </Text>
                 </div>
-                <div className={`collage-grid collage-grid-${selectedCount}`}>
-                  {previewMode === 'names' ? (
-                    <div
-                      className="collage-names-list"
-                      style={{
-                        color: namesColor,
-                        fontSize: `${(namesSize / 1200) * 100}cqw`,
-                      }}
-                    >
-                      {selectedOrder.map((tIdx, i) => {
+              ) : (
+                <div className={`collage-preview collage-preview-${selectedCount}`}>
+                  {(() => {
+                    const bg = collageBg || (useDefaultBg ? DEFAULT_BG_URL : null);
+                    if (!bg) return null;
+                    const fit = bgAdjust.fit || 'stretch';
+                    const scale = Math.max(1, bgAdjust.scale || 1);
+                    const tx = (bgAdjust.offsetX || 0) / 2;
+                    const ty = (bgAdjust.offsetY || 0) / 2;
+                    const objectFit = fit === 'stretch' ? 'fill' : fit;
+                    return (
+                      <img
+                        src={bg}
+                        alt=""
+                        className="collage-preview-bg"
+                        style={{
+                          objectFit,
+                          transform: `translate(${tx}%, ${ty}%) scale(${scale})`,
+                        }}
+                      />
+                    );
+                  })()}
+                  <div
+                    className="collage-preview-overlay"
+                    style={{ background: `rgba(0,0,0,${bgAdjust.dim ?? 0.12})` }}
+                  />
+                  <div
+                    className="collage-preview-title"
+                    style={{
+                      color: collageTitleColor,
+                      fontSize: `${(collageTitleSize / 1200) * 100}cqw`,
+                    }}
+                  >
+                    {resolveTitle(collageTitle, counter)}
+                  </div>
+                  <div className={`collage-grid collage-grid-${selectedCount}`}>
+                    {previewMode === 'names' ? (
+                      <div
+                        className="collage-names-list"
+                        style={{
+                          color: namesColor,
+                          fontSize: `${(namesSize / 1200) * 100}cqw`,
+                        }}
+                      >
+                        {selectedOrder.map((tIdx, i) => {
+                          const r = results[tIdx];
+                          if (!r) return null;
+                          const label = (nameOverrides[tIdx] || '').trim() || r.title || '';
+                          const stars = getRating(tIdx);
+                          const starStr = '⭐'.repeat(stars);
+                          return (
+                            <div key={tIdx} className="collage-names-line">
+                              {i + 1}. {label}{stars > 0 ? ` (${starStr})` : ''}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      selectedOrder.map((tIdx, i) => {
                         const r = results[tIdx];
-                        if (!r) return null;
-                        const label = (nameOverrides[tIdx] || '').trim() || r.title || '';
-                        const stars = getRating(tIdx);
-                        const starStr = '⭐'.repeat(stars);
+                        if (!r || !r.image) return null;
+                        const adj = adjustments[tIdx] || { scale: 1, offsetX: 0, offsetY: 0 };
+                        const isActive = activeSlot === i;
                         return (
-                          <div key={tIdx} className="collage-names-line">
-                            {i + 1}. {label}{stars > 0 ? ` (${starStr})` : ''}
+                          <div
+                            key={tIdx}
+                            className={`collage-slot collage-slot-${i + 1} ${isActive ? 'collage-slot-active' : ''}`}
+                            onClick={() => setActiveSlot(i)}
+                          >
+                            <div className="collage-slot-inner">
+                              <img
+                                src={r.image.url}
+                                alt={r.title}
+                                style={{
+                                  transform: `translate(${adj.offsetX / 2}%, ${adj.offsetY / 2}%) scale(${adj.scale})`,
+                                }}
+                              />
+                            </div>
                           </div>
                         );
-                      })}
-                    </div>
-                  ) : (
-                    selectedOrder.map((tIdx, i) => {
-                      const r = results[tIdx];
-                      if (!r || !r.image) return null;
-                      const adj = adjustments[tIdx] || { scale: 1, offsetX: 0, offsetY: 0 };
-                      const isActive = activeSlot === i;
-                      return (
-                        <div
-                          key={tIdx}
-                          className={`collage-slot collage-slot-${i + 1} ${isActive ? 'collage-slot-active' : ''}`}
-                          onClick={() => setActiveSlot(i)}
-                        >
-                          <div className="collage-slot-inner">
-                            <img
-                              src={r.image.url}
-                              alt={r.title}
-                              style={{
-                                transform: `translate(${adj.offsetX / 2}%, ${adj.offsetY / 2}%) scale(${adj.scale})`,
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                      })
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
-          {/* ── Side panel ─────────────────────────────────────────── */}
-          <div className="collage-side">
+          {/* ── Side panel ─────────────────────────────────────── */}
+          <aside className="collage-side">
             <Tabs
               size="small"
-              defaultActiveKey="names"
-              tabPosition="left"
+              defaultActiveKey="title"
               className="collage-tabs"
               items={[
                 {
@@ -1419,64 +1511,72 @@ const PosterFinder = () => {
                   label: (<Tooltip title="Title" placement="right"><EditOutlined /></Tooltip>),
                   children: (
                     <div className="collage-tab-body">
-                      <div className="collage-field">
-                        <label className="collage-field-label">Heading</label>
+                      <div className="collage-section">
+                        <label className="collage-field-label" htmlFor="collage-heading">Heading</label>
                         <Input
+                          id="collage-heading"
                           value={collageTitle}
                           onChange={(e) => setCollageTitle(e.target.value)}
                           placeholder="Watch Of The Week #$(Counter)"
-                          prefix={<PictureOutlined />}
                           allowClear
                         />
-                        <Text type="secondary" style={{ display: 'block', fontSize: 'var(--text-xs)', marginTop: 4 }}>
-                          Use <code>$(Counter)</code> to auto-insert the counter (increments on download).
-                        </Text>
+                        <p className="collage-field-help">
+                          Use <code>$(Counter)</code> to auto-insert a number that increments on each
+                          successful download.
+                        </p>
                       </div>
-                      <div className="collage-adjust-row">
-                        <span className="collage-adjust-label">Counter</span>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+
+                      <div className="collage-section">
+                        <div className="collage-field-label">Counter</div>
+                        <div className="collage-counter-row">
                           <InputNumber
-                            size="small"
+                            size="middle"
                             min={0}
                             value={counter}
                             onChange={(v) => setCounter(Number(v) || 0)}
-                            style={{ width: 90 }}
+                            style={{ width: 110 }}
                           />
-                          <Button size="small" type="text" onClick={() => setCounter(1)}>Reset</Button>
+                          <Button size="middle" type="text" icon={<ReloadOutlined />} onClick={() => setCounter(1)}>
+                            Reset
+                          </Button>
                         </div>
                       </div>
-                      <div className="collage-adjust-row">
-                        <span className="collage-adjust-label">Size</span>
-                        <Slider
-                          min={24}
-                          max={120}
-                          step={1}
-                          value={collageTitleSize}
-                          onChange={setCollageTitleSize}
-                          tooltip={{ formatter: (v) => `${v}px` }}
-                        />
-                      </div>
-                      <div className="collage-adjust-row">
-                        <span className="collage-adjust-label">Color</span>
-                        <div className="collage-color-row">
-                          <input
-                            type="color"
-                            className="collage-color-swatch"
-                            value={collageTitleColor}
-                            onChange={(e) => setCollageTitleColor(e.target.value)}
-                            aria-label="Title color"
+
+                      <div className="collage-section">
+                        <div className="collage-field-label">Appearance</div>
+                        <div className="collage-adjust-row">
+                          <span className="collage-adjust-label">Size</span>
+                          <Slider
+                            min={24}
+                            max={120}
+                            step={1}
+                            value={collageTitleSize}
+                            onChange={setCollageTitleSize}
+                            tooltip={{ formatter: (v) => `${v}px` }}
                           />
-                          <div className="collage-color-presets">
-                            {['#ffd84a', '#ffffff', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
-                              <button
-                                key={c}
-                                type="button"
-                                className={`collage-color-preset ${collageTitleColor.toLowerCase() === c ? 'active' : ''}`}
-                                style={{ background: c }}
-                                onClick={() => setCollageTitleColor(c)}
-                                aria-label={`Set title color ${c}`}
-                              />
-                            ))}
+                        </div>
+                        <div className="collage-adjust-row">
+                          <span className="collage-adjust-label">Color</span>
+                          <div className="collage-color-row">
+                            <input
+                              type="color"
+                              className="collage-color-swatch"
+                              value={collageTitleColor}
+                              onChange={(e) => setCollageTitleColor(e.target.value)}
+                              aria-label="Title color"
+                            />
+                            <div className="collage-color-presets">
+                              {['#ffd84a', '#ffffff', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
+                                <button
+                                  key={c}
+                                  type="button"
+                                  className={`collage-color-preset ${collageTitleColor.toLowerCase() === c ? 'active' : ''}`}
+                                  style={{ background: c }}
+                                  onClick={() => setCollageTitleColor(c)}
+                                  aria-label={`Set title color ${c}`}
+                                />
+                              ))}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1488,45 +1588,49 @@ const PosterFinder = () => {
                   label: (<Tooltip title="Background" placement="right"><BgColorsOutlined /></Tooltip>),
                   children: (
                     <div className="collage-tab-body">
-                      <div className="collage-bg-row">
-                        <Upload
-                          accept="image/*"
-                          showUploadList={false}
-                          beforeUpload={handleBgUpload}
-                        >
-                          <Button icon={<UploadOutlined />} size="small">
-                            {collageBg ? 'Change' : 'Upload'}
-                          </Button>
-                        </Upload>
-                        {collageBg && (
-                          <Button
-                            icon={<DeleteOutlined />}
-                            size="small"
-                            onClick={() => setCollageBg(null)}
+                      <div className="collage-section">
+                        <div className="collage-field-label">Source</div>
+                        <div className="collage-bg-row">
+                          <Upload
+                            accept="image/*"
+                            showUploadList={false}
+                            beforeUpload={handleBgUpload}
                           >
-                            Remove
+                            <Button icon={<UploadOutlined />} size="middle">
+                              {collageBg ? 'Change image' : 'Upload image'}
+                            </Button>
+                          </Upload>
+                          {collageBg && (
+                            <Button
+                              icon={<DeleteOutlined />}
+                              size="middle"
+                              onClick={() => setCollageBg(null)}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                          <Button
+                            icon={<ReloadOutlined />}
+                            size="middle"
+                            type="text"
+                            onClick={() => setBgAdjust({ fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 })}
+                          >
+                            Reset adjustments
                           </Button>
-                        )}
-                        <Button
-                          icon={<ReloadOutlined />}
-                          size="small"
-                          type="text"
-                          onClick={() => setBgAdjust({ fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 })}
+                        </div>
+                        <Checkbox
+                          checked={useDefaultBg}
+                          onChange={(e) => setUseDefaultBg(e.target.checked)}
+                          disabled={!!collageBg}
+                          style={{ marginTop: 10 }}
                         >
-                          Reset
-                        </Button>
+                          Use default background
+                        </Checkbox>
                       </div>
-                      <Checkbox
-                        checked={useDefaultBg}
-                        onChange={(e) => setUseDefaultBg(e.target.checked)}
-                        disabled={!!collageBg}
-                        style={{ marginTop: 4 }}
-                      >
-                        Use default background
-                      </Checkbox>
 
                       {(collageBg || useDefaultBg) ? (
-                        <>
+                        <div className="collage-section">
+                          <div className="collage-field-label">Adjustments</div>
                           <div className="collage-adjust-row">
                             <span className="collage-adjust-label">Fit</span>
                             <Segmented
@@ -1561,11 +1665,11 @@ const PosterFinder = () => {
                               tooltip={{ formatter: (v) => `${Math.round(v * 100)}%` }}
                               onChange={(v) => setBgAdjust(prev => ({ ...prev, dim: v }))} />
                           </div>
-                        </>
+                        </div>
                       ) : (
-                        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                          No background selected. Upload one or enable the default.
-                        </Text>
+                        <div className="collage-empty-hint">
+                          No background selected. Upload one or enable the default to adjust it.
+                        </div>
                       )}
                     </div>
                   ),
@@ -1577,32 +1681,33 @@ const PosterFinder = () => {
                   children: (
                     <div className="collage-tab-body">
                       {selectedCount < 2 ? (
-                        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                        <div className="collage-empty-hint">
                           Select 2–4 posters in the grid first.
-                        </Text>
+                        </div>
                       ) : (
                         <>
-                          <Text type="secondary" style={{ fontSize: 'var(--text-xs)', display: 'block', marginBottom: 6 }}>
-                            Pick a poster to adjust its zoom and pan.
-                          </Text>
-                          <div className="collage-thumbs">
-                            {selectedOrder.map((tIdx, i) => {
-                              const r = results[tIdx];
-                              if (!r || !r.image) return null;
-                              return (
-                                <button
-                                  type="button"
-                                  key={tIdx}
-                                  className={`collage-thumb ${activeSlot === i ? 'collage-thumb-active' : ''}`}
-                                  onClick={() => setActiveSlot(i)}
-                                  title={r.title}
-                                >
-                                  <img src={r.image.url} alt={r.title} />
-                                  <span className="collage-thumb-num">{i + 1}</span>
-                                </button>
-                              );
-                            })}
+                          <div className="collage-section">
+                            <div className="collage-field-label">Select a poster to adjust</div>
+                            <div className="collage-thumbs">
+                              {selectedOrder.map((tIdx, i) => {
+                                const r = results[tIdx];
+                                if (!r || !r.image) return null;
+                                return (
+                                  <button
+                                    type="button"
+                                    key={tIdx}
+                                    className={`collage-thumb ${activeSlot === i ? 'collage-thumb-active' : ''}`}
+                                    onClick={() => setActiveSlot(i)}
+                                    title={r.title}
+                                  >
+                                    <img src={r.image.url} alt={r.title} />
+                                    <span className="collage-thumb-num">{i + 1}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
+
                           {selectedOrder[activeSlot] != null && (() => {
                             const tIdx = selectedOrder[activeSlot];
                             const r = results[tIdx];
@@ -1612,11 +1717,16 @@ const PosterFinder = () => {
                               [tIdx]: { scale: 1, offsetX: 0, offsetY: 0, ...prev[tIdx], ...patch },
                             }));
                             return (
-                              <div className="collage-active-card">
+                              <div className="collage-section collage-active-card">
                                 <div className="collage-adjust-header">
-                                  <span className="collage-side-label" style={{ marginBottom: 0 }}>
-                                    Adjust #{activeSlot + 1}
-                                  </span>
+                                  <div>
+                                    <div className="collage-field-label" style={{ marginBottom: 2 }}>
+                                      Adjust slot #{activeSlot + 1}
+                                    </div>
+                                    <div className="collage-active-title" title={r ? r.title : ''}>
+                                      {r ? r.title : ''}
+                                    </div>
+                                  </div>
                                   <Button
                                     size="small"
                                     type="text"
@@ -1630,9 +1740,6 @@ const PosterFinder = () => {
                                     Reset
                                   </Button>
                                 </div>
-                                <Text type="secondary" ellipsis style={{ display: 'block', fontSize: 'var(--text-xs)', marginBottom: 8 }}>
-                                  {r ? r.title : ''}
-                                </Text>
                                 <div className="collage-adjust-row">
                                   <span className="collage-adjust-label">Zoom</span>
                                   <Slider min={1} max={3} step={0.05} value={adj.scale} onChange={(v) => setAdj({ scale: v })} />
@@ -1660,95 +1767,110 @@ const PosterFinder = () => {
                   children: (
                     <div className="collage-tab-body">
                       {selectedCount < 2 ? (
-                        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                        <div className="collage-empty-hint">
                           Select 2–4 posters in the grid first.
-                        </Text>
+                        </div>
                       ) : (
                         <>
-                          <div className="collage-adjust-header">
-                            <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                              Edit text and rating for the names canvas.
-                            </Text>
-                            <Button
-                              size="small"
-                              type="text"
-                              icon={<ReloadOutlined />}
-                              onClick={() => { setNameOverrides({}); setRatings({}); }}
-                            >
-                              Reset
-                            </Button>
-                          </div>
-                          <div className="collage-names-edit">
-                            {selectedOrder.map((tIdx, i) => {
-                              const r = results[tIdx];
-                              if (!r) return null;
-                              const stars = getRating(tIdx);
-                              return (
-                                <div key={tIdx} className="collage-names-edit-group">
-                                  <div className="collage-names-edit-row">
-                                    <span className="collage-names-edit-num">{i + 1}.</span>
-                                    <Input
-                                      size="small"
-                                      value={nameOverrides[tIdx] ?? r.title ?? ''}
-                                      onChange={(e) => setNameOverrides(prev => ({ ...prev, [tIdx]: e.target.value }))}
-                                      placeholder={r.title}
-                                      allowClear
-                                    />
-                                  </div>
-                                  <div className="collage-names-stars-row">
-                                    <span className="collage-names-stars-label">Rating</span>
-                                    <div className="collage-stars-ctrl" title={`Rating: ${stars}/5`}>
-                                      <Button
-                                        size="small"
-                                        onClick={() => setRating(tIdx, stars - 1)}
-                                        disabled={stars <= 0}
-                                      >−</Button>
-                                      <span className="collage-stars-val">
-                                        {stars > 0 ? '⭐'.repeat(stars) : '—'}
-                                      </span>
-                                      <Button
-                                        size="small"
-                                        onClick={() => setRating(tIdx, stars + 1)}
-                                        disabled={stars >= 5}
-                                      >+</Button>
+                          <div className="collage-section">
+                            <div className="collage-adjust-header">
+                              <div className="collage-field-label" style={{ marginBottom: 0 }}>
+                                Titles &amp; ratings
+                              </div>
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<ReloadOutlined />}
+                                onClick={() => { setNameOverrides({}); setRatings({}); }}
+                              >
+                                Reset
+                              </Button>
+                            </div>
+                            <div className="collage-names-edit">
+                              {selectedOrder.map((tIdx, i) => {
+                                const r = results[tIdx];
+                                if (!r) return null;
+                                const stars = getRating(tIdx);
+                                return (
+                                  <div key={tIdx} className="collage-names-edit-group">
+                                    {r.image && (
+                                      <img
+                                        src={r.image.url}
+                                        alt=""
+                                        className="collage-names-edit-thumb"
+                                      />
+                                    )}
+                                    <div className="collage-names-edit-content">
+                                      <div className="collage-names-edit-row">
+                                        <span className="collage-names-edit-num">{i + 1}.</span>
+                                        <Input
+                                          size="small"
+                                          value={nameOverrides[tIdx] ?? r.title ?? ''}
+                                          onChange={(e) => setNameOverrides(prev => ({ ...prev, [tIdx]: e.target.value }))}
+                                          placeholder={r.title}
+                                          allowClear
+                                        />
+                                      </div>
+                                      <div className="collage-names-stars-row">
+                                        <span className="collage-names-stars-label">Rating</span>
+                                        <div className="collage-stars-ctrl" title={`Rating: ${stars}/5`}>
+                                          <Button
+                                            size="small"
+                                            onClick={() => setRating(tIdx, stars - 1)}
+                                            disabled={stars <= 0}
+                                          >−</Button>
+                                          <span className="collage-stars-val">
+                                            {stars > 0 ? '⭐'.repeat(stars) : '—'}
+                                          </span>
+                                          <Button
+                                            size="small"
+                                            onClick={() => setRating(tIdx, stars + 1)}
+                                            disabled={stars >= 5}
+                                          >+</Button>
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              );
-                            })}
+                                );
+                              })}
+                            </div>
                           </div>
-                          <div className="collage-adjust-row">
-                            <span className="collage-adjust-label">Size</span>
-                            <Slider
-                              min={24}
-                              max={160}
-                              step={1}
-                              value={namesSize}
-                              onChange={setNamesSize}
-                              tooltip={{ formatter: (v) => `${v}px` }}
-                            />
-                          </div>
-                          <div className="collage-adjust-row">
-                            <span className="collage-adjust-label">Color</span>
-                            <div className="collage-color-row">
-                              <input
-                                type="color"
-                                className="collage-color-swatch"
-                                value={namesColor}
-                                onChange={(e) => setNamesColor(e.target.value)}
-                                aria-label="Names color"
+
+                          <div className="collage-section">
+                            <div className="collage-field-label">Appearance</div>
+                            <div className="collage-adjust-row">
+                              <span className="collage-adjust-label">Size</span>
+                              <Slider
+                                min={24}
+                                max={160}
+                                step={1}
+                                value={namesSize}
+                                onChange={setNamesSize}
+                                tooltip={{ formatter: (v) => `${v}px` }}
                               />
-                              <div className="collage-color-presets">
-                                {['#ffffff', '#ffd84a', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
-                                  <button
-                                    key={c}
-                                    type="button"
-                                    className={`collage-color-preset ${namesColor.toLowerCase() === c ? 'active' : ''}`}
-                                    style={{ background: c }}
-                                    onClick={() => setNamesColor(c)}
-                                    aria-label={`Set names color ${c}`}
-                                  />
-                                ))}
+                            </div>
+                            <div className="collage-adjust-row">
+                              <span className="collage-adjust-label">Color</span>
+                              <div className="collage-color-row">
+                                <input
+                                  type="color"
+                                  className="collage-color-swatch"
+                                  value={namesColor}
+                                  onChange={(e) => setNamesColor(e.target.value)}
+                                  aria-label="Names color"
+                                />
+                                <div className="collage-color-presets">
+                                  {['#ffffff', '#ffd84a', '#ff5c8a', '#5ad1ff', '#7cf08a', '#ffb142'].map(c => (
+                                    <button
+                                      key={c}
+                                      type="button"
+                                      className={`collage-color-preset ${namesColor.toLowerCase() === c ? 'active' : ''}`}
+                                      style={{ background: c }}
+                                      onClick={() => setNamesColor(c)}
+                                      aria-label={`Set names color ${c}`}
+                                    />
+                                  ))}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1759,7 +1881,7 @@ const PosterFinder = () => {
                 },
               ]}
             />
-          </div>
+          </aside>
         </div>
       </Modal>
 
