@@ -1,0 +1,207 @@
+.invoice-generator {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* ---------- Printable invoice ---------- */
+.invoice-print {
+  background: #fff;
+  color: #000;
+  border: 1.5px solid #000;
+  padding: 10px 14px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.inv-top {
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1.5px solid #000;
+  padding-bottom: 6px;
+}
+
+.inv-store {
+  line-height: 1.35;
+}
+
+.inv-store-name {
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: 0.5px;
+}
+
+.inv-patient {
+  line-height: 1.5;
+  min-width: 240px;
+}
+
+.inv-lbl {
+  font-weight: 600;
+}
+
+.inv-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1.5px solid #000;
+  padding: 4px 0;
+}
+
+.inv-meta-left,
+.inv-meta-right {
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.inv-meta-right {
+  text-align: right;
+}
+
+.inv-title {
+  font-weight: 700;
+  font-size: 22px;
+  letter-spacing: 1px;
+  padding-top: 2px;
+}
+
+/* ---------- Items table ---------- */
+.inv-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0;
+  font-size: 12px;
+}
+
+.inv-table th,
+.inv-table td {
+  border: 1px solid #000;
+  padding: 3px 5px;
+  text-align: center;
+}
+
+.inv-table thead th {
+  border-top: none;
+  font-weight: 700;
+}
+
+.inv-table .ta-left {
+  text-align: left;
+}
+
+.inv-table .ta-right {
+  text-align: right;
+}
+
+.inv-filler td {
+  border-left: 1px solid #000;
+  border-right: 1px solid #000;
+  border-top: none;
+  border-bottom: none;
+  height: 18px;
+}
+
+/* ---------- Bottom section ---------- */
+.inv-bottom {
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid #000;
+  border-top: none;
+}
+
+.inv-terms {
+  padding: 6px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.inv-terms-title {
+  font-weight: 700;
+  text-decoration: underline;
+  margin-bottom: 2px;
+}
+
+.inv-remark {
+  margin-top: 6px;
+}
+
+.inv-sign {
+  width: 280px;
+  border-left: 1px solid #000;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: center;
+}
+
+.inv-sign-for {
+  font-weight: 600;
+  text-align: right;
+}
+
+.inv-sign-line {
+  margin-top: 40px;
+  text-align: right;
+}
+
+/* ---------- Total row ---------- */
+.inv-total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  border: 1px solid #000;
+  border-top: none;
+}
+
+.inv-words {
+  padding: 6px 8px;
+  font-size: 12px;
+  align-self: center;
+}
+
+.inv-grand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-weight: 700;
+  font-size: 16px;
+  border-left: 1px solid #000;
+  padding: 6px 12px;
+}
+
+.inv-grand-amt {
+  min-width: 90px;
+  text-align: right;
+}
+
+.inv-footer-note {
+  font-size: 10px;
+  font-style: italic;
+  text-align: center;
+  margin-top: 4px;
+  color: #333;
+}
+
+/* ---------- Print rules ---------- */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .invoice-print,
+  .invoice-print * {
+    visibility: visible;
+  }
+  .invoice-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    border: 1.5px solid #000;
+    margin: 0;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

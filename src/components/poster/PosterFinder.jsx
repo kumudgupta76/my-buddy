@@ -1045,31 +1045,6 @@ const PosterFinder = () => {
 
   return (
     <div className="poster-page">
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <header className="poster-header">
-        <div className="poster-header-icon" aria-hidden="true">
-          <PictureOutlined />
-        </div>
-        <div className="poster-header-text">
-          <h1 className="poster-header-title">Poster Finder</h1>
-          <p className="poster-header-sub">
-            Search posters from iTunes &amp; OMDB, then build clean collages.
-          </p>
-        </div>
-        {results.length > 0 && (
-          <div className="poster-header-stats">
-            <span className="poster-stat">
-              <strong>{results.length}</strong>
-              <em>title{results.length === 1 ? '' : 's'}</em>
-            </span>
-            <span className="poster-stat poster-stat-accent">
-              <strong>{selectedCount}</strong>
-              <em>selected</em>
-            </span>
-          </div>
-        )}
-      </header>
-
       {/* ── Search Card ────────────────────────────────────────── */}
       <section className="poster-search-card">
         <div className="poster-search-bar">
@@ -1115,23 +1090,6 @@ const PosterFinder = () => {
           separated by commas.
         </p>
       </section>
-
-      {/* ── Selected title chips ───────────────────────────────── */}
-      {results.length > 0 && (
-        <div className="poster-tags-bar">
-          {results.map((r, idx) => (
-            <Tag
-              key={`tag-${idx}-${r.title}`}
-              closable
-              onClose={(e) => { e.preventDefault(); removeTitle(idx); }}
-              className="poster-title-tag"
-              color={r.error ? 'error' : 'default'}
-            >
-              {r.title}
-            </Tag>
-          ))}
-        </div>
-      )}
 
       {/* ── Action toolbar ─────────────────────────────────────── */}
       {results.length > 0 && (
@@ -1274,6 +1232,25 @@ const PosterFinder = () => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      <br></br>
+
+      {/* ── Selected title chips ───────────────────────────────── */}
+      {results.length > 0 && (
+        <div className="poster-tags-bar">
+          {results.map((r, idx) => (
+            <Tag
+              key={`tag-${idx}-${r.title}`}
+              closable
+              onClose={(e) => { e.preventDefault(); removeTitle(idx); }}
+              className="poster-title-tag"
+              color={r.error ? 'error' : 'default'}
+            >
+              {r.title}
+            </Tag>
+          ))}
         </div>
       )}
 
@@ -1508,7 +1485,7 @@ const PosterFinder = () => {
               items={[
                 {
                   key: 'title',
-                  label: (<Tooltip title="Title" placement="right"><EditOutlined /></Tooltip>),
+                  label: (<Tooltip title="Title" placement="right"><EditOutlined />Title</Tooltip>),
                   children: (
                     <div className="collage-tab-body">
                       <div className="collage-section">
@@ -1585,7 +1562,7 @@ const PosterFinder = () => {
                 },
                 {
                   key: 'bg',
-                  label: (<Tooltip title="Background" placement="right"><BgColorsOutlined /></Tooltip>),
+                  label: (<Tooltip title="Background" placement="right"><BgColorsOutlined />Background</Tooltip>),
                   children: (
                     <div className="collage-tab-body">
                       <div className="collage-section">
@@ -1676,7 +1653,7 @@ const PosterFinder = () => {
                 },
                 {
                   key: 'posters',
-                  label: (<Tooltip title="Posters" placement="right"><AppstoreOutlined /></Tooltip>),
+                  label: (<Tooltip title="Posters" placement="right"><AppstoreOutlined />Posters</Tooltip>),
                   disabled: selectedCount < 2,
                   children: (
                     <div className="collage-tab-body">
@@ -1762,7 +1739,7 @@ const PosterFinder = () => {
                 },
                 {
                   key: 'names',
-                  label: (<Tooltip title="Names" placement="right"><FontSizeOutlined /></Tooltip>),
+                  label: (<Tooltip title="Names" placement="right"><FontSizeOutlined />Names</Tooltip>),
                   disabled: selectedCount < 2,
                   children: (
                     <div className="collage-tab-body">

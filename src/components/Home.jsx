@@ -16,6 +16,7 @@ import {
   AppstoreOutlined,
   LockOutlined,
   PictureOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -28,6 +29,7 @@ const iconMap = {
   'battery': <ThunderboltOutlined style={{ fontSize: 24, color: '#ef4444' }} />,
   'admin': <DatabaseOutlined style={{ fontSize: 24, color: '#64748b' }} />,
   'poster': <PictureOutlined style={{ fontSize: 24, color: '#8b5cf6' }} />,
+  'invoice': <FileTextOutlined style={{ fontSize: 24, color: '#0ea5e9' }} />,
   'dump': <AppstoreOutlined style={{ fontSize: 24, color: '#94a3b8' }} />,
 };
 

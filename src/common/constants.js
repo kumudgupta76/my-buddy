@@ -6,6 +6,7 @@ export const routes = [
     { key: 6, slug: "battery", name:"Battery" },
     { key: 7, slug: "admin", name:"Local Store Manager", isPrivate: true },
     { key: 9, slug: "poster", name:"Poster Finder" },
+    { key: 10, slug: "invoice", name:"Invoice Generator" },
     { key: 8, slug: "dump", name:"Dump" }
 ];
 
