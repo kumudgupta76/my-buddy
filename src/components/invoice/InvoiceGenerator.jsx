@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Form, Input, Button, Table, Row, Col, Card, message, Space, Typography } from 'antd';
+import { Form, Input, Button, Table, Row, Col, Card, message, Space, Typography, Radio } from 'antd';
 import { PlusOutlined, DeleteOutlined, PrinterOutlined, ReloadOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import html2canvas from 'html2canvas';
@@ -20,6 +20,7 @@ const blankItem = () => ({
   qty: '',
   mrp: '',
   rate: '',
+  price: '',
   sgst: '',
   cgst: '',
 });
@@ -39,6 +40,21 @@ const defaultHeader = {
   invoiceNo: '',
   date: dayjs().format('DD-MM-YYYY'),
   time: dayjs().format('HH:mm'),
+};
+
+const defaultHeaderDental = {
+  clinicName: '',
+  patientName: '',
+  patientInfo: '',
+  invoiceNo: '',
+  date: dayjs().format('DD/MM/YYYY'),
+  bankName: 'sbi',
+  accountNo: '',
+  doctorName: 'Dr. Saurabh Gupta',
+  doctorQual: 'B.D.S, MIDA',
+  doctorRegNo: '',
+  doctorAddress: '24, Khatri Dharmshala, General Ganj, Mathura',
+  doctorMob: '',
 };
 
 // ---- amount in words (Indian numbering) ----
@@ -79,7 +95,9 @@ const numberToWords = (num) => {
 };
 
 const InvoiceGenerator = () => {
+  const [template, setTemplate] = useState('medical');
   const [header, setHeader] = useState(defaultHeader);
+  const [dentalHeader, setDentalHeader] = useState(defaultHeaderDental);
   const [items, setItems] = useState([blankItem()]);
   const printRef = useRef(null);
 
@@ -88,7 +106,9 @@ const InvoiceGenerator = () => {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
       if (saved) {
+        if (saved.template) setTemplate(saved.template);
         if (saved.header) setHeader((h) => ({ ...h, ...saved.header }));
+        if (saved.dentalHeader) setDentalHeader((h) => ({ ...h, ...saved.dentalHeader }));
         if (Array.isArray(saved.items) && saved.items.length) setItems(saved.items);
       }
     } catch (e) {
@@ -98,10 +118,11 @@ const InvoiceGenerator = () => {
 
   // persist state
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ header, items }));
-  }, [header, items]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ template, header, dentalHeader, items }));
+  }, [template, header, dentalHeader, items]);
 
   const updateHeader = (field, value) => setHeader((h) => ({ ...h, [field]: value }));
+  const updateDentalHeader = (field, value) => setDentalHeader((h) => ({ ...h, [field]: value }));
 
   const updateItem = (key, field, value) =>
     setItems((list) => list.map((it) => (it.key === key ? { ...it, [field]: value } : it)));
@@ -113,27 +134,28 @@ const InvoiceGenerator = () => {
 
   const lineAmount = (it) => (Number(it.qty) || 0) * (Number(it.rate) || 0);
 
+  // dental subtotal: qty * price, or just price when qty is blank
+  const subtotal = (it) => {
+    const q = Number(it.qty) || 0;
+    const p = Number(it.price) || 0;
+    return q ? q * p : p;
+  };
+
   const grandTotal = items.reduce((sum, it) => sum + lineAmount(it), 0);
+  const dentalTotal = items.reduce((sum, it) => sum + subtotal(it), 0);
 
   const resetAll = () => {
     setItems([blankItem()]);
     setHeader({ ...defaultHeader, date: dayjs().format('DD-MM-YYYY'), time: dayjs().format('HH:mm') });
+    setDentalHeader({ ...defaultHeaderDental, date: dayjs().format('DD/MM/YYYY') });
     message.success('Invoice cleared');
   };
 
   const handlePrint = () => {
-    if (!header.storeName) {
-      message.warning('Please enter store name');
-      return;
-    }
     window.print();
   };
 
   const handleDownload = async () => {
-    if (!header.storeName) {
-      message.warning('Please enter store name');
-      return;
-    }
     if (!printRef.current) return;
     const hide = message.loading('Generating PDF...', 0);
     try {
@@ -143,7 +165,8 @@ const InvoiceGenerator = () => {
         useCORS: true,
       });
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const orientation = template === 'dental' ? 'portrait' : 'landscape';
+      const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4' });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 8;
@@ -152,7 +175,9 @@ const InvoiceGenerator = () => {
       const finalHeight = Math.min(imgHeight, pageHeight - margin * 2);
       const finalWidth = finalHeight < imgHeight ? (canvas.width * finalHeight) / canvas.height : usableWidth;
       pdf.addImage(imgData, 'PNG', margin, margin, finalWidth, finalHeight);
-      const fileName = `Invoice_${header.invoiceNo || header.date || 'new'}.pdf`;
+      const invNo = template === 'dental' ? dentalHeader.invoiceNo : header.invoiceNo;
+      const invDate = template === 'dental' ? dentalHeader.date : header.date;
+      const fileName = `Invoice_${invNo || invDate || 'new'}.pdf`;
       pdf.save(fileName);
       message.success('PDF downloaded');
     } catch (e) {
@@ -209,6 +234,33 @@ const InvoiceGenerator = () => {
     },
   ];
 
+  const deleteCol = {
+    title: '',
+    width: 40,
+    render: (_, record) => (
+      <Button
+        size="small"
+        type="text"
+        danger
+        icon={<DeleteOutlined />}
+        onClick={() => removeItem(record.key)}
+      />
+    ),
+  };
+
+  const dentalColumns = [
+    { title: 'NO', render: (_, __, i) => i + 1, width: 40 },
+    cell('name', 'Description', 280),
+    cell('qty', 'Qty', 70),
+    cell('price', 'Price', 90),
+    {
+      title: 'Subtotal',
+      width: 90,
+      render: (_, record) => subtotal(record).toFixed(2),
+    },
+    deleteCol,
+  ];
+
   const headerField = (label, field, span = 8) => (
     <Col xs={24} sm={12} md={span}>
       <Form.Item label={label} style={{ marginBottom: 8 }}>
@@ -217,34 +269,80 @@ const InvoiceGenerator = () => {
     </Col>
   );
 
+  const dentalField = (label, field, span = 8) => (
+    <Col xs={24} sm={12} md={span}>
+      <Form.Item label={label} style={{ marginBottom: 8 }}>
+        <Input value={dentalHeader[field]} onChange={(e) => updateDentalHeader(field, e.target.value)} />
+      </Form.Item>
+    </Col>
+  );
+
+  const isDental = template === 'dental';
+
   return (
     <div className="invoice-generator">
       {/* ---------- INPUT SECTION (hidden when printing) ---------- */}
       <div className="invoice-editor no-print">
-        <Card size="small" title="Invoice Details" style={{ marginBottom: 16 }}>
-          <Form layout="vertical">
-            <Title level={5} style={{ marginTop: 0 }}>Store</Title>
-            <Row gutter={12}>
-              {headerField('Store Name', 'storeName')}
-              {headerField('Address Line 1', 'addressLine1')}
-              {headerField('Address Line 2', 'addressLine2')}
-              {headerField('Phone', 'phone')}
-              {headerField('Email', 'email')}
-              {headerField('GSTIN', 'gstin')}
-              {headerField('D.L. No.', 'dlNo', 16)}
-            </Row>
+        <Card size="small" style={{ marginBottom: 16 }}>
+          <Radio.Group
+            value={template}
+            onChange={(e) => setTemplate(e.target.value)}
+            optionType="button"
+            buttonStyle="solid"
+          >
+            <Radio.Button value="medical">Medical (GST)</Radio.Button>
+            <Radio.Button value="dental">Dental / Simple</Radio.Button>
+          </Radio.Group>
+        </Card>
 
-            <Title level={5}>Patient / Doctor</Title>
-            <Row gutter={12}>
-              {headerField('Patient Name', 'patientName')}
-              {headerField('Patient Address', 'patientAddress')}
-              {headerField('Dr Name', 'drName')}
-              {headerField('Dr Reg No.', 'drRegNo')}
-              {headerField('Invoice No.', 'invoiceNo')}
-              {headerField('Date', 'date')}
-              {headerField('Time', 'time')}
-            </Row>
-          </Form>
+        <Card size="small" title="Invoice Details" style={{ marginBottom: 16 }}>
+          {!isDental ? (
+            <Form layout="vertical">
+              <Title level={5} style={{ marginTop: 0 }}>Store</Title>
+              <Row gutter={12}>
+                {headerField('Store Name', 'storeName')}
+                {headerField('Address Line 1', 'addressLine1')}
+                {headerField('Address Line 2', 'addressLine2')}
+                {headerField('Phone', 'phone')}
+                {headerField('Email', 'email')}
+                {headerField('GSTIN', 'gstin')}
+                {headerField('D.L. No.', 'dlNo', 16)}
+              </Row>
+
+              <Title level={5}>Patient / Doctor</Title>
+              <Row gutter={12}>
+                {headerField('Patient Name', 'patientName')}
+                {headerField('Patient Address', 'patientAddress')}
+                {headerField('Dr Name', 'drName')}
+                {headerField('Dr Reg No.', 'drRegNo')}
+                {headerField('Invoice No.', 'invoiceNo')}
+                {headerField('Date', 'date')}
+                {headerField('Time', 'time')}
+              </Row>
+            </Form>
+          ) : (
+            <Form layout="vertical">
+              <Title level={5} style={{ marginTop: 0 }}>Invoice</Title>
+              <Row gutter={12}>
+                {dentalField('Clinic Name (optional)', 'clinicName', 16)}
+                {dentalField('Invoice No.', 'invoiceNo')}
+                {dentalField('Date Issued', 'date')}
+                {dentalField('Issued To (Name)', 'patientName')}
+                {dentalField('Patient Info (e.g. age-40Y f)', 'patientInfo')}
+              </Row>
+
+              <Title level={5}>Bank / Doctor</Title>
+              <Row gutter={12}>
+                {dentalField('Bank Name', 'bankName')}
+                {dentalField('Account No.', 'accountNo')}
+                {dentalField('Doctor Name', 'doctorName')}
+                {dentalField('Qualification', 'doctorQual')}
+                {dentalField('Reg No.', 'doctorRegNo')}
+                {dentalField('Address', 'doctorAddress', 16)}
+                {dentalField('Mobile', 'doctorMob')}
+              </Row>
+            </Form>
+          )}
         </Card>
 
         <Card
@@ -258,7 +356,7 @@ const InvoiceGenerator = () => {
           }
         >
           <Table
-            columns={columns}
+            columns={isDental ? dentalColumns : columns}
             dataSource={items}
             pagination={false}
             size="small"
@@ -280,8 +378,10 @@ const InvoiceGenerator = () => {
       </div>
 
       {/* ---------- PRINTABLE INVOICE ---------- */}
-      <div className="invoice-print" ref={printRef}>
-        <div className="inv-top">
+      <div className={`invoice-print ${isDental ? 'invoice-print-dental' : ''}`} ref={printRef}>
+        {!isDental ? (
+          <>
+            <div className="inv-top">
           <div className="inv-store">
             <div className="inv-store-name">{header.storeName}</div>
             <div>{header.addressLine1}</div>
@@ -378,6 +478,81 @@ const InvoiceGenerator = () => {
         <div className="inv-footer-note">
           Get well soon. Scan the Healthcare QR Code for complete health services, insurance, and government benefits.
         </div>
+          </>
+        ) : (
+          <>
+            {dentalHeader.clinicName && (
+              <div className="dent-clinic">{dentalHeader.clinicName}</div>
+            )}
+            <div className="dent-title">INVOICE</div>
+
+            <div className="dent-meta">
+              <div className="dent-meta-left">
+                <div className="dent-lbl">Date Issued:</div>
+                <div>{dentalHeader.date}</div>
+                <div className="dent-lbl">Invoice No:</div>
+                <div>{dentalHeader.invoiceNo}</div>
+              </div>
+              <div className="dent-meta-right">
+                <div className="dent-lbl">Issued to:</div>
+                <div>{dentalHeader.patientName}</div>
+                <div>Age:{dentalHeader.patientInfo}</div>
+              </div>
+            </div>
+
+            <table className="dent-table">
+              <thead>
+                <tr>
+                  <th className="dent-no">NO</th>
+                  <th className="ta-left">DESCRIPTION</th>
+                  <th>QTY</th>
+                  <th>PRICE</th>
+                  <th>SUBTOTAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((it, i) => (
+                  <tr key={it.key}>
+                    <td>{i + 1}</td>
+                    <td className="ta-left">{it.name}</td>
+                    <td>{it.qty}</td>
+                    <td>{it.price}</td>
+                    <td>{subtotal(it) ? subtotal(it).toFixed(0) : ''}</td>
+                  </tr>
+                ))}
+                {Array.from({ length: Math.max(0, 6 - items.length) }).map((_, i) => (
+                  <tr key={`dfiller-${i}`} className="dent-filler">
+                    <td>&nbsp;</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                  </tr>
+                ))}
+                <tr className="dent-total-row">
+                  <td colSpan={3}></td>
+                  <td className="dent-total-lbl">GRAND TOTAL</td>
+                  <td className="dent-total-amt">{dentalTotal.toFixed(0)}/-</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="dent-bottom">
+              <div className="dent-note">
+                <div className="dent-note-title">Note:</div>
+                <div>Bank Name: {dentalHeader.bankName}</div>
+                <div>Account No: {dentalHeader.accountNo}</div>
+              </div>
+              <div className="dent-doctor">
+                <div className="dent-doctor-name">{dentalHeader.doctorName}</div>
+                {dentalHeader.doctorQual && <div>{dentalHeader.doctorQual}</div>}
+                {dentalHeader.doctorRegNo && <div>Reg. No: {dentalHeader.doctorRegNo}</div>}
+                {dentalHeader.doctorAddress && <div>{dentalHeader.doctorAddress}</div>}
+                {dentalHeader.doctorMob && <div>Mob: {dentalHeader.doctorMob}</div>}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

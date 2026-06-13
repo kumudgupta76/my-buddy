@@ -184,6 +184,120 @@
   color: #333;
 }
 
+/* ---------- Dental / simple invoice ---------- */
+.invoice-print-dental {
+  max-width: 720px;
+  margin: 8px auto 0;
+  border: none;
+  padding: 28px 36px;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.dent-clinic {
+  font-weight: 700;
+  font-size: 18px;
+  margin-bottom: 4px;
+}
+
+.dent-title {
+  font-weight: 800;
+  font-size: 42px;
+  letter-spacing: 2px;
+  color: #222;
+  margin-bottom: 20px;
+}
+
+.dent-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dent-meta-right {
+  min-width: 220px;
+}
+
+.dent-lbl {
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.dent-meta-left .dent-lbl:first-child,
+.dent-meta-right .dent-lbl:first-child {
+  margin-top: 0;
+}
+
+.dent-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+
+.dent-table th,
+.dent-table td {
+  border: 1px solid #555;
+  padding: 10px 12px;
+  text-align: center;
+}
+
+.dent-table thead th {
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+}
+
+.dent-table .ta-left {
+  text-align: left;
+}
+
+.dent-table .dent-no {
+  width: 50px;
+}
+
+.dent-filler td {
+  height: 26px;
+}
+
+.dent-total-row td {
+  border: none;
+}
+
+.dent-total-lbl {
+  font-weight: 700;
+  text-align: right;
+}
+
+.dent-total-amt {
+  font-weight: 700;
+  border-top: 1px solid #555 !important;
+}
+
+.dent-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 36px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.dent-note-title {
+  font-weight: 700;
+}
+
+.dent-doctor {
+  text-align: center;
+  line-height: 1.4;
+}
+
+.dent-doctor-name {
+  font-weight: 700;
+  color: #1a3fb8;
+}
+
 /* ---------- Print rules ---------- */
 @media print {
   body * {
