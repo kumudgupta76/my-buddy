@@ -393,7 +393,6 @@ const InvoiceGenerator = () => {
             <div><span className="inv-lbl">Patient Name :</span> {header.patientName}</div>
             <div><span className="inv-lbl">Patient Address :</span> {header.patientAddress}</div>
             <div><span className="inv-lbl">Dr Name :</span> {header.drName}</div>
-            <div><span className="inv-lbl">Dr Reg No. :</span> {header.drRegNo}</div>
           </div>
         </div>
 
@@ -402,7 +401,7 @@ const InvoiceGenerator = () => {
             <div>GSTIN : {header.gstin}</div>
             <div>D.L.No. : {header.dlNo}</div>
           </div>
-          <div className="inv-title">GST INVOICE CREDIT</div>
+          <div className="inv-title">GST INVOICE CASH</div>
           <div className="inv-meta-right">
             <div>Invoice No. {header.invoiceNo} &nbsp; Date: {header.date}</div>
             <div>TIME : {header.time}</div>
