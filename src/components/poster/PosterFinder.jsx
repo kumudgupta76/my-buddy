@@ -3,7 +3,7 @@ import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message,
 import {
   SearchOutlined, DownloadOutlined, DeleteOutlined,
   EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
-  FontSizeOutlined, BgColorsOutlined, EditOutlined,
+  FontSizeOutlined, BgColorsOutlined, EditOutlined, MessageOutlined, CopyOutlined,
 } from '@ant-design/icons';
 import { isMobile } from '../../common/utils';
 import './PosterFinder.css';
@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS = {
   useDefaultBg: true,
   bgAdjust: { fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 },
   counter: 1,
+  captionHashtags: '#movies #watchoftheweek #cinema',
 };
 
 const loadSettings = () => {
@@ -102,6 +103,9 @@ const PosterFinder = () => {
   const [previewMode, setPreviewMode] = useState('posters'); // 'posters' | 'names'
   // Title $(Counter) token value. Incremented only after a successful download.
   const [counter, setCounter] = useState(initialSettings.counter);
+  // Social caption — persisted hashtags suffix + a local draft (null = use auto-generated)
+  const [captionHashtags, setCaptionHashtags] = useState(initialSettings.captionHashtags);
+  const [captionDraft, setCaptionDraft] = useState(null);
   // Manual poster modal
   const [manualOpen, setManualOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
@@ -121,8 +125,9 @@ const PosterFinder = () => {
       useDefaultBg,
       bgAdjust,
       counter,
+      captionHashtags,
     });
-  }, [collageTitle, collageTitleSize, collageTitleColor, namesColor, namesSize, useDefaultBg, bgAdjust, counter]);
+  }, [collageTitle, collageTitleSize, collageTitleColor, namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags]);
 
   const fetchWithTimeout = async (url, timeoutMs = 10000) => {
     const controller = new AbortController();
@@ -576,6 +581,76 @@ const PosterFinder = () => {
 
   const mobile = isMobile();
   const selectedCount = selectedOrder.length;
+
+  // Build a shareable caption from the current selection, title and ratings.
+  const generatedCaption = (() => {
+    const titleText = resolveTitle(collageTitle, counter).trim();
+    const lines = selectedOrder
+      .map((tIdx, i) => {
+        const r = results[tIdx];
+        if (!r) return null;
+        const name = ((nameOverrides[tIdx] || '').trim() || r.title || '').trim();
+        if (!name) return null;
+        const stars = getRating(tIdx);
+        const starStr = stars > 0 ? ' \u2014 ' + '\u2B50'.repeat(stars) : '';
+        return `${i + 1}. ${name}${starStr}`;
+      })
+      .filter(Boolean);
+    // Per-movie hashtags derived from each selected title (e.g. "The Matrix" -> "#TheMatrix").
+    const movieTitleToTag = (title) => {
+      if (!title) return '';
+      const cleaned = title
+        .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+        .join('');
+      return cleaned ? `#${cleaned}` : '';
+    };
+    const movieTags = selectedOrder
+      .map(tIdx => {
+        const r = results[tIdx];
+        const name = ((nameOverrides[tIdx] || '').trim() || (r && r.title) || '').trim();
+        // Drop a trailing year like " (1959)" so hashtags stay #TheBat instead of #TheBat1959.
+        const nameNoYear = name.replace(/\s*\(\d{4}\)\s*$/, '').trim();
+        return movieTitleToTag(nameNoYear);
+      })
+      .filter(Boolean)
+      .join(' ');
+
+    const extraTags = (captionHashtags || '').trim();
+    const tagLine = [movieTags, extraTags].filter(Boolean).join(' ');
+    return [titleText, lines.length ? lines.join('\n') : '', tagLine]
+      .filter(Boolean)
+      .join('\n\n');
+  })();
+
+  const captionValue = captionDraft != null ? captionDraft : generatedCaption;
+
+  const copyCaption = async () => {
+    const text = captionValue || '';
+    if (!text.trim()) {
+      message.warning('Nothing to copy yet.');
+      return;
+    }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      message.success('Caption copied to clipboard');
+    } catch {
+      message.error('Could not copy caption');
+    }
+  };
 
   // ─── Collage helpers ─────────────────────────────────────────────────────
   const handleBgUpload = (file) => {
@@ -1092,7 +1167,7 @@ const PosterFinder = () => {
       </section>
 
       {/* ── Action toolbar ─────────────────────────────────────── */}
-      {results.length > 0 && (
+      {results.length > 0 && !collageOpen && (
         <div className="poster-action-bar">
           <div className="poster-action-left">
             <span className="poster-action-summary">
@@ -1115,9 +1190,15 @@ const PosterFinder = () => {
                 type="default"
                 icon={<AppstoreOutlined />}
                 size="middle"
-                onClick={() => setCollageOpen(true)}
+                onClick={() => {
+                  setCollageOpen(true);
+                  setTimeout(() => {
+                    document.getElementById('collage-builder')
+                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 50);
+                }}
               >
-                Create collage ({selectedCount})
+                {collageOpen ? `Collage builder open` : `Create collage (${selectedCount})`}
               </Button>
             )}
             {selectedCount > 0 && (
@@ -1294,67 +1375,20 @@ const PosterFinder = () => {
         )}
       </Modal>
 
-      {/* ── Collage Modal ─────────────────────────────────────── */}
-      <Modal
-        open={collageOpen}
-        onCancel={() => setCollageOpen(false)}
-        title={
-          <div className="collage-modal-title">
-            <div className="collage-modal-title-icon" aria-hidden="true">
-              <AppstoreOutlined />
-            </div>
-            <div className='collage-model-title-div'>
-              <div>
-              <div className="collage-modal-title-main">Create poster collage</div>
-              <div className="collage-modal-title-sub">
+      {/* ── Inline Collage Builder ───────────────────────────── */}
+      {collageOpen && (
+        <section className="collage-section" id="collage-builder">
+          <header className="collage-section-header">
+            <div className="collage-section-heading">
+              <h2 className="collage-section-title">Create poster collage</h2>
+              <p className="collage-section-sub">
                 {selectedCount >= 2
-                  ? `Combining ${selectedCount} poster${selectedCount === 1 ? '' : 's'} · output 1200×1500`
+                  ? `Combining ${selectedCount} poster${selectedCount === 1 ? '' : 's'} · output 1200×1500 · downloads posters + names PNGs`
                   : 'Select 2 to 4 posters to start'}
-              </div>
-              </div>
-                       {selectedCount >= 2 && (
-              <div className="collage-stage-toolbar">
-                <div className="collage-preview-tabs" role="tablist" aria-label="Preview mode">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={previewMode === 'posters'}
-                    className={`collage-preview-tab ${previewMode === 'posters' ? 'active' : ''}`}
-                    onClick={() => setPreviewMode('posters')}
-                  >
-                    <AppstoreOutlined /> Posters
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={previewMode === 'names'}
-                    className={`collage-preview-tab ${previewMode === 'names' ? 'active' : ''}`}
-                    onClick={() => setPreviewMode('names')}
-                  >
-                    <FontSizeOutlined /> Names
-                  </button>
-                </div>
-              </div>
-            )}
+              </p>
             </div>
-               
-          </div>
-        }
-        width={mobile ? '98%' : 1180}
-        centered
-        className="collage-modal"
-        bodyStyle={{ padding: 0 }}
-        footer={
-          <div className="collage-footer">
-            <div className="collage-footer-hint">
-              {selectedCount >= 2 && (
-                <span>
-                  Downloads two PNGs: <strong>posters</strong> &amp; <strong>names</strong>.
-                </span>
-              )}
-            </div>
-            <div className="collage-footer-actions">
-              <Button onClick={() => setCollageOpen(false)}>Close</Button>
+            <div className="collage-section-actions">
+              <Button onClick={() => setCollageOpen(false)}>Hide</Button>
               <Button
                 onClick={() => setCollageBg(null)}
                 disabled={!collageBg}
@@ -1371,10 +1405,32 @@ const PosterFinder = () => {
                 Download collages
               </Button>
             </div>
-          </div>
-        }
-      >
-        <div className="collage-workspace">
+          </header>
+          {selectedCount >= 2 && (
+            <div className="collage-preview-switcher">
+              <div className="collage-preview-tabs" role="tablist" aria-label="Preview mode">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={previewMode === 'posters'}
+                  className={`collage-preview-tab ${previewMode === 'posters' ? 'active' : ''}`}
+                  onClick={() => setPreviewMode('posters')}
+                >
+                  <AppstoreOutlined /> Posters
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={previewMode === 'names'}
+                  className={`collage-preview-tab ${previewMode === 'names' ? 'active' : ''}`}
+                  onClick={() => setPreviewMode('names')}
+                >
+                  <FontSizeOutlined /> Names
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="collage-workspace">
           {/* ── Preview pane ───────────────────────────────────── */}
           <div className="collage-stage">
             <div className="collage-stage-canvas">
@@ -1856,11 +1912,84 @@ const PosterFinder = () => {
                     </div>
                   ),
                 },
-              ]}
+                {
+                  key: 'caption',
+                  label: (<Tooltip title="Caption" placement="right"><MessageOutlined />Caption</Tooltip>),
+                  children: (
+                    <div className="collage-tab-body">
+                      <div className="collage-section">
+                        <div className="collage-adjust-header">
+                          <div className="collage-field-label" style={{ marginBottom: 0 }}>
+                            Post caption
+                          </div>
+                          <div style={{ display: 'inline-flex', gap: 6 }}>
+                            <Tooltip title="Regenerate from current selection">
+                              <Button
+                                size="small"
+                                type="text"
+                                icon={<ReloadOutlined />}
+                                onClick={() => setCaptionDraft(null)}
+                              >
+                                Reset
+                              </Button>
+                            </Tooltip>
+                            <Button
+                              size="small"
+                              type="primary"
+                              icon={<CopyOutlined />}
+                              onClick={copyCaption}
+                              disabled={!captionValue.trim()}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                        </div>
+                        <Input.TextArea
+                          value={captionValue}
+                          onChange={(e) => setCaptionDraft(e.target.value)}
+                          autoSize={{ minRows: 8, maxRows: 16 }}
+                          placeholder={selectedCount < 2
+                            ? 'Select posters to build a caption…'
+                            : 'Your caption will appear here.'}
+                        />
+                        <p className="collage-field-help">
+                          Auto-built from your title, names and ratings. Edit freely — Reset
+                          rebuilds from the current selection.
+                        </p>
+                      </div>
+
+                      <div className="collage-section">
+                        <label className="collage-field-label" htmlFor="collage-hashtags">
+                          Extra hashtags
+                        </label>
+                        <Input
+                          id="collage-hashtags"
+                          value={captionHashtags}
+                          onChange={(e) => {
+                            setCaptionHashtags(e.target.value);
+                            setCaptionDraft(null);
+                          }}
+                          placeholder="#movies #watchoftheweek"
+                          allowClear
+                        />
+                        <p className="collage-field-help">
+                          Each selected movie's title becomes a hashtag automatically
+                          (e.g. #TheMatrix). These extra tags are appended after them. Saved
+                          between sessions.
+                        </p>
+                      </div>
+                    </div>
+                  ),
+                },
+              ].sort((a, b) => {
+                const order = ['title', 'names', 'caption', 'bg', 'posters'];
+                return order.indexOf(a.key) - order.indexOf(b.key);
+              })}
             />
           </aside>
         </div>
-      </Modal>
+        </section>
+      )}
 
       {/* Manual Poster Modal */}
       <Modal

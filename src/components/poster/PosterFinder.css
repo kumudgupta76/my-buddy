@@ -641,6 +641,57 @@
   margin-top: 0;
 }
 
+/* ─── Inline Collage Section (blends with the page) ──────────────────────── */
+.collage-section {
+  margin-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  /* no card chrome — no border, shadow or surface background */
+}
+
+.collage-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+  padding: 0;
+  border: 0;
+}
+
+.collage-section-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.collage-section-title {
+  margin: 0;
+  font-size: var(--text-xl, 22px);
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+
+.collage-section-sub {
+  margin: 4px 0 0;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.collage-section-actions {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.collage-preview-switcher {
+  display: flex;
+  justify-content: flex-start;
+}
+
 /* Modal title block */
 .collage-modal-title {
   display: flex;
@@ -707,10 +758,13 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 0;
-  /* Reserve room for the modal header (~64px) and footer (~64px) plus
-     vertical margins so the Download button stays visible without scrolling. */
-  height: min(calc(100vh - 180px), 720px);
+  /* Inline layout: leave room for page header, action bar, section header
+     (no footer — actions live in the header). */
+  height: min(calc(100vh - 200px), 780px);
   background: var(--color-background);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
 }
 
 /* Stage (left, fixed — no scroll) */
