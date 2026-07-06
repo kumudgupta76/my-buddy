@@ -113,6 +113,9 @@ const PosterFinder = () => {
   const [manualUrl, setManualUrl] = useState('');
   const suggestDebounceRef = useRef(null);
   const suggestAbortRef = useRef(null);
+  // Tracks whether the currently-open collage has been downloaded. Used to
+  // advance the counter only when a NEW collage is created (see openCollage).
+  const collageDownloadedRef = useRef(false);
 
   // Persist collage settings to localStorage whenever they change.
   useEffect(() => {
@@ -436,6 +439,19 @@ const PosterFinder = () => {
   };
 
   const clearSelection = () => setSelectedOrder([]);
+
+  // Open the collage modal. If the previous collage was already downloaded,
+  // advance the counter now (only when the title actually uses $(Counter)),
+  // so the increment is visible only when creating a new collage.
+  const openCollage = () => {
+    if (collageDownloadedRef.current) {
+      if (/\$\(Counter\)/i.test(collageTitle)) {
+        setCounter(c => c + 1);
+      }
+      collageDownloadedRef.current = false;
+    }
+    setCollageOpen(true);
+  };
 
   const downloadImage = async (url, filename) => {
     try {
@@ -1105,10 +1121,10 @@ const PosterFinder = () => {
       triggerDownload(postersOut.blob, 'posters', titleText);
       // Slight delay so browsers don't block the second download
       setTimeout(() => triggerDownload(namesOut.blob, 'names', titleText), 250);
-      // Increment counter only on successful download (and only if template uses it).
-      if (/\$\(Counter\)/i.test(collageTitle)) {
-        setCounter(c => c + 1);
-      }
+      // Mark this collage as downloaded. The counter advances when the NEXT
+      // collage is created, so the caption stays in sync with what was just
+      // downloaded (no immediate jump in the still-open preview).
+      collageDownloadedRef.current = true;
       message.success('Posters and names collages downloaded');
     } catch (e) {
       message.error('Failed to render collage. Some images may be blocked by CORS.');
@@ -1190,13 +1206,7 @@ const PosterFinder = () => {
                 type="default"
                 icon={<AppstoreOutlined />}
                 size="middle"
-                onClick={() => {
-                  setCollageOpen(true);
-                  setTimeout(() => {
-                    document.getElementById('collage-builder')
-                      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 50);
-                }}
+                onClick={openCollage}
               >
                 {collageOpen ? `Collage builder open` : `Create collage (${selectedCount})`}
               </Button>
