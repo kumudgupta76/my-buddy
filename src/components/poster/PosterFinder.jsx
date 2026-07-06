@@ -113,9 +113,6 @@ const PosterFinder = () => {
   const [manualUrl, setManualUrl] = useState('');
   const suggestDebounceRef = useRef(null);
   const suggestAbortRef = useRef(null);
-  // Tracks whether the currently-open collage has been downloaded. Used to
-  // advance the counter only when a NEW collage is created (see openCollage).
-  const collageDownloadedRef = useRef(false);
 
   // Persist collage settings to localStorage whenever they change.
   useEffect(() => {
@@ -440,15 +437,12 @@ const PosterFinder = () => {
 
   const clearSelection = () => setSelectedOrder([]);
 
-  // Open the collage modal. If the previous collage was already downloaded,
-  // advance the counter now (only when the title actually uses $(Counter)),
-  // so the increment is visible only when creating a new collage.
+  // Open the collage modal. Each new collage advances the counter, continuing
+  // from the value saved for the previously created collage. The bumped value
+  // is persisted to localStorage via the settings effect for future sessions.
   const openCollage = () => {
-    if (collageDownloadedRef.current) {
-      if (/\$\(Counter\)/i.test(collageTitle)) {
-        setCounter(c => c + 1);
-      }
-      collageDownloadedRef.current = false;
+    if (/\$\(Counter\)/i.test(collageTitle)) {
+      setCounter(c => c + 1);
     }
     setCollageOpen(true);
   };
@@ -1121,10 +1115,6 @@ const PosterFinder = () => {
       triggerDownload(postersOut.blob, 'posters', titleText);
       // Slight delay so browsers don't block the second download
       setTimeout(() => triggerDownload(namesOut.blob, 'names', titleText), 250);
-      // Mark this collage as downloaded. The counter advances when the NEXT
-      // collage is created, so the caption stays in sync with what was just
-      // downloaded (no immediate jump in the still-open preview).
-      collageDownloadedRef.current = true;
       message.success('Posters and names collages downloaded');
     } catch (e) {
       message.error('Failed to render collage. Some images may be blocked by CORS.');
