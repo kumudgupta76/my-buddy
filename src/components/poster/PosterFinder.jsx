@@ -1557,9 +1557,9 @@ const PosterFinder = () => {
                           Use <code>$(Counter)</code> to auto-insert a number that increments on each
                           successful download.
                         </p>
-                      
+                      </div>
 
-                      <div className="collage-section-hr"></div>
+                      <div className="collage-section">
                         <div className="collage-field-label">Counter</div>
                         <div className="collage-counter-row">
                           <InputNumber
@@ -1573,7 +1573,9 @@ const PosterFinder = () => {
                             Reset
                           </Button>
                         </div>
-                      <div className="collage-section-hr"></div>
+                      </div>
+
+                      <div className="collage-section">
                         <div className="collage-field-label">Appearance</div>
                         <div className="collage-adjust-row">
                           <span className="collage-adjust-label">Size</span>
@@ -1657,11 +1659,10 @@ const PosterFinder = () => {
                         >
                           Use default background
                         </Checkbox>
-
-                      <div className="collage-section-hr"></div>
+                      </div>
 
                       {(collageBg || useDefaultBg) ? (
-                        <>
+                        <div className="collage-section">
                           <div className="collage-field-label">Adjustments</div>
                           <div className="collage-adjust-row">
                             <span className="collage-adjust-label">Fit</span>
@@ -1697,13 +1698,12 @@ const PosterFinder = () => {
                               tooltip={{ formatter: (v) => `${Math.round(v * 100)}%` }}
                               onChange={(v) => setBgAdjust(prev => ({ ...prev, dim: v }))} />
                           </div>
-                        </>
+                        </div>
                       ) : (
                         <div className="collage-empty-hint">
                           No background selected. Upload one or enable the default to adjust it.
                         </div>
                       )}
-                      </div>
                     </div>
                   ),
                 },
@@ -1867,10 +1867,10 @@ const PosterFinder = () => {
                                 );
                               })}
                             </div>
+                          </div>
 
-                          <div className="collage-section-hr"></div>
-
-                          <div className="collage-field-label">Appearance</div>
+                          <div className="collage-section">
+                            <div className="collage-field-label">Appearance</div>
                             <div className="collage-adjust-row">
                               <span className="collage-adjust-label">Size</span>
                               <Slider
@@ -1956,9 +1956,9 @@ const PosterFinder = () => {
                           Auto-built from your title, names and ratings. Edit freely — Reset
                           rebuilds from the current selection.
                         </p>
+                      </div>
 
-                      <div className="collage-section-hr"></div>
-
+                      <div className="collage-section">
                         <label className="collage-field-label" htmlFor="collage-hashtags">
                           Extra hashtags
                         </label>
