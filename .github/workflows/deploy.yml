@@ -6,6 +6,9 @@ on:
       - master    # Main/production branch
       - develop   # Development branch (create test instance)
 
+permissions:
+  contents: write   # Required for peaceiris/actions-gh-pages to push to gh-pages
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,7 +31,7 @@ jobs:
         run: |
           if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
             echo "REACT_APP_ENV=production" >> $GITHUB_ENV
-            echo "REACT_APP_API_URL=hhttps://kumudgupta76.github.io/my-buddy" >> $GITHUB_ENV
+            echo "REACT_APP_API_URL=https://kumudgupta76.github.io/my-buddy" >> $GITHUB_ENV
           elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
             echo "REACT_APP_ENV=development" >> $GITHUB_ENV
             echo "REACT_APP_API_URL=https://kumudgupta76.github.io/my-buddy/develop" >> $GITHUB_ENV
@@ -51,7 +54,7 @@ jobs:
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
-          deploy_key: ${{ secrets.DEPLOY_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build
           user_name: 'github-actions'  # Optional
           user_email: 'actions@github.com'  # Optional
