@@ -49,11 +49,6 @@ jobs:
           echo "REACT_APP_OMDB_API_KEY=${{ secrets.REACT_APP_OMDB_API_KEY }}" >> $GITHUB_ENV
           echo "REACT_APP_FIREBASE_AUTH_DOMAIN=${{ secrets.REACT_APP_FIREBASE_AUTH_DOMAIN }}"
 
-      - name: Debug env presence (lengths only, no secret values)
-        run: |
-          echo "OMDB key length: ${#REACT_APP_OMDB_API_KEY}"
-          echo "Firebase API key length: ${#REACT_APP_FIREBASE_API_KEY}"
-
       - name: Build React app
         run: npm run build
 
