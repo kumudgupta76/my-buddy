@@ -15,6 +15,7 @@ const OMDB_BASE = 'https://www.omdbapi.com/';
 const OMDB_KEY = process.env.REACT_APP_OMDB_API_KEY;
 const CACHE_KEY = 'poster-finder-cache-v2';
 const SETTINGS_KEY = 'poster-finder-settings-v1';
+const RESULTS_KEY = 'poster-finder-results-v1';
 const DEFAULT_BG_URL = `${process.env.PUBLIC_URL || ''}/assets/background.png`;
 
 const DEFAULT_SETTINGS = {
@@ -66,13 +67,35 @@ const setCachedResults = (cache) => {
   } catch { /* storage full */ }
 };
 
+// Persist the added movies/series (results + selection) so they survive refreshes.
+const loadSavedResults = () => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RESULTS_KEY));
+    if (!parsed || !Array.isArray(parsed.results)) return { results: [], selectedOrder: [] };
+    const selectedOrder = Array.isArray(parsed.selectedOrder)
+      ? parsed.selectedOrder.filter(i => i >= 0 && i < parsed.results.length)
+      : [];
+    return { results: parsed.results, selectedOrder };
+  } catch {
+    return { results: [], selectedOrder: [] };
+  }
+};
+
+const saveResults = (results, selectedOrder) => {
+  try {
+    localStorage.setItem(RESULTS_KEY, JSON.stringify({ results, selectedOrder }));
+  } catch { /* storage full */ }
+};
+
 // iTunes artwork URLs contain a size like 100x100bb.jpg — we can swap in any size
 const resizeArtwork = (url, size) => url.replace(/\d+x\d+bb/, `${size}x${size}bb`);
 
 const PosterFinder = () => {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]); // [{title, image: {url, urlHD, label, kind, year, source}, error?, imdbID?}]
-  const [selectedOrder, setSelectedOrder] = useState([]); // ordered array of titleIdx
+  // Restore previously added titles/selection from localStorage (persists across refreshes).
+  const initialResults = (() => loadSavedResults())();
+  const [results, setResults] = useState(initialResults.results); // [{title, image: {url, urlHD, label, kind, year, source}, error?, imdbID?}]
+  const [selectedOrder, setSelectedOrder] = useState(initialResults.selectedOrder); // ordered array of titleIdx
   const [loading, setLoading] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [downloading, setDownloading] = useState(false);
@@ -128,6 +151,12 @@ const PosterFinder = () => {
       captionHashtags,
     });
   }, [collageTitle, collageTitleSize, collageTitleColor, namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags]);
+
+  // Persist added titles + selection whenever they change. Removing a title via
+  // its tag updates `results`/`selectedOrder`, so this also clears it from storage.
+  useEffect(() => {
+    saveResults(results, selectedOrder);
+  }, [results, selectedOrder]);
 
   const fetchWithTimeout = async (url, timeoutMs = 10000) => {
     const controller = new AbortController();
