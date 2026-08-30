@@ -1,11 +1,21 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented } from 'antd';
+import React, { useState, useCallback, useRef, useEffect, useContext, useMemo } from 'react';
+import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination } from 'antd';
 import {
   SearchOutlined, DownloadOutlined, DeleteOutlined,
   EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
   FontSizeOutlined, BgColorsOutlined, EditOutlined, MessageOutlined, CopyOutlined,
+  CheckOutlined, CloseOutlined, CloudSyncOutlined,
 } from '@ant-design/icons';
-import { isMobile } from '../../common/utils';
+import dayjs from 'dayjs';
+import { isMobile, COLLECTION_NAME, POSTER_DATA_KEY, POSTER_SETTINGS_KEY } from '../../common/utils';
+import { fetchData, saveData } from '../../common/dbUtils';
+import { UserContext } from '../../common/UserContext';
+import {
+  DEFAULT_SETTINGS, mergeSettings, normalizePoster, newPosterId, nowIso,
+  getCachedResults, setCachedResults,
+  getLocalImages, setLocalImage, removeLocalImage, pruneLocalImages,
+  downscaleImage, readLegacyPosterData, isMigrated, markMigrated,
+} from './posterStorage';
 import './PosterFinder.css';
 
 const { Text } = Typography;
@@ -13,150 +23,203 @@ const { Text } = Typography;
 const ITUNES_BASE = 'https://itunes.apple.com/search';
 const OMDB_BASE = 'https://www.omdbapi.com/';
 const OMDB_KEY = process.env.REACT_APP_OMDB_API_KEY;
-const CACHE_KEY = 'poster-finder-cache-v2';
-const SETTINGS_KEY = 'poster-finder-settings-v1';
-const RESULTS_KEY = 'poster-finder-results-v1';
 const DEFAULT_BG_URL = `${process.env.PUBLIC_URL || ''}/assets/background.png`;
-
-const DEFAULT_SETTINGS = {
-  collageTitle: 'Watch Of The Week #$(Counter)',
-  collageTitleSize: 56,
-  collageTitleColor: '#ffd84a',
-  namesColor: '#ffffff',
-  namesSize: 96,
-  useDefaultBg: true,
-  bgAdjust: { fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 },
-  counter: 1,
-  captionHashtags: '#movies #watchoftheweek #cinema',
-};
-
-const loadSettings = () => {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    const parsed = JSON.parse(raw);
-    return {
-      ...DEFAULT_SETTINGS,
-      ...parsed,
-      bgAdjust: { ...DEFAULT_SETTINGS.bgAdjust, ...(parsed.bgAdjust || {}) },
-    };
-  } catch {
-    return { ...DEFAULT_SETTINGS };
-  }
-};
-
-const saveSettings = (settings) => {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch { /* storage full */ }
-};
+const PAGE_SIZE = 24;
+const SAVE_DEBOUNCE_MS = 800;
 
 // Replace tokens in the title template — currently just $(Counter).
 const resolveTitle = (template, counter) =>
   String(template || '').replace(/\$\(Counter\)/gi, String(counter ?? ''));
 
-const getCachedResults = () => {
-  try {
-    return JSON.parse(localStorage.getItem(CACHE_KEY)) || {};
-  } catch { return {}; }
-};
+const formatCounter = (n) => String(Math.max(0, Number(n) || 0)).padStart(3, '0');
 
-const setCachedResults = (cache) => {
-  try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-  } catch { /* storage full */ }
-};
+const safeFileName = (value) =>
+  String(value || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 
-// Persist the added movies/series (results + selection) so they survive refreshes.
-const loadSavedResults = () => {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(RESULTS_KEY));
-    if (!parsed || !Array.isArray(parsed.results)) return { results: [], selectedOrder: [] };
-    const selectedOrder = Array.isArray(parsed.selectedOrder)
-      ? parsed.selectedOrder.filter(i => i >= 0 && i < parsed.results.length)
-      : [];
-    return { results: parsed.results, selectedOrder };
-  } catch {
-    return { results: [], selectedOrder: [] };
-  }
-};
-
-const saveResults = (results, selectedOrder) => {
-  try {
-    localStorage.setItem(RESULTS_KEY, JSON.stringify({ results, selectedOrder }));
-  } catch { /* storage full */ }
-};
+const formatDate = (iso) => (iso ? dayjs(iso).format('D MMM YYYY, HH:mm') : '—');
 
 // iTunes artwork URLs contain a size like 100x100bb.jpg — we can swap in any size
 const resizeArtwork = (url, size) => url.replace(/\d+x\d+bb/, `${size}x${size}bb`);
 
 const PosterFinder = () => {
+  const { user } = useContext(UserContext);
   const [query, setQuery] = useState('');
-  // Restore previously added titles/selection from localStorage (persists across refreshes).
-  const initialResults = (() => loadSavedResults())();
-  const [results, setResults] = useState(initialResults.results); // [{title, image: {url, urlHD, label, kind, year, source}, error?, imdbID?}]
-  const [selectedOrder, setSelectedOrder] = useState(initialResults.selectedOrder); // ordered array of titleIdx
+  // Posters are keyed by a stable id; the collage keeps ids, never array indices.
+  const [posters, setPosters] = useState([]);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [dataLoading, setDataLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState(1);
+  const [editingId, setEditingId] = useState(null);
+  const [editingName, setEditingName] = useState('');
+  const [localImages, setLocalImages] = useState(() => getLocalImages());
   const [loading, setLoading] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [downloading, setDownloading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   const [collageOpen, setCollageOpen] = useState(false);
-  // Persisted settings (lazy-init from localStorage)
-  const initialSettings = (() => loadSettings())();
-  const [collageTitle, setCollageTitle] = useState(initialSettings.collageTitle);
-  const [collageTitleSize, setCollageTitleSize] = useState(initialSettings.collageTitleSize); // canvas px
-  const [collageTitleColor, setCollageTitleColor] = useState(initialSettings.collageTitleColor);
-  const [collageBg, setCollageBg] = useState(null); // dataURL of user-uploaded bg
-  const [useDefaultBg, setUseDefaultBg] = useState(initialSettings.useDefaultBg);
+  const [collageTitle, setCollageTitle] = useState(DEFAULT_SETTINGS.collageTitle);
+  const [collageTitleSize, setCollageTitleSize] = useState(DEFAULT_SETTINGS.collageTitleSize); // canvas px
+  const [collageTitleColor, setCollageTitleColor] = useState(DEFAULT_SETTINGS.collageTitleColor);
+  const [collageBg, setCollageBg] = useState(null); // dataURL of user-uploaded bg, this session only
+  const [useDefaultBg, setUseDefaultBg] = useState(DEFAULT_SETTINGS.useDefaultBg);
   // Background adjustments: fit ('stretch' | 'cover' | 'contain'), scale 1..3, offsetX/Y -100..100, dim 0..0.7
-  const [bgAdjust, setBgAdjust] = useState(initialSettings.bgAdjust);
+  const [bgAdjust, setBgAdjust] = useState(DEFAULT_SETTINGS.bgAdjust);
   const [collageRendering, setCollageRendering] = useState(false);
-  // Per-poster adjustments keyed by titleIdx: { scale: 1..3, offsetX: -100..100, offsetY: -100..100 }
-  const [adjustments, setAdjustments] = useState({});
-  const [activeSlot, setActiveSlot] = useState(0); // index within selectedOrder
-  // Editable names overlay (per-slot text override). Keyed by titleIdx.
-  const [nameOverrides, setNameOverrides] = useState({});
-  // Star ratings per titleIdx. Default 4 stars (0..5).
-  const [ratings, setRatings] = useState({});
-  const getRating = (tIdx) => (ratings[tIdx] == null ? 4 : ratings[tIdx]);
-  const setRating = (tIdx, n) =>
-    setRatings(prev => ({ ...prev, [tIdx]: Math.max(0, Math.min(5, n)) }));
-  const [namesColor, setNamesColor] = useState(initialSettings.namesColor);
-  const [namesSize, setNamesSize] = useState(initialSettings.namesSize);
+  const [activeSlot, setActiveSlot] = useState(0); // index within selectedIds
+  const [namesColor, setNamesColor] = useState(DEFAULT_SETTINGS.namesColor);
+  const [namesSize, setNamesSize] = useState(DEFAULT_SETTINGS.namesSize);
   const [previewMode, setPreviewMode] = useState('posters'); // 'posters' | 'names'
   // Title $(Counter) token value. Incremented only after a successful download.
-  const [counter, setCounter] = useState(initialSettings.counter);
+  const [counter, setCounter] = useState(DEFAULT_SETTINGS.counter);
   // Social caption — persisted hashtags suffix + a local draft (null = use auto-generated)
-  const [captionHashtags, setCaptionHashtags] = useState(initialSettings.captionHashtags);
+  const [captionHashtags, setCaptionHashtags] = useState(DEFAULT_SETTINGS.captionHashtags);
   const [captionDraft, setCaptionDraft] = useState(null);
   // Manual poster modal
   const [manualOpen, setManualOpen] = useState(false);
   const [manualTitle, setManualTitle] = useState('');
-  const [manualImage, setManualImage] = useState(null); // dataURL
+  const [manualImage, setManualImage] = useState(null); // downscaled dataURL
   const [manualUrl, setManualUrl] = useState('');
   const suggestDebounceRef = useRef(null);
   const suggestAbortRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const skipSaveRef = useRef(true);
 
-  // Persist collage settings to localStorage whenever they change.
+  // ─── Load from Firestore ─────────────────────────────────────────────────
   useEffect(() => {
-    saveSettings({
-      collageTitle,
-      collageTitleSize,
-      collageTitleColor,
-      namesColor,
-      namesSize,
-      useDefaultBg,
-      bgAdjust,
-      counter,
-      captionHashtags,
-    });
-  }, [collageTitle, collageTitleSize, collageTitleColor, namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags]);
+    if (!user) {
+      setDataLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
 
-  // Persist added titles + selection whenever they change. Removing a title via
-  // its tag updates `results`/`selectedOrder`, so this also clears it from storage.
+    (async () => {
+      setDataLoading(true);
+      const res = await fetchData(COLLECTION_NAME, user.uid);
+      if (cancelled) return;
+
+      // A failed read must not trigger the legacy import, or it would overwrite
+      // whatever is already in the cloud.
+      const docMissing = !res.success && res.error === 'Document does not exist';
+      if (!res.success && !docMissing) {
+        message.error('Could not load your posters — check your connection and refresh');
+        skipSaveRef.current = true;
+        setDataLoading(false);
+        return;
+      }
+
+      const stored = res.success ? res.data : {};
+      let list = [];
+      let settings = { ...DEFAULT_SETTINGS };
+      let needsInitialWrite = false;
+
+      if (Array.isArray(stored[POSTER_DATA_KEY])) {
+        list = stored[POSTER_DATA_KEY].map(normalizePoster);
+        settings = mergeSettings(stored[POSTER_SETTINGS_KEY]);
+      } else if (!isMigrated()) {
+        const legacy = readLegacyPosterData();
+        list = legacy.posters;
+        settings = legacy.settings;
+        needsInitialWrite = list.length > 0;
+        if (needsInitialWrite) {
+          message.info(`Imported ${list.length} poster(s) saved in this browser`);
+        }
+      }
+      markMigrated();
+
+      setCollageTitle(settings.collageTitle);
+      setCollageTitleSize(settings.collageTitleSize);
+      setCollageTitleColor(settings.collageTitleColor);
+      setNamesColor(settings.namesColor);
+      setNamesSize(settings.namesSize);
+      setUseDefaultBg(settings.useDefaultBg);
+      setBgAdjust(settings.bgAdjust);
+      setCounter(settings.counter);
+      setCaptionHashtags(settings.captionHashtags);
+      setPosters(list);
+      setSelectedIds(settings.selectedIds.filter(id => list.some(p => p.id === id)).slice(0, 4));
+      setLocalImages(pruneLocalImages(list.map(p => p.id)));
+
+      skipSaveRef.current = !needsInitialWrite;
+      setDataLoading(false);
+    })();
+
+    return () => { cancelled = true; };
+  }, [user]);
+
+  // ─── Persist to Firestore (debounced — the whole array is rewritten) ─────
   useEffect(() => {
-    saveResults(results, selectedOrder);
-  }, [results, selectedOrder]);
+    if (!user || dataLoading) return undefined;
+    if (skipSaveRef.current) {
+      skipSaveRef.current = false;
+      return undefined;
+    }
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      setSaving(true);
+      const res = await saveData(COLLECTION_NAME, user.uid, {
+        [POSTER_DATA_KEY]: posters,
+        [POSTER_SETTINGS_KEY]: {
+          collageTitle,
+          collageTitleSize,
+          collageTitleColor,
+          namesColor,
+          namesSize,
+          useDefaultBg,
+          bgAdjust,
+          counter,
+          captionHashtags,
+          selectedIds,
+        },
+      });
+      setSaving(false);
+      if (!res.success) message.error('Could not save your posters to the cloud');
+    }, SAVE_DEBOUNCE_MS);
+
+    return () => clearTimeout(saveTimerRef.current);
+  }, [
+    user, dataLoading, posters, selectedIds, collageTitle, collageTitleSize, collageTitleColor,
+    namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags,
+  ]);
+
+  // ─── Derived views ───────────────────────────────────────────────────────
+  const sortedPosters = useMemo(
+    () => [...posters].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
+    [posters]
+  );
+  const pageCount = Math.max(1, Math.ceil(sortedPosters.length / PAGE_SIZE));
+  const pagePosters = sortedPosters.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const postersById = useMemo(
+    () => posters.reduce((acc, p) => { acc[p.id] = p; return acc; }, {}),
+    [posters]
+  );
+  const selectedPosters = selectedIds.map(id => postersById[id]).filter(Boolean);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
+  const displayNameOf = (poster) =>
+    ((poster && poster.displayName) || '').trim() || (poster && poster.title) || '';
+
+  const imageSrc = (poster, hd = false) => {
+    if (!poster || !poster.image) return null;
+    if (poster.localImage) return localImages[poster.id] || null;
+    return (hd && poster.image.urlHD) || poster.image.url || null;
+  };
+
+  const hasImage = (poster) => !!imageSrc(poster);
+
+  const updatePoster = (id, patch) => {
+    setPosters(prev => prev.map(p => (p.id === id ? { ...p, ...patch, updatedAt: nowIso() } : p)));
+  };
+
+  const getRating = (poster) => (poster && poster.rating != null ? poster.rating : 4);
+  const setRating = (id, n) => updatePoster(id, { rating: Math.max(0, Math.min(5, n)) });
+  const getAdjust = (poster) =>
+    (poster && poster.adjustments) || { scale: 1, offsetX: 0, offsetY: 0 };
+
 
   const fetchWithTimeout = async (url, timeoutMs = 10000) => {
     const controller = new AbortController();
@@ -171,7 +234,43 @@ const PosterFinder = () => {
     }
   };
 
-  const searchTitles = useCallback(async () => {
+  const entryHasImage = (entry) =>
+    !!entry.image && (!!entry.image.url || !!entry.localImage);
+
+  const isDuplicate = (list, entry) => list.some(p =>
+    (entry.imdbID && p.imdbID === entry.imdbID) ||
+    (p.title || '').toLowerCase() === (entry.title || '').toLowerCase()
+  );
+
+  // Append entries, skipping duplicates, and auto-select the new ones (4 max).
+  const addEntries = (entries) => {
+    const next = [...posters];
+    const added = [];
+    let skipped = 0;
+
+    entries.forEach(entry => {
+      if (isDuplicate(next, entry)) { skipped += 1; return; }
+      const poster = normalizePoster({ ...entry, id: entry.id || newPosterId(), createdAt: nowIso() });
+      next.push(poster);
+      added.push(poster);
+    });
+
+    if (skipped > 0) message.info(`${skipped} title(s) were already added`);
+    if (added.length === 0) return [];
+
+    setPosters(next);
+    setSelectedIds(sel => {
+      const out = [...sel];
+      added.forEach(p => {
+        if (out.length < 4 && entryHasImage(p) && !out.includes(p.id)) out.push(p.id);
+      });
+      return out;
+    });
+    setPage(1);
+    return added;
+  };
+
+  const searchTitles = async () => {
     if (!query.trim()) {
       message.warning('Please enter at least one title');
       return;
@@ -190,47 +289,30 @@ const PosterFinder = () => {
     }
 
     setCachedResults(cache);
-    // Append to existing results, skipping titles that are already added.
-    // Auto-select newly added entries (that have an image) up to the 4-poster cap.
-    setResults(prev => {
-      const have = new Set(prev.map(r => (r.imdbID || r.title).toLowerCase()));
-      const merged = [...prev];
-      const newIdxs = [];
-      let skipped = 0;
-      fetched.forEach(entry => {
-        const key = (entry.imdbID || entry.title || '').toLowerCase();
-        if (have.has(key)) { skipped += 1; return; }
-        have.add(key);
-        if (entry.image) newIdxs.push(merged.length);
-        merged.push(entry);
-      });
-      if (skipped > 0) {
-        message.info(`${skipped} title(s) were already added`);
-      }
-      if (newIdxs.length > 0) {
-        setSelectedOrder(sel => {
-          const out = [...sel];
-          for (const i of newIdxs) {
-            if (out.length >= 4) break;
-            if (!out.includes(i)) out.push(i);
-          }
-          return out;
-        });
-      }
-      return merged;
-    });
+    addEntries(fetched);
     setQuery('');
     setSuggestions([]);
     setLoading(false);
-  }, [query]);
-
-  // Clear all results, selections, and the input.
-  const clearAll = () => {
-    setResults([]);
-    setSelectedOrder([]);
-    setQuery('');
-    setSuggestions([]);
   };
+
+  // Delete every poster and its selection.
+  const clearAll = () => {
+    Modal.confirm({
+      title: 'Delete all posters?',
+      content: `This removes all ${posters.length} saved poster(s) from your account. This cannot be undone.`,
+      okText: 'Delete all',
+      okButtonProps: { danger: true },
+      onOk: () => {
+        setPosters([]);
+        setSelectedIds([]);
+        setQuery('');
+        setSuggestions([]);
+        setPage(1);
+        setLocalImages(pruneLocalImages([]));
+      },
+    });
+  };
+
 
   // Fetch a single best poster for a free-text title.
   // Mutates the provided cache object in-place when a fresh entry is created.
@@ -303,13 +385,13 @@ const PosterFinder = () => {
     }
   };
 
-  // Add a single title (e.g. picked from autocomplete) and append it to results.
+  // Add a single title (e.g. picked from autocomplete) and append it to the list.
   const addSingleTitle = async (title) => {
     const trimmed = (title || '').trim();
     if (!trimmed) return;
 
     // Avoid duplicates (case-insensitive title match)
-    const exists = results.some(r => r.title.toLowerCase() === trimmed.toLowerCase());
+    const exists = posters.some(p => p.title.toLowerCase() === trimmed.toLowerCase());
     if (exists) {
       message.info(`"${trimmed}" is already added`);
       setQuery('');
@@ -321,7 +403,7 @@ const PosterFinder = () => {
     const cache = getCachedResults();
     const entry = await fetchTitle(trimmed, cache);
     setCachedResults(cache);
-    addEntryWithAutoSelect(entry);
+    addEntries([entry]);
     setQuery('');
     setSuggestions([]);
     setLoading(false);
@@ -333,9 +415,9 @@ const PosterFinder = () => {
     const displayTitle = year ? `${title} (${year})` : title;
 
     // De-dupe by imdbID first, then by display title
-    const exists = results.some(r =>
-      (imdbID && r.imdbID === imdbID) ||
-      r.title.toLowerCase() === displayTitle.toLowerCase()
+    const exists = posters.some(p =>
+      (imdbID && p.imdbID === imdbID) ||
+      p.title.toLowerCase() === displayTitle.toLowerCase()
     );
     if (exists) {
       message.info(`"${displayTitle}" is already added`);
@@ -414,7 +496,7 @@ const PosterFinder = () => {
         image,
         ...(image ? {} : { error: 'No poster found' }),
       };
-      addEntryWithAutoSelect(entry);
+      addEntries([entry]);
     } finally {
       setQuery('');
       setSuggestions([]);
@@ -422,59 +504,44 @@ const PosterFinder = () => {
     }
   };
 
-  // Append a single entry and auto-select it (up to the 4-poster cap).
-  const addEntryWithAutoSelect = (entry) => {
-    setResults(prev => {
-      const idx = prev.length;
-      if (entry.image) {
-        setSelectedOrder(sel =>
-          sel.length >= 4 || sel.includes(idx) ? sel : [...sel, idx]
-        );
-      }
-      return [...prev, entry];
-    });
+  // Remove a poster, its selection and any browser-only image.
+  const removePoster = (id) => {
+    setPosters(prev => prev.filter(p => p.id !== id));
+    setSelectedIds(prev => prev.filter(sid => sid !== id));
+    setLocalImages(removeLocalImage(id));
+    if (editingId === id) setEditingId(null);
   };
 
-  // Remove a title (and its selection) from the results.
-  const removeTitle = (idx) => {
-    setResults(prev => prev.filter((_, i) => i !== idx));
-    setSelectedOrder(prev => prev
-      .filter(i => i !== idx)
-      .map(i => (i > idx ? i - 1 : i))
-    );
-    setAdjustments(prev => {
-      const next = {};
-      Object.keys(prev).forEach(k => {
-        const ki = parseInt(k, 10);
-        if (ki === idx) return;
-        next[ki > idx ? ki - 1 : ki] = prev[k];
-      });
-      return next;
-    });
-  };
-
-  const toggleSelect = (titleIdx) => {
-    setSelectedOrder(prev => {
-      if (prev.includes(titleIdx)) return prev.filter(i => i !== titleIdx);
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      if (prev.includes(id)) return prev.filter(sid => sid !== id);
       if (prev.length >= 4) {
         message.info('You can select up to 4 posters for a collage');
         return prev;
       }
-      return [...prev, titleIdx];
+      return [...prev, id];
     });
   };
 
-  const clearSelection = () => setSelectedOrder([]);
+  const clearSelection = () => setSelectedIds([]);
 
-  // Open the collage modal. Each new collage advances the counter, continuing
-  // from the value saved for the previously created collage. The bumped value
-  // is persisted to localStorage via the settings effect for future sessions.
-  const openCollage = () => {
-    if (/\$\(Counter\)/i.test(collageTitle)) {
-      setCounter(c => c + 1);
-    }
-    setCollageOpen(true);
+  const startRename = (poster) => {
+    setEditingId(poster.id);
+    setEditingName(displayNameOf(poster));
   };
+
+  const commitRename = () => {
+    if (!editingId) return;
+    const value = editingName.trim();
+    const poster = postersById[editingId];
+    if (poster && value && value !== displayNameOf(poster)) {
+      updatePoster(editingId, { displayName: value });
+    }
+    setEditingId(null);
+    setEditingName('');
+  };
+
+  const openCollage = () => setCollageOpen(true);
 
   const downloadImage = async (url, filename) => {
     try {
@@ -494,12 +561,12 @@ const PosterFinder = () => {
   };
 
   const downloadSelected = async () => {
+    const tag = formatCounter(counter);
     const items = [];
-    selectedOrder.forEach(tIdx => {
-      const r = results[tIdx];
-      if (!r || !r.image) return;
-      const safeName = r.title.replace(/[^a-zA-Z0-9]/g, '_');
-      items.push({ url: r.image.urlHD || r.image.url, filename: `${safeName}.jpg` });
+    selectedPosters.forEach(p => {
+      const url = imageSrc(p, true);
+      if (!url) return;
+      items.push({ url, filename: `${tag}_${safeFileName(displayNameOf(p))}.jpg` });
     });
 
     if (items.length === 0) {
@@ -517,11 +584,6 @@ const PosterFinder = () => {
 
     setDownloading(false);
     message.success('Downloads complete!');
-  };
-
-  const clearCache = () => {
-    localStorage.removeItem(CACHE_KEY);
-    message.success('Cache cleared');
   };
 
   // ─── Autocomplete ────────────────────────────────────────────────────────
@@ -590,12 +652,12 @@ const PosterFinder = () => {
 
   // Clamp the active slot whenever selection changes
   useEffect(() => {
-    if (selectedOrder.length === 0) {
+    if (selectedIds.length === 0) {
       setActiveSlot(0);
-    } else if (activeSlot >= selectedOrder.length) {
-      setActiveSlot(selectedOrder.length - 1);
+    } else if (activeSlot >= selectedIds.length) {
+      setActiveSlot(selectedIds.length - 1);
     }
-  }, [selectedOrder, activeSlot]);
+  }, [selectedIds, activeSlot]);
 
   const autocompleteOptions = suggestions.map((s, i) => ({
     value: `${s.title}__${s.imdbID || s.year || i}`,
@@ -619,18 +681,16 @@ const PosterFinder = () => {
   }));
 
   const mobile = isMobile();
-  const selectedCount = selectedOrder.length;
+  const selectedCount = selectedIds.length;
 
   // Build a shareable caption from the current selection, title and ratings.
   const generatedCaption = (() => {
     const titleText = resolveTitle(collageTitle, counter).trim();
-    const lines = selectedOrder
-      .map((tIdx, i) => {
-        const r = results[tIdx];
-        if (!r) return null;
-        const name = ((nameOverrides[tIdx] || '').trim() || r.title || '').trim();
+    const lines = selectedPosters
+      .map((p, i) => {
+        const name = displayNameOf(p).trim();
         if (!name) return null;
-        const stars = getRating(tIdx);
+        const stars = getRating(p);
         const starStr = stars > 0 ? ' \u2014 ' + '\u2B50'.repeat(stars) : '';
         return `${i + 1}. ${name}${starStr}`;
       })
@@ -646,12 +706,10 @@ const PosterFinder = () => {
         .join('');
       return cleaned ? `#${cleaned}` : '';
     };
-    const movieTags = selectedOrder
-      .map(tIdx => {
-        const r = results[tIdx];
-        const name = ((nameOverrides[tIdx] || '').trim() || (r && r.title) || '').trim();
+    const movieTags = selectedPosters
+      .map(p => {
         // Drop a trailing year like " (1959)" so hashtags stay #TheBat instead of #TheBat1959.
-        const nameNoYear = name.replace(/\s*\(\d{4}\)\s*$/, '').trim();
+        const nameNoYear = displayNameOf(p).replace(/\s*\(\d{4}\)\s*$/, '').trim();
         return movieTitleToTag(nameNoYear);
       })
       .filter(Boolean)
@@ -712,9 +770,9 @@ const PosterFinder = () => {
       message.error('Please select an image file');
       return false;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => setManualImage(e.target.result);
-    reader.readAsDataURL(file);
+    downscaleImage(file)
+      .then(setManualImage)
+      .catch(() => message.error('Could not read that image'));
     return false;
   };
 
@@ -724,27 +782,40 @@ const PosterFinder = () => {
       message.warning('Please enter a title');
       return;
     }
-    const src = manualImage || manualUrl.trim();
-    if (!src) {
+    const url = manualUrl.trim();
+    if (!manualImage && !url) {
       message.warning('Please upload an image or paste an image URL');
       return;
     }
-    if (results.some(r => r.title.toLowerCase() === title.toLowerCase())) {
+    if (posters.some(p => p.title.toLowerCase() === title.toLowerCase())) {
       message.info(`"${title}" is already added`);
       return;
     }
-    const entry = {
+
+    const id = newPosterId();
+    const isLocal = !!manualImage;
+    if (isLocal) {
+      const stored = setLocalImage(id, manualImage);
+      if (!stored) {
+        message.error('Browser storage is full — could not save this image');
+        return;
+      }
+      setLocalImages(stored);
+    }
+
+    addEntries([{
+      id,
       title,
+      localImage: isLocal,
       image: {
-        url: src,
-        urlHD: src,
+        url: isLocal ? null : url,
+        urlHD: isLocal ? null : url,
         label: title,
         kind: 'Manual',
         year: null,
         source: 'Manual',
       },
-    };
-    addEntryWithAutoSelect(entry);
+    }]);
     setManualOpen(false);
     message.success(`Added "${title}"`);
   };
@@ -911,7 +982,7 @@ const PosterFinder = () => {
   // Render the collage to an off-screen canvas. mode: 'posters' | 'names'
   // `titleText` is the already-resolved title (counter substituted).
   const renderCollageCanvas = async (mode, titleText) => {
-    const items = selectedOrder.map(i => results[i]).filter(r => r && r.image);
+    const items = selectedPosters.filter(hasImage);
     const W = 1200;
     const H = 1500;
     const canvas = document.createElement('canvas');
@@ -1007,11 +1078,9 @@ const PosterFinder = () => {
         const areaBottom = H - bottom;
         const areaH = areaBottom - areaTop;
         const maxTextW = W - padX * 2;
-        const labels = items.map((it, i) => {
-          const tIdx = selectedOrder[i];
-          const override = (nameOverrides[tIdx] || '').trim();
-          const name = override || it.title || '';
-          const stars = getRating(tIdx);
+        const labels = items.map((p, i) => {
+          const name = displayNameOf(p);
+          const stars = getRating(p);
           const starStr = '⭐'.repeat(stars);
           return stars > 0 ? `${i + 1}. ${name} (${starStr})` : `${i + 1}. ${name}`;
         });
@@ -1046,12 +1115,11 @@ const PosterFinder = () => {
       }
 
       // Posters mode below this point — load images
-      const loaded = await Promise.all(items.map(it => fetchAsImage(it.image.urlHD || it.image.url)));
+      const loaded = await Promise.all(items.map(p => fetchAsImage(imageSrc(p, true))));
       loaded.forEach(l => objectUrls.push(l.objectUrl));
 
       slots.forEach((s, i) => {
-        const tIdx = selectedOrder[i];
-        const adj = adjustments[tIdx];
+        const adj = getAdjust(items[i]);
 
         // Outer padded "card" frame (like the sample) with shadow
         const cardR = 28;
@@ -1106,12 +1174,11 @@ const PosterFinder = () => {
     }
   };
 
-  const triggerDownload = (blob, suffix, titleText) => {
+  const triggerDownload = (blob, suffix, base) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    const safe = (titleText || 'collage').replace(/[^a-zA-Z0-9]+/g, '_');
-    a.download = `${safe}_${suffix}.png`;
+    a.download = `${base}_${suffix}.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -1119,15 +1186,19 @@ const PosterFinder = () => {
   };
 
   const downloadCollage = async () => {
-    const items = selectedOrder.map(i => results[i]).filter(r => r && r.image);
+    const items = selectedPosters.filter(hasImage);
     if (items.length < 2 || items.length > 4) {
       message.warning('Select 2 to 4 posters');
       return;
     }
 
-    // Resolve $(Counter) using the current counter; this download will use this value,
-    // then increment for next time.
+    // This download uses the current counter; it is bumped only once both files
+    // are written, so a failed render never burns a number.
     const titleText = resolveTitle(collageTitle, counter);
+    const safeTitle = safeFileName(titleText) || 'collage';
+    const fileBase = /\$\(Counter\)/i.test(collageTitle)
+      ? safeTitle
+      : `${formatCounter(counter)}_${safeTitle}`;
 
     setCollageRendering(true);
     const allObjectUrls = [];
@@ -1141,9 +1212,10 @@ const PosterFinder = () => {
         message.error('Failed to generate collage');
         return;
       }
-      triggerDownload(postersOut.blob, 'posters', titleText);
+      triggerDownload(postersOut.blob, 'posters', fileBase);
       // Slight delay so browsers don't block the second download
-      setTimeout(() => triggerDownload(namesOut.blob, 'names', titleText), 250);
+      setTimeout(() => triggerDownload(namesOut.blob, 'names', fileBase), 250);
+      setCounter(c => c + 1);
       message.success('Posters and names collages downloaded');
     } catch (e) {
       message.error('Failed to render collage. Some images may be blocked by CORS.');
@@ -1202,14 +1274,19 @@ const PosterFinder = () => {
       </section>
 
       {/* ── Action toolbar ─────────────────────────────────────── */}
-      {results.length > 0 && !collageOpen && (
+      {posters.length > 0 && !collageOpen && (
         <div className="poster-action-bar">
           <div className="poster-action-left">
             <span className="poster-action-summary">
               {selectedCount > 0
-                ? `${selectedCount} of ${results.length} selected`
-                : `${results.length} title${results.length === 1 ? '' : 's'} ready`}
+                ? `${selectedCount} of ${posters.length} selected`
+                : `${posters.length} title${posters.length === 1 ? '' : 's'} saved`}
             </span>
+            {saving && (
+              <span className="poster-save-state">
+                <CloudSyncOutlined /> Saving…
+              </span>
+            )}
           </div>
           <div className="poster-action-right">
             <Button icon={<DeleteOutlined />} size="middle" onClick={clearAll}>
@@ -1246,126 +1323,201 @@ const PosterFinder = () => {
       )}
 
       {/* ── Loading ────────────────────────────────────────────── */}
-      {loading && (
+      {(loading || dataLoading) && (
         <div className="poster-loading">
           <Spin size="large" />
           <Text type="secondary" style={{ marginTop: 'var(--space-sm)' }}>
-            Fetching posters…
+            {dataLoading ? 'Loading your posters…' : 'Fetching posters…'}
           </Text>
         </div>
       )}
 
-      {/* ── Results grid ───────────────────────────────────────── */}
-      {!loading && results.length > 0 && (
-        <div className="poster-grid">
-          {results.map((result, tIdx) => {
-            if (result.error || !result.image) {
+      {/* ── Results grid (newest first, paginated) ─────────────── */}
+      {!dataLoading && !loading && pagePosters.length > 0 && (
+        <>
+          <div className="poster-grid">
+            {pagePosters.map(poster => {
+              const src = imageSrc(poster);
+              const orderIdx = selectedIds.indexOf(poster.id);
+              const isSelected = orderIdx !== -1;
+              const isEditing = editingId === poster.id;
+              const name = displayNameOf(poster);
+              const dates = (
+                <>
+                  Added {formatDate(poster.createdAt)}
+                  <br />
+                  Updated {formatDate(poster.updatedAt)}
+                </>
+              );
+
+              if (!src) {
+                return (
+                  <div key={poster.id} className="poster-card poster-card-error">
+                    <div className="poster-card-error-body">
+                      <PictureOutlined className="poster-card-error-icon" />
+                      <Text strong style={{ fontSize: 'var(--text-sm)' }}>
+                        {name}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                        {poster.localImage
+                          ? 'Image is stored on another device'
+                          : (poster.error || 'No poster found')}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                        Added {formatDate(poster.createdAt)}
+                      </Text>
+                      <Button
+                        size="small"
+                        type="text"
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => { e.stopPropagation(); removePoster(poster.id); }}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
-                <div key={tIdx} className="poster-card poster-card-error">
-                  <div className="poster-card-error-body">
-                    <PictureOutlined className="poster-card-error-icon" />
-                    <Text strong style={{ fontSize: 'var(--text-sm)' }}>
-                      {result.title}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                      {result.error || 'No poster found'}
-                    </Text>
-                    <Button
-                      size="small"
-                      type="text"
-                      icon={<DeleteOutlined />}
-                      onClick={(e) => { e.stopPropagation(); removeTitle(tIdx); }}
-                    >
-                      Remove
-                    </Button>
+                <div
+                  key={poster.id}
+                  className={`poster-card ${isSelected ? 'poster-card-selected' : ''}`}
+                  onClick={() => toggleSelect(poster.id)}
+                >
+                  <div className="poster-img-wrapper">
+                    <img src={src} alt={name} loading="lazy" />
+                    {isSelected && (
+                      <div className="poster-order-badge" title={`Position ${orderIdx + 1}`}>
+                        {orderIdx + 1}
+                      </div>
+                    )}
+                    {poster.image.source && (
+                      <div className={`poster-source poster-source-${poster.image.source.toLowerCase()}`}>
+                        {poster.image.source}
+                      </div>
+                    )}
+                    <div className="poster-overlay">
+                      <Checkbox checked={isSelected} className="poster-checkbox" />
+                      <div className="poster-overlay-actions">
+                        <Tooltip title="Preview">
+                          <Button
+                            icon={<EyeOutlined />}
+                            size="small"
+                            shape="circle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewImg({ src: imageSrc(poster, true), title: name });
+                            }}
+                          />
+                        </Tooltip>
+                        <Tooltip title="Rename">
+                          <Button
+                            icon={<EditOutlined />}
+                            size="small"
+                            shape="circle"
+                            onClick={(e) => { e.stopPropagation(); startRename(poster); }}
+                          />
+                        </Tooltip>
+                        <Tooltip title="Download">
+                          <Button
+                            icon={<DownloadOutlined />}
+                            size="small"
+                            shape="circle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadImage(
+                                imageSrc(poster, true),
+                                `${formatCounter(counter)}_${safeFileName(name)}.jpg`
+                              );
+                            }}
+                          />
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <Button
+                            icon={<DeleteOutlined />}
+                            size="small"
+                            shape="circle"
+                            danger
+                            onClick={(e) => { e.stopPropagation(); removePoster(poster.id); }}
+                          />
+                        </Tooltip>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="poster-card-label">
+                    {isEditing ? (
+                      <div className="poster-rename-row" onClick={(e) => e.stopPropagation()}>
+                        <Input
+                          size="small"
+                          autoFocus
+                          value={editingName}
+                          onChange={(e) => setEditingName(e.target.value)}
+                          onPressEnter={commitRename}
+                        />
+                        <Button size="small" type="text" icon={<CheckOutlined />} onClick={commitRename} />
+                        <Button
+                          size="small"
+                          type="text"
+                          icon={<CloseOutlined />}
+                          onClick={() => setEditingId(null)}
+                        />
+                      </div>
+                    ) : (
+                      <div className="poster-card-title" title={name}>
+                        {name}
+                      </div>
+                    )}
+                    <Tooltip title={dates}>
+                      <div className="poster-card-meta">
+                        {poster.image.kind || 'Poster'} · {dayjs(poster.createdAt).format('D MMM YY')}
+                      </div>
+                    </Tooltip>
                   </div>
                 </div>
               );
-            }
+            })}
+          </div>
 
-            const img = result.image;
-            const orderIdx = selectedOrder.indexOf(tIdx);
-            const isSelected = orderIdx !== -1;
-            return (
-              <div
-                key={tIdx}
-                className={`poster-card ${isSelected ? 'poster-card-selected' : ''}`}
-                onClick={() => toggleSelect(tIdx)}
-              >
-                <div className="poster-img-wrapper">
-                  <img src={img.url} alt={img.label} loading="lazy" />
-                  {isSelected && (
-                    <div className="poster-order-badge" title={`Position ${orderIdx + 1}`}>
-                      {orderIdx + 1}
-                    </div>
-                  )}
-                  {img.source && (
-                    <div className={`poster-source poster-source-${img.source.toLowerCase()}`}>
-                      {img.source}
-                    </div>
-                  )}
-                  <div className="poster-overlay">
-                    <Checkbox checked={isSelected} className="poster-checkbox" />
-                    <div className="poster-overlay-actions">
-                      <Tooltip title="Preview">
-                        <Button
-                          icon={<EyeOutlined />}
-                          size="small"
-                          shape="circle"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPreviewImg({ ...img, title: result.title });
-                          }}
-                        />
-                      </Tooltip>
-                      <Tooltip title="Download">
-                        <Button
-                          icon={<DownloadOutlined />}
-                          size="small"
-                          shape="circle"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const safeName = result.title.replace(/[^a-zA-Z0-9]/g, '_');
-                            downloadImage(img.urlHD || img.url, `${safeName}.jpg`);
-                          }}
-                        />
-                      </Tooltip>
-                    </div>
-                  </div>
-                </div>
-                <div className="poster-card-label">
-                  <div className="poster-card-title" title={result.title}>
-                    {result.title}
-                  </div>
-                  <div className="poster-card-meta">{img.kind}</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+          {sortedPosters.length > PAGE_SIZE && (
+            <div className="poster-pagination">
+              <Pagination
+                current={page}
+                pageSize={PAGE_SIZE}
+                total={sortedPosters.length}
+                onChange={(next) => {
+                  setPage(next);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                showSizeChanger={false}
+                size={mobile ? 'small' : 'default'}
+                showTotal={(total, range) => `${range[0]}–${range[1]} of ${total}`}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <br></br>
 
       {/* ── Selected title chips ───────────────────────────────── */}
-      {results.length > 0 && (
+      {selectedPosters.length > 0 && (
         <div className="poster-tags-bar">
-          {results.map((r, idx) => (
+          {selectedPosters.map((poster, i) => (
             <Tag
-              key={`tag-${idx}-${r.title}`}
+              key={`tag-${poster.id}`}
               closable
-              onClose={(e) => { e.preventDefault(); removeTitle(idx); }}
+              onClose={(e) => { e.preventDefault(); toggleSelect(poster.id); }}
               className="poster-title-tag"
-              color={r.error ? 'error' : 'default'}
             >
-              {r.title}
+              {i + 1}. {displayNameOf(poster)}
             </Tag>
           ))}
         </div>
       )}
 
       {/* ── Empty state ────────────────────────────────────────── */}
-      {!loading && results.length === 0 && (
+      {!dataLoading && !loading && posters.length === 0 && (
         <div className="poster-empty">
           <div className="poster-empty-icon">
             <PictureOutlined />
@@ -1384,8 +1536,10 @@ const PosterFinder = () => {
         footer={[
           <Button key="download" type="primary" icon={<DownloadOutlined />} onClick={() => {
             if (!previewImg) return;
-            const safeName = previewImg.title.replace(/[^a-zA-Z0-9]/g, '_');
-            downloadImage(previewImg.urlHD || previewImg.url, `${safeName}.jpg`);
+            downloadImage(
+              previewImg.src,
+              `${formatCounter(counter)}_${safeFileName(previewImg.title)}.jpg`
+            );
           }}>
             Download HD
           </Button>,
@@ -1397,7 +1551,7 @@ const PosterFinder = () => {
       >
         {previewImg && (
           <img
-            src={previewImg.urlHD || previewImg.url}
+            src={previewImg.src}
             alt={previewImg.title}
             style={{ maxWidth: '100%', maxHeight: '70vh', borderRadius: 'var(--radius-md)' }}
           />
@@ -1517,35 +1671,32 @@ const PosterFinder = () => {
                           fontSize: `${(namesSize / 1200) * 100}cqw`,
                         }}
                       >
-                        {selectedOrder.map((tIdx, i) => {
-                          const r = results[tIdx];
-                          if (!r) return null;
-                          const label = (nameOverrides[tIdx] || '').trim() || r.title || '';
-                          const stars = getRating(tIdx);
+                        {selectedPosters.map((poster, i) => {
+                          const stars = getRating(poster);
                           const starStr = '⭐'.repeat(stars);
                           return (
-                            <div key={tIdx} className="collage-names-line">
-                              {i + 1}. {label}{stars > 0 ? ` (${starStr})` : ''}
+                            <div key={poster.id} className="collage-names-line">
+                              {i + 1}. {displayNameOf(poster)}{stars > 0 ? ` (${starStr})` : ''}
                             </div>
                           );
                         })}
                       </div>
                     ) : (
-                      selectedOrder.map((tIdx, i) => {
-                        const r = results[tIdx];
-                        if (!r || !r.image) return null;
-                        const adj = adjustments[tIdx] || { scale: 1, offsetX: 0, offsetY: 0 };
+                      selectedPosters.map((poster, i) => {
+                        const src = imageSrc(poster);
+                        if (!src) return null;
+                        const adj = getAdjust(poster);
                         const isActive = activeSlot === i;
                         return (
                           <div
-                            key={tIdx}
+                            key={poster.id}
                             className={`collage-slot collage-slot-${i + 1} ${isActive ? 'collage-slot-active' : ''}`}
                             onClick={() => setActiveSlot(i)}
                           >
                             <div className="collage-slot-inner">
                               <img
-                                src={r.image.url}
-                                alt={r.title}
+                                src={src}
+                                alt={displayNameOf(poster)}
                                 style={{
                                   transform: `translate(${adj.offsetX / 2}%, ${adj.offsetY / 2}%) scale(${adj.scale})`,
                                 }}
@@ -1751,18 +1902,18 @@ const PosterFinder = () => {
                           <div className="collage-section">
                             <div className="collage-field-label">Select a poster to adjust</div>
                             <div className="collage-thumbs">
-                              {selectedOrder.map((tIdx, i) => {
-                                const r = results[tIdx];
-                                if (!r || !r.image) return null;
+                              {selectedPosters.map((poster, i) => {
+                                const src = imageSrc(poster);
+                                if (!src) return null;
                                 return (
                                   <button
                                     type="button"
-                                    key={tIdx}
+                                    key={poster.id}
                                     className={`collage-thumb ${activeSlot === i ? 'collage-thumb-active' : ''}`}
                                     onClick={() => setActiveSlot(i)}
-                                    title={r.title}
+                                    title={displayNameOf(poster)}
                                   >
-                                    <img src={r.image.url} alt={r.title} />
+                                    <img src={src} alt={displayNameOf(poster)} />
                                     <span className="collage-thumb-num">{i + 1}</span>
                                   </button>
                                 );
@@ -1770,14 +1921,12 @@ const PosterFinder = () => {
                             </div>
                           </div>
 
-                          {selectedOrder[activeSlot] != null && (() => {
-                            const tIdx = selectedOrder[activeSlot];
-                            const r = results[tIdx];
-                            const adj = adjustments[tIdx] || { scale: 1, offsetX: 0, offsetY: 0 };
-                            const setAdj = (patch) => setAdjustments(prev => ({
-                              ...prev,
-                              [tIdx]: { scale: 1, offsetX: 0, offsetY: 0, ...prev[tIdx], ...patch },
-                            }));
+                          {selectedPosters[activeSlot] && (() => {
+                            const poster = selectedPosters[activeSlot];
+                            const adj = getAdjust(poster);
+                            const setAdj = (patch) => updatePoster(poster.id, {
+                              adjustments: { ...adj, ...patch },
+                            });
                             return (
                               <div className="collage-section collage-active-card">
                                 <div className="collage-adjust-header">
@@ -1785,18 +1934,16 @@ const PosterFinder = () => {
                                     <div className="collage-field-label" style={{ marginBottom: 2 }}>
                                       Adjust slot #{activeSlot + 1}
                                     </div>
-                                    <div className="collage-active-title" title={r ? r.title : ''}>
-                                      {r ? r.title : ''}
+                                    <div className="collage-active-title" title={displayNameOf(poster)}>
+                                      {displayNameOf(poster)}
                                     </div>
                                   </div>
                                   <Button
                                     size="small"
                                     type="text"
                                     icon={<ReloadOutlined />}
-                                    onClick={() => setAdjustments(prev => {
-                                      const next = { ...prev };
-                                      delete next[tIdx];
-                                      return next;
+                                    onClick={() => updatePoster(poster.id, {
+                                      adjustments: { scale: 1, offsetX: 0, offsetY: 0 },
                                     })}
                                   >
                                     Reset
@@ -1843,21 +1990,22 @@ const PosterFinder = () => {
                                 size="small"
                                 type="text"
                                 icon={<ReloadOutlined />}
-                                onClick={() => { setNameOverrides({}); setRatings({}); }}
+                                onClick={() => selectedPosters.forEach(p =>
+                                  updatePoster(p.id, { displayName: p.title, rating: 4 })
+                                )}
                               >
                                 Reset
                               </Button>
                             </div>
                             <div className="collage-names-edit">
-                              {selectedOrder.map((tIdx, i) => {
-                                const r = results[tIdx];
-                                if (!r) return null;
-                                const stars = getRating(tIdx);
+                              {selectedPosters.map((poster, i) => {
+                                const stars = getRating(poster);
+                                const src = imageSrc(poster);
                                 return (
-                                  <div key={tIdx} className="collage-names-edit-group">
-                                    {r.image && (
+                                  <div key={poster.id} className="collage-names-edit-group">
+                                    {src && (
                                       <img
-                                        src={r.image.url}
+                                        src={src}
                                         alt=""
                                         className="collage-names-edit-thumb"
                                       />
@@ -1867,9 +2015,9 @@ const PosterFinder = () => {
                                         <span className="collage-names-edit-num">{i + 1}.</span>
                                         <Input
                                           size="small"
-                                          value={nameOverrides[tIdx] ?? r.title ?? ''}
-                                          onChange={(e) => setNameOverrides(prev => ({ ...prev, [tIdx]: e.target.value }))}
-                                          placeholder={r.title}
+                                          value={poster.displayName ?? poster.title ?? ''}
+                                          onChange={(e) => updatePoster(poster.id, { displayName: e.target.value })}
+                                          placeholder={poster.title}
                                           allowClear
                                         />
                                       </div>
@@ -1878,7 +2026,7 @@ const PosterFinder = () => {
                                         <div className="collage-stars-ctrl" title={`Rating: ${stars}/5`}>
                                           <Button
                                             size="small"
-                                            onClick={() => setRating(tIdx, stars - 1)}
+                                            onClick={() => setRating(poster.id, stars - 1)}
                                             disabled={stars <= 0}
                                           >−</Button>
                                           <span className="collage-stars-val">
@@ -1886,7 +2034,7 @@ const PosterFinder = () => {
                                           </span>
                                           <Button
                                             size="small"
-                                            onClick={() => setRating(tIdx, stars + 1)}
+                                            onClick={() => setRating(poster.id, stars + 1)}
                                             disabled={stars >= 5}
                                           >+</Button>
                                         </div>
@@ -2063,8 +2211,8 @@ const PosterFinder = () => {
             </div>
           )}
           <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-            Tip: uploaded images are embedded locally. URLs must allow cross-origin access for the
-            collage download to render them; otherwise upload the file directly.
+            Uploaded images are downscaled and kept in this browser only, so they won't appear on
+            your other devices — paste an image URL instead if you need it everywhere.
           </Text>
         </div>
       </Modal>

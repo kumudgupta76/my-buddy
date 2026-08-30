@@ -1,17 +1,30 @@
 import { db } from './firebaseConfig';
-import { doc, setDoc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField } from 'firebase/firestore';
 
-// Save JSON data (Create/Update)
+// Save JSON data (Create/Update). Merges so that features sharing the same user
+// document (todo, poster, …) don't overwrite each other's fields.
 export const saveData = async (collectionName, docId, data) => {
-  console.log(collectionName, docId, data); 
   try {
     const docRef = doc(db, collectionName, docId);
-    await setDoc(docRef, data);
+    await setDoc(docRef, data, { merge: true });
 
-    console.log('Document written successfully!');
     return { success: true, message: 'Data saved successfully' };
   } catch (error) {
     console.error('Error saving data: ', error);
+    return { success: false, error };
+  }
+};
+
+// Remove top-level fields from a document without touching the rest.
+export const deleteFields = async (collectionName, docId, fieldNames) => {
+  try {
+    const docRef = doc(db, collectionName, docId);
+    const patch = {};
+    fieldNames.forEach(name => { patch[name] = deleteField(); });
+    await updateDoc(docRef, patch);
+    return { success: true, message: 'Fields deleted successfully' };
+  } catch (error) {
+    console.error('Error deleting fields: ', error);
     return { success: false, error };
   }
 };

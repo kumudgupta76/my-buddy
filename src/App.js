@@ -12,6 +12,7 @@ import Todo from './components/todo/Todo';
 import Battery from './components/battery/Battery';
 import CalendarView from './components/calander/CalanderView';
 import LocalStorageManager from './components/admin/LocalStorgeManager';
+import DbStorageManager from './components/admin/DbStorageManager';
 import PosterFinder from './components/poster/PosterFinder';
 import InvoiceGenerator from './components/invoice/InvoiceGenerator';
 import ProtectedRoute from './common/ProtectedRoute';
@@ -56,10 +57,11 @@ const App = () => {
           />
           <Route path="my-buddy/cal" element={<ProtectedRoute><CalendarComponent /></ProtectedRoute>} />
           <Route path="my-buddy/admin" element={<ProtectedRoute><LocalStorageManager /></ProtectedRoute>} />
+          <Route path="my-buddy/dbadmin" element={<ProtectedRoute><DbStorageManager /></ProtectedRoute>} />
           {/* Default Landing Page */}
           <Route path="my-buddy/" element={<Home />} />
           <Route path="my-buddy/expense" element={<ExpenseTracker />} />
-          <Route path="my-buddy/poster" element={<PosterFinder />} />
+          <Route path="my-buddy/poster" element={<ProtectedRoute><PosterFinder /></ProtectedRoute>} />
           <Route path="my-buddy/invoice" element={<InvoiceGenerator />} />
           <Route path="my-buddy/dump" element={<NoPage />} />
           </Route>

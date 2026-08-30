@@ -189,6 +189,30 @@
   color: var(--color-text);
 }
 
+.poster-save-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.poster-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-md);
+}
+
+.poster-rename-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.poster-rename-row .ant-btn {
+  padding: 0 4px;
+}
+
 .poster-action-right {
   display: flex;
   align-items: center;

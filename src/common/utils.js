@@ -28,6 +28,8 @@ const ERROR_KEY = 'errorMessages';
 
 export const COLLECTION_NAME = 'my-buddy';
 export const DOC_ID_TODO = 'todo';
+export const POSTER_DATA_KEY = 'poster-data';
+export const POSTER_SETTINGS_KEY = 'poster-settings';
 
 /**
  * Retrieve the current errors from local storage.
