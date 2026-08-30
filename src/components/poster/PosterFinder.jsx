@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useContext, useMemo } from 'react';
-import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination } from 'antd';
+import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination, Table } from 'antd';
 import {
   SearchOutlined, DownloadOutlined, DeleteOutlined,
   EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
   FontSizeOutlined, BgColorsOutlined, EditOutlined, MessageOutlined, CopyOutlined,
-  CheckOutlined, CloseOutlined, CloudSyncOutlined,
+  CheckOutlined, CloseOutlined, CloudSyncOutlined, BlockOutlined, BarsOutlined, TableOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { isMobile, COLLECTION_NAME, POSTER_DATA_KEY, POSTER_SETTINGS_KEY } from '../../common/utils';
@@ -26,6 +26,13 @@ const OMDB_KEY = process.env.REACT_APP_OMDB_API_KEY;
 const DEFAULT_BG_URL = `${process.env.PUBLIC_URL || ''}/assets/background.png`;
 const PAGE_SIZE = 24;
 const SAVE_DEBOUNCE_MS = 800;
+
+const VIEW_OPTIONS = [
+  { value: 'large', icon: <AppstoreOutlined />, title: 'Large icons' },
+  { value: 'small', icon: <BlockOutlined />, title: 'Small icons' },
+  { value: 'list', icon: <BarsOutlined />, title: 'List' },
+  { value: 'details', icon: <TableOutlined />, title: 'Details' },
+];
 
 // Replace tokens in the title template — currently just $(Counter).
 const resolveTitle = (template, counter) =>
@@ -50,6 +57,7 @@ const PosterFinder = () => {
   const [dataLoading, setDataLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState(DEFAULT_SETTINGS.viewMode);
   const [editingId, setEditingId] = useState(null);
   const [editingName, setEditingName] = useState('');
   const [localImages, setLocalImages] = useState(() => getLocalImages());
@@ -133,6 +141,7 @@ const PosterFinder = () => {
       setBgAdjust(settings.bgAdjust);
       setCounter(settings.counter);
       setCaptionHashtags(settings.captionHashtags);
+      setViewMode(settings.viewMode);
       setPosters(list);
       setSelectedIds(settings.selectedIds.filter(id => list.some(p => p.id === id)).slice(0, 4));
       setLocalImages(pruneLocalImages(list.map(p => p.id)));
@@ -188,6 +197,7 @@ const PosterFinder = () => {
           bgAdjust,
           counter,
           captionHashtags,
+          viewMode,
           selectedIds,
         },
       });
@@ -198,7 +208,7 @@ const PosterFinder = () => {
     return () => clearTimeout(saveTimerRef.current);
   }, [
     user, dataLoading, posters, selectedIds, collageTitle, collageTitleSize, collageTitleColor,
-    namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags,
+    namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags, viewMode,
   ]);
 
   // ─── Derived views ───────────────────────────────────────────────────────
@@ -1243,6 +1253,126 @@ const PosterFinder = () => {
     }
   };
 
+  // Shared by every view mode so the actions stay identical across them.
+  const posterActions = (poster, shape) => {
+    const name = displayNameOf(poster);
+    const src = imageSrc(poster, true);
+    const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
+    return (
+      <>
+        <Tooltip title="Preview">
+          <Button
+            icon={<EyeOutlined />}
+            size="small"
+            shape={shape}
+            disabled={!src}
+            onClick={stop(() => setPreviewImg({ src, title: name }))}
+          />
+        </Tooltip>
+        <Tooltip title="Rename">
+          <Button icon={<EditOutlined />} size="small" shape={shape} onClick={stop(() => startRename(poster))} />
+        </Tooltip>
+        <Tooltip title="Download">
+          <Button
+            icon={<DownloadOutlined />}
+            size="small"
+            shape={shape}
+            disabled={!src}
+            onClick={stop(() => downloadImage(src, `${formatCounter(counter)}_${safeFileName(name)}.jpg`))}
+          />
+        </Tooltip>
+        <Tooltip title="Delete">
+          <Button
+            icon={<DeleteOutlined />}
+            size="small"
+            shape={shape}
+            danger
+            onClick={stop(() => removePoster(poster.id))}
+          />
+        </Tooltip>
+      </>
+    );
+  };
+
+  const renderName = (poster) => (
+    editingId === poster.id ? (
+      <div className="poster-rename-row" onClick={(e) => e.stopPropagation()}>
+        <Input
+          size="small"
+          autoFocus
+          value={editingName}
+          onChange={(e) => setEditingName(e.target.value)}
+          onPressEnter={commitRename}
+        />
+        <Button size="small" type="text" icon={<CheckOutlined />} onClick={commitRename} />
+        <Button size="small" type="text" icon={<CloseOutlined />} onClick={() => setEditingId(null)} />
+      </div>
+    ) : (
+      <div className="poster-card-title" title={displayNameOf(poster)}>
+        {displayNameOf(poster)}
+      </div>
+    )
+  );
+
+  const dateTooltip = (poster) => (
+    <>
+      Added {formatDate(poster.createdAt)}
+      <br />
+      Updated {formatDate(poster.updatedAt)}
+    </>
+  );
+
+  const detailsColumns = [
+    {
+      title: '',
+      key: 'thumb',
+      width: 48,
+      render: (_, poster) => {
+        const src = imageSrc(poster);
+        return src
+          ? <img src={src} alt="" className="poster-details-thumb" />
+          : <PictureOutlined style={{ color: 'var(--color-text-muted)' }} />;
+      },
+    },
+    { title: 'Name', key: 'name', render: (_, poster) => renderName(poster) },
+    {
+      title: 'Type',
+      key: 'kind',
+      width: 90,
+      render: (_, poster) => (poster.image && poster.image.kind) || '—',
+    },
+    {
+      title: 'Source',
+      key: 'source',
+      width: 90,
+      render: (_, poster) => (poster.image && poster.image.source) || '—',
+    },
+    {
+      title: 'Rating',
+      key: 'rating',
+      width: 110,
+      render: (_, poster) => (getRating(poster) > 0 ? '⭐'.repeat(getRating(poster)) : '—'),
+    },
+    {
+      title: 'Added',
+      key: 'createdAt',
+      width: 150,
+      render: (_, poster) => formatDate(poster.createdAt),
+    },
+    {
+      title: 'Updated',
+      key: 'updatedAt',
+      width: 150,
+      render: (_, poster) => formatDate(poster.updatedAt),
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 170,
+      render: (_, poster) => <div className="poster-row-actions">{posterActions(poster)}</div>,
+    },
+  ];
+
   return (
     <div className="poster-page">
       {/* ── Search Card ────────────────────────────────────────── */}
@@ -1307,6 +1437,15 @@ const PosterFinder = () => {
             )}
           </div>
           <div className="poster-action-right">
+            <Segmented
+              size="middle"
+              value={viewMode}
+              onChange={setViewMode}
+              options={VIEW_OPTIONS.map(o => ({
+                value: o.value,
+                label: <Tooltip title={o.title}>{o.icon}</Tooltip>,
+              }))}
+            />
             <Button icon={<DeleteOutlined />} size="middle" onClick={clearAll}>
               Clear all
             </Button>
@@ -1350,152 +1489,100 @@ const PosterFinder = () => {
         </div>
       )}
 
-      {/* ── Results grid (newest first, paginated) ─────────────── */}
+      {/* ── Results (newest first, paginated) ──────────────────── */}
       {!dataLoading && !loading && pagePosters.length > 0 && (
         <>
-          <div className="poster-grid">
-            {pagePosters.map(poster => {
-              const src = imageSrc(poster);
-              const orderIdx = selectedIds.indexOf(poster.id);
-              const isSelected = orderIdx !== -1;
-              const isEditing = editingId === poster.id;
-              const name = displayNameOf(poster);
-              const dates = (
-                <>
-                  Added {formatDate(poster.createdAt)}
-                  <br />
-                  Updated {formatDate(poster.updatedAt)}
-                </>
-              );
+          {viewMode === 'details' ? (
+            <Table
+              className="poster-details-table"
+              dataSource={pagePosters}
+              columns={detailsColumns}
+              rowKey="id"
+              size="small"
+              pagination={false}
+              scroll={{ x: 'max-content' }}
+              rowSelection={{
+                selectedRowKeys: selectedIds,
+                hideSelectAll: true,
+                onSelect: (poster) => toggleSelect(poster.id),
+              }}
+            />
+          ) : (
+            <div className={`poster-grid poster-grid-${viewMode}`}>
+              {pagePosters.map(poster => {
+                const src = imageSrc(poster);
+                const orderIdx = selectedIds.indexOf(poster.id);
+                const isSelected = orderIdx !== -1;
+                const name = displayNameOf(poster);
 
-              if (!src) {
-                return (
-                  <div key={poster.id} className="poster-card poster-card-error">
-                    <div className="poster-card-error-body">
-                      <PictureOutlined className="poster-card-error-icon" />
-                      <Text strong style={{ fontSize: 'var(--text-sm)' }}>
-                        {name}
-                      </Text>
-                      <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                        {poster.localImage
-                          ? 'Image is stored on another device'
-                          : (poster.error || 'No poster found')}
-                      </Text>
-                      <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
-                        Added {formatDate(poster.createdAt)}
-                      </Text>
-                      <Button
-                        size="small"
-                        type="text"
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => { e.stopPropagation(); removePoster(poster.id); }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                );
-              }
-
-              return (
-                <div
-                  key={poster.id}
-                  className={`poster-card ${isSelected ? 'poster-card-selected' : ''}`}
-                  onClick={() => toggleSelect(poster.id)}
-                >
-                  <div className="poster-img-wrapper">
-                    <img src={src} alt={name} loading="lazy" />
-                    {isSelected && (
-                      <div className="poster-order-badge" title={`Position ${orderIdx + 1}`}>
-                        {orderIdx + 1}
-                      </div>
-                    )}
-                    {poster.image.source && (
-                      <div className={`poster-source poster-source-${poster.image.source.toLowerCase()}`}>
-                        {poster.image.source}
-                      </div>
-                    )}
-                    <div className="poster-overlay">
-                      <Checkbox checked={isSelected} className="poster-checkbox" />
-                      <div className="poster-overlay-actions">
-                        <Tooltip title="Preview">
-                          <Button
-                            icon={<EyeOutlined />}
-                            size="small"
-                            shape="circle"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreviewImg({ src: imageSrc(poster, true), title: name });
-                            }}
-                          />
-                        </Tooltip>
-                        <Tooltip title="Rename">
-                          <Button
-                            icon={<EditOutlined />}
-                            size="small"
-                            shape="circle"
-                            onClick={(e) => { e.stopPropagation(); startRename(poster); }}
-                          />
-                        </Tooltip>
-                        <Tooltip title="Download">
-                          <Button
-                            icon={<DownloadOutlined />}
-                            size="small"
-                            shape="circle"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              downloadImage(
-                                imageSrc(poster, true),
-                                `${formatCounter(counter)}_${safeFileName(name)}.jpg`
-                              );
-                            }}
-                          />
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <Button
-                            icon={<DeleteOutlined />}
-                            size="small"
-                            shape="circle"
-                            danger
-                            onClick={(e) => { e.stopPropagation(); removePoster(poster.id); }}
-                          />
-                        </Tooltip>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="poster-card-label">
-                    {isEditing ? (
-                      <div className="poster-rename-row" onClick={(e) => e.stopPropagation()}>
-                        <Input
-                          size="small"
-                          autoFocus
-                          value={editingName}
-                          onChange={(e) => setEditingName(e.target.value)}
-                          onPressEnter={commitRename}
-                        />
-                        <Button size="small" type="text" icon={<CheckOutlined />} onClick={commitRename} />
+                if (!src) {
+                  return (
+                    <div key={poster.id} className="poster-card poster-card-error">
+                      <div className="poster-card-error-body">
+                        <PictureOutlined className="poster-card-error-icon" />
+                        <Text strong style={{ fontSize: 'var(--text-sm)' }}>
+                          {name}
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                          {poster.localImage
+                            ? 'Image is stored on another device'
+                            : (poster.error || 'No poster found')}
+                        </Text>
+                        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+                          Added {formatDate(poster.createdAt)}
+                        </Text>
                         <Button
                           size="small"
                           type="text"
-                          icon={<CloseOutlined />}
-                          onClick={() => setEditingId(null)}
-                        />
+                          icon={<DeleteOutlined />}
+                          onClick={(e) => { e.stopPropagation(); removePoster(poster.id); }}
+                        >
+                          Remove
+                        </Button>
                       </div>
-                    ) : (
-                      <div className="poster-card-title" title={name}>
-                        {name}
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={poster.id}
+                    className={`poster-card ${isSelected ? 'poster-card-selected' : ''}`}
+                    onClick={() => toggleSelect(poster.id)}
+                  >
+                    <div className="poster-img-wrapper">
+                      <img src={src} alt={name} loading="lazy" />
+                      {isSelected && (
+                        <div className="poster-order-badge" title={`Position ${orderIdx + 1}`}>
+                          {orderIdx + 1}
+                        </div>
+                      )}
+                      {poster.image.source && (
+                        <div className={`poster-source poster-source-${poster.image.source.toLowerCase()}`}>
+                          {poster.image.source}
+                        </div>
+                      )}
+                      <div className="poster-overlay">
+                        <Checkbox checked={isSelected} className="poster-checkbox" />
+                        <div className="poster-overlay-actions">
+                          {posterActions(poster, 'circle')}
+                        </div>
                       </div>
-                    )}
-                    <Tooltip title={dates}>
-                      <div className="poster-card-meta">
-                        {poster.image.kind || 'Poster'} · {dayjs(poster.createdAt).format('D MMM YY')}
-                      </div>
-                    </Tooltip>
+                    </div>
+                    <div className="poster-card-label">
+                      {renderName(poster)}
+                      <Tooltip title={dateTooltip(poster)}>
+                        <div className="poster-card-meta">
+                          {poster.image.kind || 'Poster'} · {dayjs(poster.createdAt).format('D MMM YY')}
+                        </div>
+                      </Tooltip>
+                    </div>
+                    <div className="poster-row-actions">{posterActions(poster)}</div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           {sortedPosters.length > PAGE_SIZE && (
             <div className="poster-pagination">

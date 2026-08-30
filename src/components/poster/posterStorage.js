@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS = {
   bgAdjust: { fit: 'stretch', scale: 1, offsetX: 0, offsetY: 0, dim: 0.12 },
   counter: 1,
   captionHashtags: '#movies #watchoftheweek #cinema',
+  viewMode: 'large',
   selectedIds: [],
 };
 

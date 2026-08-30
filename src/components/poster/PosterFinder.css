@@ -287,6 +287,94 @@
   gap: var(--space-md);
 }
 
+.poster-grid-small {
+  grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+  gap: var(--space-sm);
+}
+
+.poster-grid-small .poster-card-title {
+  font-size: var(--text-xs);
+}
+
+.poster-grid-small .poster-card-label {
+  padding: 6px 8px 8px;
+  min-height: 38px;
+}
+
+/* List view: one row per poster, actions inline instead of on hover. */
+.poster-grid-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.poster-grid-list .poster-card {
+  flex-direction: row;
+  align-items: center;
+}
+
+.poster-grid-list .poster-card:hover {
+  transform: none;
+}
+
+.poster-grid-list .poster-img-wrapper {
+  flex: 0 0 46px;
+  width: 46px;
+}
+
+.poster-grid-list .poster-overlay,
+.poster-grid-list .poster-source {
+  display: none;
+}
+
+.poster-grid-list .poster-order-badge {
+  top: 4px;
+  right: 4px;
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+}
+
+.poster-grid-list .poster-card-label {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+}
+
+.poster-grid-list .poster-card-error-body {
+  aspect-ratio: auto;
+  flex-direction: row;
+  justify-content: flex-start;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.poster-row-actions {
+  display: none;
+  gap: 4px;
+  padding-right: 10px;
+}
+
+.poster-grid-list .poster-row-actions {
+  display: flex;
+}
+
+.poster-details-table .poster-row-actions {
+  display: flex;
+  padding-right: 0;
+}
+
+.poster-details-thumb {
+  width: 32px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+  display: block;
+}
+
+.poster-details-table .poster-card-title {
+  font-size: var(--text-sm);
+}
+
 .poster-card {
   position: relative;
   border-radius: var(--radius-md);
@@ -431,10 +519,11 @@
 }
 
 /* ─── Source Badge (on image) ────────────────────────────────────────────── */
+/* Bottom-left so it clears the overlay action buttons. */
 .poster-source {
   position: absolute;
   bottom: 8px;
-  right: 8px;
+  left: 8px;
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 10px;
@@ -445,6 +534,13 @@
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   z-index: 2;
+  transition: opacity 160ms ease;
+}
+
+/* The action buttons need the full row, so yield to them while they show. */
+.poster-card:hover .poster-source,
+.poster-card-selected .poster-source {
+  opacity: 0;
 }
 
 .poster-source-itunes {
@@ -583,8 +679,14 @@
     justify-content: flex-end;
   }
 
+  /* The buttons are icon-only at this width, so they still fit beside the input. */
   .poster-search-bar {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .poster-search-bar .ant-select {
+    min-width: 0;
   }
 
   .collage-workspace {
@@ -624,10 +726,11 @@
 }
 
 /* ─── Order Badge (selected order in grid) ───────────────────────────────── */
+/* Top-right so it clears the selection checkbox. */
 .poster-order-badge {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
   width: 28px;
   height: 28px;
   border-radius: 50%;

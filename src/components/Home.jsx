@@ -4,35 +4,12 @@ import { Button, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import ReloadButton from './ReloadButton';
 import { routes } from '../common/constants';
-import { signInUser, signOutUser } from '../common/authUtils';
+import { signOutUser } from '../common/authUtils';
 import { UserContext } from '../common/UserContext';
-import {
-  CheckSquareOutlined,
-  ClockCircleOutlined,
-  DollarOutlined,
-  CalendarOutlined,
-  ThunderboltOutlined,
-  DatabaseOutlined,
-  AppstoreOutlined,
-  LockOutlined,
-  PictureOutlined,
-  FileTextOutlined,
-} from '@ant-design/icons';
+import { iconFor, colorFor } from '../common/navIcons';
+import { LockOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
-
-const iconMap = {
-  'todo': <CheckSquareOutlined style={{ fontSize: 24, color: 'var(--color-primary)' }} />,
-  'timer': <ClockCircleOutlined style={{ fontSize: 24, color: '#06b6d4' }} />,
-  'expense': <DollarOutlined style={{ fontSize: 24, color: '#10b981' }} />,
-  'cal': <CalendarOutlined style={{ fontSize: 24, color: '#f59e0b' }} />,
-  'battery': <ThunderboltOutlined style={{ fontSize: 24, color: '#ef4444' }} />,
-  'admin': <DatabaseOutlined style={{ fontSize: 24, color: '#64748b' }} />,
-  'dbadmin': <DatabaseOutlined style={{ fontSize: 24, color: '#d1651d' }} />,
-  'poster': <PictureOutlined style={{ fontSize: 24, color: '#8b5cf6' }} />,
-  'invoice': <FileTextOutlined style={{ fontSize: 24, color: '#0ea5e9' }} />,
-  'dump': <AppstoreOutlined style={{ fontSize: 24, color: '#94a3b8' }} />,
-};
 
 const Home = () => {
     const { user } = useContext(UserContext);
@@ -66,6 +43,7 @@ const Home = () => {
             <div className="home-grid">
                 {routes.map(route => {
                     const isDisabled = route.isPrivate && !user;
+                    const Icon = iconFor(route.slug);
                     return (
                         <Link
                             key={route.key}
@@ -90,7 +68,7 @@ const Home = () => {
                                     }} />
                                 )}
                                 <div className="home-card-icon">
-                                    {iconMap[route.slug] || <AppstoreOutlined style={{ fontSize: 24, color: 'var(--color-text-muted)' }} />}
+                                    <Icon style={{ fontSize: 24, color: colorFor(route.slug) }} />
                                 </div>
                                 <div className="home-card-label">
                                     {route.name}
