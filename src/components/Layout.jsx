@@ -65,34 +65,6 @@ const LayoutComponent = () => {
     )
   }));
 
-  if (user) {
-    menuItemsHor.push({
-      key: 'sign-out',
-      label: (
-        <div
-          style={{
-            color: 'rgba(255,255,255,0.9)',
-            fontSize: 'var(--text-sm)',
-            fontWeight: 500,
-            cursor: 'pointer',
-          }}
-          onClick={signOutUser}
-        >
-          Sign Out
-        </div>
-      )
-    });
-  } else {
-    menuItemsHor.push({
-      key: 'sign-in',
-      label: (
-        <Link to="/my-buddy/auth">
-          <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 'var(--text-sm)', fontWeight: 500 }}>Sign In</div>
-        </Link>
-      )
-    });
-  }
-
   return (
     <Layout className="layout" style={{ minHeight: '100vh', height: '100vh' }}>
       {isMobile() ? null : (
@@ -133,6 +105,14 @@ const LayoutComponent = () => {
             items={menuItemsHor}
             style={{ background: 'transparent', borderBottom: 'none' }}
           />
+          {/* Kept out of the menu so it is never hidden behind the overflow "…". */}
+          <div className="header-auth">
+            {user ? (
+              <Button type="text" onClick={signOutUser}>Sign Out</Button>
+            ) : (
+              <Link to="/my-buddy/auth"><Button type="text">Sign In</Button></Link>
+            )}
+          </div>
         </Header>
       )}
       <Content className="content-div">

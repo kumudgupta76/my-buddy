@@ -109,23 +109,20 @@ const PosterFinder = () => {
       }
 
       const stored = res.success ? res.data : {};
+      const cloudPosters = Array.isArray(stored[POSTER_DATA_KEY]);
+      // Settings are written alongside posters, so their presence means this
+      // account has used the poster finder before — even if the poster array
+      // was later emptied or deleted.
+      const accountInUse = cloudPosters || !!stored[POSTER_SETTINGS_KEY];
       let list = [];
       let settings = { ...DEFAULT_SETTINGS };
-      let needsInitialWrite = false;
 
-      if (Array.isArray(stored[POSTER_DATA_KEY])) {
+      if (cloudPosters) {
         list = stored[POSTER_DATA_KEY].map(normalizePoster);
         settings = mergeSettings(stored[POSTER_SETTINGS_KEY]);
-      } else if (!isMigrated()) {
-        const legacy = readLegacyPosterData();
-        list = legacy.posters;
-        settings = legacy.settings;
-        needsInitialWrite = list.length > 0;
-        if (needsInitialWrite) {
-          message.info(`Imported ${list.length} poster(s) saved in this browser`);
-        }
+      } else if (accountInUse) {
+        settings = mergeSettings(stored[POSTER_SETTINGS_KEY]);
       }
-      markMigrated();
 
       setCollageTitle(settings.collageTitle);
       setCollageTitleSize(settings.collageTitleSize);
@@ -140,8 +137,29 @@ const PosterFinder = () => {
       setSelectedIds(settings.selectedIds.filter(id => list.some(p => p.id === id)).slice(0, 4));
       setLocalImages(pruneLocalImages(list.map(p => p.id)));
 
-      skipSaveRef.current = !needsInitialWrite;
+      skipSaveRef.current = true;
       setDataLoading(false);
+
+      // Offer the one-time import only on a browser holding old data for an
+      // account that has never stored posters. Never silently, never twice.
+      if (!accountInUse && !isMigrated()) {
+        const legacy = readLegacyPosterData();
+        markMigrated();
+        if (legacy.posters.length > 0) {
+          Modal.confirm({
+            title: 'Import posters from this browser?',
+            content: `This browser has ${legacy.posters.length} poster(s) saved from before, and your account has none. Import them, or ignore them and keep your account empty.`,
+            okText: 'Import',
+            cancelText: 'Ignore',
+            onOk: () => {
+              setPosters(legacy.posters);
+              setSelectedIds(legacy.settings.selectedIds);
+              setLocalImages(pruneLocalImages(legacy.posters.map(p => p.id)));
+              message.success(`Imported ${legacy.posters.length} poster(s)`);
+            },
+          });
+        }
+      }
     })();
 
     return () => { cancelled = true; };

@@ -383,7 +383,36 @@ code {
   align-items: center;
 }
 
+/* Tighter than antd's default so more links fit before the overflow "…". */
+.header .desktop-menu .ant-menu-item,
+.header .desktop-menu .ant-menu-submenu {
+  padding-inline: 12px !important;
+}
+
+.header .desktop-menu .ant-menu-submenu {
+  display: flex;
+  align-items: center;
+}
+
 .header .desktop-menu .ant-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.header-auth {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-left: var(--space-sm);
+}
+
+.header-auth .ant-btn {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.header-auth .ant-btn:hover {
+  color: #fff !important;
   background: rgba(255, 255, 255, 0.1) !important;
 }
 
@@ -658,8 +687,9 @@ code {
     display: flex;
   }
 
+  /* !important because antd injects its button styles after this sheet. */
   .header .menu-button {
-    display: none;
+    display: none !important;
   }
 
   .footer-layout {
