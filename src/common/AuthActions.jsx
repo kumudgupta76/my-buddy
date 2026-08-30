@@ -115,9 +115,9 @@ const AuthActions = () => {
                         </Form.Item>
                     </Form>
 
-                    <Divider style={{ margin: 'var(--space-md) 0' }}>
+                    {/* <Divider style={{ margin: 'var(--space-md) 0' }}>
                         <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>OR</Text>
-                    </Divider>
+                    </Divider> */}
 
                     {/* <Button type="text" onClick={toggleAuthMode} block style={{ color: 'var(--color-primary)' }}>
                         {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
