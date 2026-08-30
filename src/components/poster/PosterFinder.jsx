@@ -1439,6 +1439,7 @@ const PosterFinder = () => {
           <div className="poster-action-right">
             <Segmented
               size="middle"
+              className="poster-view-switch"
               value={viewMode}
               onChange={setViewMode}
               options={VIEW_OPTIONS.map(o => ({

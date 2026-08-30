@@ -197,6 +197,34 @@
   color: var(--color-text-muted);
 }
 
+/* Square icon buttons sized to match the toolbar buttons beside them. */
+.poster-view-switch.ant-segmented {
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-light);
+}
+
+.poster-view-switch .ant-segmented-item-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  line-height: 1;
+  font-size: 15px;
+}
+
+.poster-view-switch .ant-segmented-item {
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+}
+
+.poster-view-switch .ant-segmented-item-selected {
+  color: var(--color-primary);
+}
+
 .poster-pagination {
   display: flex;
   justify-content: center;
