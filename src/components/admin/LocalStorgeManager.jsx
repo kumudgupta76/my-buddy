@@ -7,228 +7,227 @@ import { JsonViewer, EditPanel } from './JsonTools';
 const { TextArea } = Input;
 
 const LocalStorageManager = () => {
-  const [data, setData] = useState([]);
-  const [editKey, setEditKey] = useState(null);
-  const [inputValue, setInputValue] = useState('');
+    const [data, setData] = useState([]);
+    const [editKey, setEditKey] = useState(null);
+    const [inputValue, setInputValue] = useState('');
 
-  useEffect(() => {
-    // Load all key-value pairs from localStorage
-    const localData = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      const value = localStorage.getItem(key);
-      localData.push({ key, value });
-    }
-    setData(localData);
-  }, []);
-
-  const handleEdit = (key) => {
-    setEditKey(key);
-    const item = data.find(d => d.key === key);
-    if (item) {
-      setInputValue(item.value);
-    }
-  };
-
-  const handleCopy = (key) => {
-    let textToCopy = JSON.stringify(data.find(d => d.key === key).value);
-    copyToClipboard(textToCopy);
-  }
-
-  const handleSave = () => {
-    localStorage.setItem(editKey, inputValue);
-    const newData = data.map(item =>
-      item.key === editKey ? { ...item, value: inputValue } : item
-    );
-    setData(newData);
-    message.success('Data updated successfully!');
-    setEditKey(null);
-    setInputValue('');
-  };
-
-  const handleDelete = (key) => {
-    localStorage.removeItem(key);
-    const newData = data.filter(item => item.key !== key);
-    setData(newData);
-    message.success('Data deleted successfully!');
-  };
-
-  const columns = [
-    {
-      title: 'Key',
-      dataIndex: 'key',
-      key: 'key',
-      width: '50%',
-    },
-    // {
-    //   title: 'Value',
-    //   dataIndex: 'value',
-    //   key: 'value',
-    // },
-    {
-      title: 'Actions',
-      key: 'actions',
-      fixed: 'right',
-      width: "50%",
-      render: (_, record) => (
-        <Space>
-          <Tooltip title="Copy Entry">
-            <Button
-              icon={<CopyOutlined />}
-              onClick={() => handleCopy(record.key)}
-            />
-          </Tooltip>
-          <Tooltip title="Edit Entry">
-            <Button
-              icon={<EditOutlined />}
-              onClick={() => handleEdit(record.key)}
-            /></Tooltip>
-          <Tooltip title="Delete Entry">
-            <Button
-              icon={<DeleteOutlined />}
-              onClick={() => handleDelete(record.key)}
-              danger
-            />
-          </Tooltip>
-
-        </Space>
-      ),
-    },
-  ];
-  const [backupString, setBackupString] = useState('');
-
-  const handleBackup = () => {
-    const backup = backupLocalStorage();
-    setBackupString(backup);
-    copyToClipboard(backup);
-  };
-
-  const handleRestore = () => {
-    restoreLocalStorage(backupString);
-    alert('LocalStorage has been restored.');
-  };
-  function backupLocalStorage() {
-    const backup = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      const value = localStorage.getItem(key);
-      backup[key] = value;
-    }
-    return JSON.stringify(backup);
-  }
-
-  function restoreLocalStorage(backupString) {
-    const backup = JSON.parse(backupString);
-    for (const key in backup) {
-      if (backup.hasOwnProperty(key)) {
-        localStorage.setItem(key, backup[key]);
-      }
-    }
-  }
-
-  const handleBackupJson = () => {
-    // Retrieve all keys and values from localStorage
-    const allData = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      const value = localStorage.getItem(key);
-      allData[key] = value;
-    }
-
-    // Convert the data into a JSON string
-    const jsonData = JSON.stringify(allData, null, 2);
-
-    // Create a Blob from the JSON string
-    const blob = new Blob([jsonData], { type: 'application/json' });
-
-    // Create a download link programmatically without appending it to the document
-    const now = new Date();
-    const timestamp = now.getFullYear().toString()
-      + String(now.getMonth() + 1).padStart(2, '0')
-      + String(now.getDate()).padStart(2, '0')
-      + '_' + String(now.getHours()).padStart(2, '0')
-      + String(now.getMinutes()).padStart(2, '0')
-      + String(now.getSeconds()).padStart(2, '0');
-
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = `localStorageBackup_${timestamp}.json`;
-
-    // Trigger the download
-    link.click();
-  };
-
-  // Function to handle the restore (reading the uploaded file)
-  const handleRestoreJson = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const restoredData = JSON.parse(reader.result);
-          // Restore each key-value pair from the JSON data into localStorage
-          for (const key in restoredData) {
-            if (restoredData.hasOwnProperty(key)) {
-              localStorage.setItem(key, restoredData[key]);
-            }
-          }
-          alert('Data restored successfully!');
-        } catch (error) {
-          alert('Error: Invalid JSON file.');
+    useEffect(() => {
+        // Load all key-value pairs from localStorage
+        const localData = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            localData.push({ key, value });
         }
-      };
-      reader.readAsText(file);
+        setData(localData);
+    }, []);
+
+    const handleEdit = (key) => {
+        setEditKey(key);
+        const item = data.find(d => d.key === key);
+        if (item) {
+            setInputValue(item.value);
+        }
+    };
+
+    const handleCopy = (key) => {
+        let textToCopy = JSON.stringify(data.find(d => d.key === key).value);
+        copyToClipboard(textToCopy);
     }
-  };
 
-  return (
-    <div style={{ maxWidth: '100%', overflowX: 'auto' }}>
-      {/* Action Bar */}
-      <div className="action-bar" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-md)' }}>
-        <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-          <Button onClick={handleBackup} type="primary">Backup</Button>
-          <Button onClick={handleRestore}>Restore</Button>
-          <Button onClick={handleBackupJson}>Backup to JSON</Button>
-          <Button onClick={() => document.getElementById('restoreFileInput').click()}>Restore from JSON</Button>
+    const handleSave = () => {
+        localStorage.setItem(editKey, inputValue);
+        const newData = data.map(item =>
+            item.key === editKey ? { ...item, value: inputValue } : item
+        );
+        setData(newData);
+        message.success('Data updated successfully!');
+        setEditKey(null);
+        setInputValue('');
+    };
+
+    const handleDelete = (key) => {
+        localStorage.removeItem(key);
+        const newData = data.filter(item => item.key !== key);
+        setData(newData);
+        message.success('Data deleted successfully!');
+    };
+
+    const columns = [
+        {
+            title: 'Key',
+            dataIndex: 'key',
+            key: 'key',
+            width: '50%',
+        },
+        // {
+        //   title: 'Value',
+        //   dataIndex: 'value',
+        //   key: 'value',
+        // },
+        {
+            title: 'Actions',
+            key: 'actions',
+            fixed: 'right',
+            width: "50%",
+            render: (_, record) => (
+                <Space>
+                    <Tooltip title="Copy Entry">
+                        <Button
+                            icon={<CopyOutlined />}
+                            onClick={() => handleCopy(record.key)}
+                        />
+                    </Tooltip>
+                    <Tooltip title="Edit Entry">
+                        <Button
+                            icon={<EditOutlined />}
+                            onClick={() => handleEdit(record.key)}
+                        /></Tooltip>
+                    <Tooltip title="Delete Entry">
+                        <Button
+                            icon={<DeleteOutlined />}
+                            onClick={() => handleDelete(record.key)}
+                            danger
+                        />
+                    </Tooltip>
+
+                </Space>
+            ),
+        },
+    ];
+    const [backupString, setBackupString] = useState('');
+
+    const handleBackup = () => {
+        const backup = backupLocalStorage();
+        setBackupString(backup);
+        copyToClipboard(backup);
+    };
+
+    const handleRestore = () => {
+        restoreLocalStorage(backupString);
+        alert('LocalStorage has been restored.');
+    };
+    function backupLocalStorage() {
+        const backup = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            backup[key] = value;
+        }
+        return JSON.stringify(backup);
+    }
+
+    function restoreLocalStorage(backupString) {
+        const backup = JSON.parse(backupString);
+        for (const key in backup) {
+            if (backup.hasOwnProperty(key)) {
+                localStorage.setItem(key, backup[key]);
+            }
+        }
+    }
+
+    const handleBackupJson = () => {
+        // Retrieve all keys and values from localStorage
+        const allData = {};
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            const value = localStorage.getItem(key);
+            allData[key] = value;
+        }
+
+        // Convert the data into a JSON string
+        const jsonData = JSON.stringify(allData, null, 2);
+
+        // Create a Blob from the JSON string
+        const blob = new Blob([jsonData], { type: 'application/json' });
+
+        // Create a download link programmatically without appending it to the document
+        const now = new Date();
+        const timestamp = now.getFullYear().toString()
+            + String(now.getMonth() + 1).padStart(2, '0')
+            + String(now.getDate()).padStart(2, '0')
+            + '_' + String(now.getHours()).padStart(2, '0')
+            + String(now.getMinutes()).padStart(2, '0')
+            + String(now.getSeconds()).padStart(2, '0');
+
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `localStorageBackup_${timestamp}.json`;
+
+        // Trigger the download
+        link.click();
+    };
+
+    // Function to handle the restore (reading the uploaded file)
+    const handleRestoreJson = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const restoredData = JSON.parse(reader.result);
+                    // Restore each key-value pair from the JSON data into localStorage
+                    for (const key in restoredData) {
+                        if (restoredData.hasOwnProperty(key)) {
+                            localStorage.setItem(key, restoredData[key]);
+                        }
+                    }
+                    alert('Data restored successfully!');
+                } catch (error) {
+                    alert('Error: Invalid JSON file.');
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+
+    return (
+        <div style={{ maxWidth: '100%', overflowX: 'auto' }}>
+            {/* Action Bar */}
+            <div className="action-bar" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-md)' }}>
+                <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
+                    <Button onClick={handleBackup} type="primary">Backup</Button>
+                    <Button onClick={handleRestore}>Restore</Button>
+                    <Button onClick={handleBackupJson}>Backup to JSON</Button>
+                    <Button onClick={() => document.getElementById('restoreFileInput').click()}>Restore from JSON</Button>
+                </div>
+                <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleRestoreJson}
+                    style={{ display: 'none' }}
+                    id="restoreFileInput"
+                />
+                <TextArea
+                    value={backupString}
+                    onChange={(e) => setBackupString(e.target.value)}
+                    rows="3"
+                    placeholder='Paste backup string here...'
+                    style={{ width: '100%', borderRadius: 'var(--radius-sm)' }}
+                />
+                <div className="section-header">
+                    <h3>
+                        Local Storage Data
+                        <span className="badge">{data.length}</span>
+                    </h3>
+                </div>
+
+                <Table dataSource={data} columns={columns} rowKey="key" size="middle" expandable={{
+                    expandedRowRender: (record) => <JsonViewer value={record.value} />,
+                }} />
+
+                {editKey !== null && (
+                    <EditPanel
+                        editKey={editKey}
+                        inputValue={inputValue}
+                        setInputValue={setInputValue}
+                        onSave={handleSave}
+                        onCancel={() => setEditKey(null)}
+                    />
+                )}
+            </div>
         </div>
-        <input
-          type="file"
-          accept=".json"
-          onChange={handleRestoreJson}
-          style={{ display: 'none' }}
-          id="restoreFileInput"
-        />
-        <TextArea
-          value={backupString}
-          onChange={(e) => setBackupString(e.target.value)}
-          rows="3"
-          placeholder='Paste backup string here...'
-          style={{ width: '100%', borderRadius: 'var(--radius-sm)' }}
-        />
-      </div>
-
-      <div className="section-header">
-        <h3>
-          Local Storage Data
-          <span className="badge">{data.length}</span>
-        </h3>
-      </div>
-
-      <Table dataSource={data} columns={columns} rowKey="key" size="middle" expandable={{
-        expandedRowRender: (record) => <JsonViewer value={record.value} />,
-      }} />
-
-      {editKey !== null && (
-        <EditPanel
-          editKey={editKey}
-          inputValue={inputValue}
-          setInputValue={setInputValue}
-          onSave={handleSave}
-          onCancel={() => setEditKey(null)}
-        />
-      )}
-    </div>
-  );
+    );
 };
 
 export default LocalStorageManager;
