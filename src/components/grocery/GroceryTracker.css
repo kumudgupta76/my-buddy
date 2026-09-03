@@ -1,6 +1,7 @@
 .grocery-container {
   max-width: 100%;
   overflow-x: auto;
+  padding: var(--space-sm);
 }
 
 .grocery-header {

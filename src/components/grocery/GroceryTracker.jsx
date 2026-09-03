@@ -6,6 +6,7 @@ import {
 import {
   PlusOutlined, ImportOutlined, ExportOutlined, CopyOutlined, DeleteOutlined,
   EditOutlined, CloudSyncOutlined, ReloadOutlined, SaveOutlined, ClearOutlined,
+  DatabaseOutlined,
 } from '@ant-design/icons';
 import moment from 'moment';
 import { UserContext } from '../../common/UserContext';
@@ -16,7 +17,7 @@ import GroceryInsights from './GroceryInsights';
 import GroceryCleanup from './GroceryCleanup';
 import {
   makeRecord, sortByDateDesc, computeSummary, formatCurrency, itemKeyOf,
-  hasRateMismatch, CATEGORY_OPTIONS,
+  hasRateMismatch, CATEGORY_OPTIONS, findDuplicatesAgainst,
 } from './groceryModel';
 import {
   recordsToLegacyCsv, recordsToNormalizedCsv, recordsToTsv, toSheetDate,
@@ -24,6 +25,7 @@ import {
 import {
   loadGroceries, saveGroceries, readCache, writeCache, downloadTextFile, readTextFile,
 } from './groceryStorage';
+import { buildSeedRecords, SEED_COUNT } from './groceryCatalog';
 import './GroceryTracker.css';
 
 const { RangePicker } = DatePicker;
@@ -53,6 +55,7 @@ const GroceryTracker = () => {
 
   const saveTimerRef = useRef(null);
   const skipSaveRef = useRef(true);
+  const seedOfferedRef = useRef(false);
 
   // ─── Load: cache paints first, Firestore then becomes the source of truth ──
   useEffect(() => {
@@ -75,9 +78,22 @@ const GroceryTracker = () => {
       setRecords(res.records);
       writeCache(user.uid, res.records);
       setLoading(false);
+
+      // Offer the sheet import once, and only to an account holding nothing.
+      if (res.records.length === 0 && !seedOfferedRef.current) {
+        seedOfferedRef.current = true;
+        Modal.confirm({
+          title: 'Load your grocery sheet?',
+          content: `Your tracker is empty. Import the ${SEED_COUNT} purchases from your maintained sheet to get started.`,
+          okText: 'Load them',
+          cancelText: 'Start empty',
+          onOk: () => commit(buildSeedRecords(), `${SEED_COUNT} purchases loaded`),
+        });
+      }
     })();
 
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // ─── Persist (debounced — the whole array is rewritten) ───────────────────
@@ -181,6 +197,20 @@ const GroceryTracker = () => {
   });
 
   // ─── Import / export ──────────────────────────────────────────────────────
+  const loadSeed = () => {
+    const { fresh } = findDuplicatesAgainst(records, buildSeedRecords());
+    if (fresh.length === 0) {
+      message.info('Every row from the sheet is already in your tracker');
+      return;
+    }
+    Modal.confirm({
+      title: 'Load rows from your grocery sheet?',
+      content: `${fresh.length} of ${SEED_COUNT} sheet row(s) aren’t in your tracker yet and will be added.`,
+      okText: 'Add them',
+      onOk: () => commit([...fresh, ...records], `${fresh.length} row(s) added from the sheet`),
+    });
+  };
+
   const handleImport = ({ records: incoming, mode, skipped }) => {
     const apply = () => {
       const next = mode === 'replace' ? incoming : [...incoming, ...records];
@@ -418,7 +448,14 @@ const GroceryTracker = () => {
         }}
         locale={{
           emptyText: (
-            <Empty description={filtersActive ? 'No purchases match these filters' : 'No purchases yet — add one or import your CSV'} />
+            <Empty description={filtersActive ? 'No purchases match these filters' : 'No purchases yet'}>
+              {!filtersActive && (
+                <Space>
+                  <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>Add one</Button>
+                  <Button icon={<DatabaseOutlined />} onClick={loadSeed}>Load my sheet ({SEED_COUNT})</Button>
+                </Space>
+              )}
+            </Empty>
           ),
         }}
       />
@@ -460,6 +497,11 @@ const GroceryTracker = () => {
             <Button icon={<ReloadOutlined />}>{isMobile() ? null : 'Restore'}</Button>
           </Tooltip>
         </Upload>
+        <Tooltip title={`Add any of the ${SEED_COUNT} rows from your sheet that are missing`}>
+          <Button icon={<DatabaseOutlined />} onClick={loadSeed}>
+            {isMobile() ? null : 'Load sheet'}
+          </Button>
+        </Tooltip>
       </div>
 
       <Tabs

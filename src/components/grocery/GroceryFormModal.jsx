@@ -1,22 +1,30 @@
 import React, { useEffect, useMemo } from 'react';
-import { Modal, Form, Input, InputNumber, Select, AutoComplete, DatePicker, Row, Col, Alert } from 'antd';
+import { Modal, Form, Input, InputNumber, Select, AutoComplete, DatePicker, Row, Col, Alert, Typography } from 'antd';
 import moment from 'moment';
-import { CATEGORY_OPTIONS, UNIT_OPTIONS, guessCategory, hasRateMismatch } from './groceryModel';
+import { CATEGORY_OPTIONS, UNIT_OPTIONS, guessCategory, hasRateMismatch, formatCurrency } from './groceryModel';
+import { buildItemCatalog } from './groceryCatalog';
+
+const { Text } = Typography;
 
 const DATE_PICKER_FORMAT = 'DD MMM YYYY';
 
 const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
   const [form] = Form.useForm();
 
-  const itemOptions = useMemo(() => {
-    const names = new Map();
-    records.forEach((record) => {
-      if (record.item) names.set(record.item, (names.get(record.item) || 0) + 1);
-    });
-    return [...names.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([value]) => ({ value }));
-  }, [records]);
+  const catalog = useMemo(() => buildItemCatalog(records), [records]);
+
+  const itemOptions = useMemo(() => catalog.map((entry) => ({
+    value: entry.name,
+    entry,
+    label: (
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+        <span>{entry.name}</span>
+        <Text type="secondary" style={{ fontSize: 'var(--text-xs)' }}>
+          {entry.rate ? `${formatCurrency(entry.rate)}/${entry.unit}` : entry.unit}
+        </Text>
+      </div>
+    ),
+  })), [catalog]);
 
   const storeOptions = useMemo(() => {
     const stores = new Set(records.map((record) => record.store).filter(Boolean));
@@ -28,11 +36,10 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
     if (editing) {
       form.setFieldsValue({
         ...editing,
-        date: editing.date ? moment(editing.date, 'YYYY-MM-DD') : null,
+        date: editing.date ? moment(editing.date, 'YYYY-MM-DD') : moment(),
       });
     } else {
       form.resetFields();
-      form.setFieldsValue({ date: moment(), unit: 'kg' });
     }
   }, [open, editing, form]);
 
@@ -66,6 +73,23 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
     }).catch(() => { /* antd highlights the offending fields */ });
   };
 
+  // Picking a known item carries its usual unit and last paid rate across.
+  const handleItemSelect = (_, option) => {
+    const entry = option?.entry;
+    if (!entry) return;
+    const { quantity, unit, rate } = form.getFieldsValue(['quantity', 'unit', 'rate']);
+    const patch = { category: entry.category };
+    if (entry.unit && (!unit || unit === 'kg')) {
+      patch.unit = entry.unit;
+      patch.rateUnit = entry.unit;
+    }
+    if (entry.rate && !rate) {
+      patch.rate = entry.rate;
+      if (Number(quantity) > 0) patch.value = Math.round(Number(quantity) * entry.rate * 100) / 100;
+    }
+    form.setFieldsValue(patch);
+  };
+
   return (
     <Modal
       title={editing ? 'Edit purchase' : 'Add purchase'}
@@ -76,7 +100,13 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
       destroyOnClose
       width={640}
     >
-      <Form form={form} layout="vertical" onValuesChange={handleValuesChange} preserve={false}>
+      <Form
+        form={form}
+        layout="vertical"
+        onValuesChange={handleValuesChange}
+        preserve={false}
+        initialValues={{ date: moment(), unit: 'kg' }}
+      >
         <Row gutter={16}>
           <Col xs={24} sm={12}>
             <Form.Item name="date" label="Date" rules={[{ required: true, message: 'Pick the purchase date' }]}>
@@ -92,6 +122,7 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
               <AutoComplete
                 options={itemOptions}
                 placeholder="e.g. Arhar Dal"
+                onSelect={handleItemSelect}
                 filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())}
               />
             </Form.Item>
