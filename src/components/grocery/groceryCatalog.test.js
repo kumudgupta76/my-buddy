@@ -1,63 +1,40 @@
-import { SEED_ROWS } from './grocerySeedData';
-import { buildSeedRecords, buildItemCatalog, SEED_CATALOG, SEED_COUNT } from './groceryCatalog';
-import { isIncomplete, splitDuplicates, makeRecord } from './groceryModel';
+import { buildItemCatalog } from './groceryCatalog';
+import { makeRecord } from './groceryModel';
 
-describe('seed data', () => {
-  it('carries every usable row from the sheet', () => {
-    expect(SEED_COUNT).toBe(SEED_ROWS.length);
-    expect(SEED_COUNT).toBeGreaterThan(200);
-  });
-
-  it('builds records that pass the app’s own validation', () => {
-    const records = buildSeedRecords();
-    expect(records).toHaveLength(SEED_COUNT);
-    expect(records.filter(isIncomplete)).toHaveLength(0);
-    expect(records.every((r) => /^\d{4}-\d{2}-\d{2}$/.test(r.date))).toBe(true);
-  });
-
-  it('contains no duplicate purchases', () => {
-    expect(splitDuplicates(buildSeedRecords()).duplicates).toHaveLength(0);
-  });
-
-  it('gives every record a unique id', () => {
-    const records = buildSeedRecords();
-    expect(new Set(records.map((r) => r.id)).size).toBe(records.length);
-  });
+const record = (item, overrides = {}) => makeRecord({
+  date: '2025-06-04', item, quantity: 1, unit: 'kg', value: 100, rate: 100, ...overrides,
 });
 
-describe('item catalogue', () => {
-  it('folds spelling variants onto a single entry with the most-used name', () => {
-    const catalog = buildItemCatalog([]);
-    const kaju = catalog.filter((entry) => entry.key === 'kaju');
-    expect(kaju).toHaveLength(1);
-    expect(kaju[0].unit).toBe('kg');
+describe('buildItemCatalog', () => {
+  it('is empty until something has been bought', () => {
+    expect(buildItemCatalog([])).toEqual([]);
   });
 
-  it('normalises units and keeps a usable rate', () => {
-    expect(SEED_CATALOG.every((entry) => entry.unit === entry.unit.toLowerCase())).toBe(true);
-    expect(SEED_CATALOG.filter((entry) => entry.rate !== null && entry.rate > 0).length)
-      .toBeGreaterThan(SEED_CATALOG.length * 0.9);
+  it('folds spelling variants onto one entry and keeps the most-used name', () => {
+    const catalog = buildItemCatalog([record('Kaju'), record('kaju'), record('Kaju')]);
+    expect(catalog).toHaveLength(1);
+    expect(catalog[0]).toMatchObject({ key: 'kaju', name: 'Kaju', times: 3 });
   });
 
-  it('is ordered by how often the item is bought', () => {
-    const times = SEED_CATALOG.map((entry) => entry.times);
-    expect(times).toEqual([...times].sort((a, b) => b - a));
+  it('normalises units and guesses a category', () => {
+    const catalog = buildItemCatalog([record('Sarson Oil', { unit: 'Ltr' })]);
+    expect(catalog[0]).toMatchObject({ unit: 'l', category: 'Oil & Ghee' });
   });
 
-  it('lets the user’s own purchases override the seeded rate and unit', () => {
+  it('reports the rate and unit from the most recent purchase', () => {
     const catalog = buildItemCatalog([
-      makeRecord({ date: '2030-01-01', item: 'Rice', quantity: 5, unit: 'kg', value: 600, rate: 120 }),
+      record('Rice', { date: '2025-06-04', rate: 100 }),
+      record('Rice', { date: '2025-10-09', rate: 80 }),
     ]);
-    const rice = catalog.find((entry) => entry.key === 'rice');
-    expect(rice.rate).toBe(120);
-    expect(rice.unit).toBe('kg');
+    expect(catalog[0]).toMatchObject({ rate: 80, unit: 'kg' });
   });
 
-  it('includes items the user added that were never in the sheet', () => {
-    const catalog = buildItemCatalog([
-      makeRecord({ date: '2030-01-01', item: 'Dragon Fruit', quantity: 1, unit: 'kg', value: 300, rate: 300 }),
-    ]);
-    expect(catalog.some((entry) => entry.name === 'Dragon Fruit')).toBe(true);
-    expect(catalog).toHaveLength(SEED_CATALOG.length + 1);
+  it('orders entries by how often the item is bought', () => {
+    const catalog = buildItemCatalog([record('Rice'), record('Rice'), record('Kaju')]);
+    expect(catalog.map((entry) => entry.name)).toEqual(['Rice', 'Kaju']);
+  });
+
+  it('ignores rows with no item name', () => {
+    expect(buildItemCatalog([{ item: '', unit: 'kg', rate: 10, date: '2025-01-01' }])).toEqual([]);
   });
 });
