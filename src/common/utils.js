@@ -30,6 +30,7 @@ export const COLLECTION_NAME = 'my-buddy';
 export const DOC_ID_TODO = 'todo';
 export const POSTER_DATA_KEY = 'poster-data';
 export const POSTER_SETTINGS_KEY = 'poster-settings';
+export const GROCERY_DATA_KEY = 'grocery-data';
 
 /**
  * Retrieve the current errors from local storage.
