@@ -364,7 +364,7 @@ const InvoiceGenerator = () => {
           />
         </Card>
 
-        <Space style={{ marginBottom: 24 }}>
+        <Space wrap style={{ marginBottom: 24 }}>
           <Button type="primary" icon={<DownloadOutlined />} onClick={handleDownload}>
             Download PDF
           </Button>
@@ -378,6 +378,7 @@ const InvoiceGenerator = () => {
       </div>
 
       {/* ---------- PRINTABLE INVOICE ---------- */}
+      <div className="invoice-preview" role="region" aria-label="Invoice preview" tabIndex={0}>
       <div className={`invoice-print ${isDental ? 'invoice-print-dental' : ''}`} ref={printRef}>
         {!isDental ? (
           <>
@@ -552,6 +553,7 @@ const InvoiceGenerator = () => {
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

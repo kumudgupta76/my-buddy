@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useContext, useMemo } from 'react';
-import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination, Table } from 'antd';
+import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination, Table, Dropdown } from 'antd';
 import {
     SearchOutlined, DownloadOutlined, DeleteOutlined,
     EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
     FontSizeOutlined, BgColorsOutlined, EditOutlined, MessageOutlined, CopyOutlined,
-    CheckOutlined, CloseOutlined, CloudSyncOutlined, BlockOutlined, BarsOutlined, TableOutlined,
+    CheckOutlined, CloseOutlined, CloudSyncOutlined, BlockOutlined, BarsOutlined, TableOutlined, MoreOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { isMobile, COLLECTION_NAME, POSTER_DATA_KEY, POSTER_SETTINGS_KEY } from '../../common/utils';
@@ -83,6 +83,7 @@ const PosterFinder = () => {
     // Social caption — persisted hashtags suffix + a local draft (null = use auto-generated)
     const [captionHashtags, setCaptionHashtags] = useState(DEFAULT_SETTINGS.captionHashtags);
     const [captionDraft, setCaptionDraft] = useState(null);
+    const [collageHistory, setCollageHistory] = useState(DEFAULT_SETTINGS.collageHistory);
     // Manual poster modal
     const [manualOpen, setManualOpen] = useState(false);
     const [manualTitle, setManualTitle] = useState('');
@@ -142,6 +143,7 @@ const PosterFinder = () => {
             setCounter(settings.counter);
             setCaptionHashtags(settings.captionHashtags);
             setViewMode(settings.viewMode);
+            setCollageHistory(settings.collageHistory);
             setPosters(list);
             setSelectedIds(settings.selectedIds.filter(id => list.some(p => p.id === id)).slice(0, 4));
             setLocalImages(pruneLocalImages(list.map(p => p.id)));
@@ -199,6 +201,7 @@ const PosterFinder = () => {
                     captionHashtags,
                     viewMode,
                     selectedIds,
+                    collageHistory,
                 },
             });
             setSaving(false);
@@ -208,7 +211,7 @@ const PosterFinder = () => {
         return () => clearTimeout(saveTimerRef.current);
     }, [
         user, dataLoading, posters, selectedIds, collageTitle, collageTitleSize, collageTitleColor,
-        namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags, viewMode,
+        namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags, viewMode, collageHistory,
     ]);
 
     // ─── Derived views ───────────────────────────────────────────────────────
@@ -1243,6 +1246,18 @@ const PosterFinder = () => {
             triggerDownload(postersOut.blob, 'posters', fileBase);
             // Slight delay so browsers don't block the second download
             setTimeout(() => triggerDownload(namesOut.blob, 'names', fileBase), 250);
+            const historyEntry = {
+                id: `collage_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                title: titleText.trim() || 'Untitled collage',
+                fileBase,
+                counter,
+                downloadedAt: nowIso(),
+                posters: items.map(poster => ({
+                    id: poster.id,
+                    title: displayNameOf(poster),
+                })),
+            };
+            setCollageHistory(history => [historyEntry, ...history].slice(0, 50));
             setCounter(c => c + 1);
             message.success('Posters and names collages downloaded');
         } catch (e) {
@@ -1313,6 +1328,36 @@ const PosterFinder = () => {
             </div>
         )
     );
+
+    const mobilePosterActions = (poster) => {
+        const name = displayNameOf(poster);
+        const src = imageSrc(poster, true);
+        const actions = {
+            preview: () => setPreviewImg({ src, title: name }),
+            rename: () => startRename(poster),
+            download: () => downloadImage(src, `${formatCounter(counter)}_${safeFileName(name)}.jpg`),
+            delete: () => removePoster(poster.id),
+        };
+        return (
+            <div className="poster-mobile-actions" onClick={event => event.stopPropagation()}>
+                <Dropdown
+                    trigger={['click']}
+                    overlayClassName="poster-mobile-action-menu"
+                    menu={{
+                        items: [
+                            { key: 'preview', label: 'Preview', icon: <EyeOutlined />, disabled: !src },
+                            { key: 'rename', label: 'Rename', icon: <EditOutlined /> },
+                            { key: 'download', label: 'Download', icon: <DownloadOutlined />, disabled: !src },
+                            { key: 'delete', label: 'Delete', icon: <DeleteOutlined />, danger: true },
+                        ],
+                        onClick: ({ key, domEvent }) => { domEvent.stopPropagation(); actions[key](); },
+                    }}
+                >
+                    <Button type="text" icon={<MoreOutlined />} aria-label={`Actions for ${name}`} />
+                </Dropdown>
+            </div>
+        );
+    };
 
     const dateTooltip = (poster) => (
         <>
@@ -1388,7 +1433,8 @@ const PosterFinder = () => {
                         disabled={loading}
                     >
                         <Input
-                            placeholder="Search a movie or series — e.g. Inception, Breaking Bad"
+                            placeholder="Search movies or series"
+                            aria-label="Search movies or series"
                             onPressEnter={searchTitles}
                             prefix={<SearchOutlined style={{ color: 'var(--color-text-muted)' }} />}
                             size="large"
@@ -1400,6 +1446,7 @@ const PosterFinder = () => {
                         type="primary"
                         size="large"
                         icon={<SearchOutlined />}
+                        aria-label="Search posters"
                         onClick={searchTitles}
                         loading={loading}
                     >
@@ -1409,16 +1456,13 @@ const PosterFinder = () => {
                         <Button
                             size="large"
                             icon={<PlusOutlined />}
+                            aria-label="Add poster manually"
                             onClick={openManualModal}
                         >
                             {mobile ? '' : 'Add manually'}
                         </Button>
                     </Tooltip>
                 </div>
-                <p className="poster-search-hint">
-                    Tip: pick from the suggestions for the most accurate poster, or paste several titles
-                    separated by commas.
-                </p>
             </section>
 
             {/* ── Action toolbar ─────────────────────────────────────── */}
@@ -1447,13 +1491,13 @@ const PosterFinder = () => {
                                 label: <Tooltip title={o.title}>{o.icon}</Tooltip>,
                             }))}
                         />
-                        <Button icon={<DeleteOutlined />} size="middle" onClick={clearAll}>
-                            Clear all
-                        </Button>
+                        <Tooltip title="Clear all posters">
+                            <Button icon={<DeleteOutlined />} aria-label="Clear all posters" size="middle" onClick={clearAll} />
+                        </Tooltip>
                         {selectedCount > 0 && (
-                            <Button size="middle" onClick={clearSelection}>
-                                Deselect
-                            </Button>
+                            <Tooltip title="Clear selection">
+                                <Button size="middle" icon={<CloseOutlined />} aria-label="Clear selection" onClick={clearSelection} />
+                            </Tooltip>
                         )}
                         {selectedCount > 0 && (
                             <Button
@@ -1462,6 +1506,7 @@ const PosterFinder = () => {
                                 size="middle"
                                 onClick={downloadSelected}
                                 loading={downloading}
+                                className="poster-selection-download"
                             >
                                 Download ({selectedCount})
                             </Button>
@@ -1472,6 +1517,7 @@ const PosterFinder = () => {
                                 icon={<AppstoreOutlined />}
                                 size="middle"
                                 onClick={openCollage}
+                                className="poster-selection-collage"
                             >
                                 {collageOpen ? `Collage builder open` : `Create collage (${selectedCount})`}
                             </Button>
@@ -1565,7 +1611,7 @@ const PosterFinder = () => {
                                                 </div>
                                             )}
                                             <div className="poster-overlay">
-                                                <Checkbox checked={isSelected} className="poster-checkbox" />
+                                                <Checkbox checked={isSelected} aria-label={`Select ${name}`} className="poster-checkbox" />
                                                 <div className="poster-overlay-actions">
                                                     {posterActions(poster, 'circle')}
                                                 </div>
@@ -1579,6 +1625,7 @@ const PosterFinder = () => {
                                                 </div>
                                             </Tooltip>
                                         </div>
+                                        {mobilePosterActions(poster)}
                                         <div className="poster-row-actions">{posterActions(poster)}</div>
                                     </div>
                                 );
@@ -2271,6 +2318,42 @@ const PosterFinder = () => {
                                 })}
                             />
                         </aside>
+                    </div>
+                </section>
+            )}
+
+            {collageHistory.length > 0 && (
+                <section className="collage-history" aria-labelledby="collage-history-title">
+                    <header className="collage-history-header">
+                        <div>
+                            <h2 className="collage-history-title" id="collage-history-title">Collage history</h2>
+                            <p className="collage-history-sub">Posters included in previously downloaded collages</p>
+                        </div>
+                        <Button type="text" danger onClick={() => setCollageHistory([])}>Clear history</Button>
+                    </header>
+                    <div className="collage-history-list">
+                        {collageHistory.map(entry => (
+                            <article className="collage-history-item" key={entry.id}>
+                                <div className="collage-history-main">
+                                    <div className="collage-history-name">{entry.title || 'Untitled collage'}</div>
+                                    <div className="collage-history-date">{formatDate(entry.downloadedAt)}</div>
+                                    <ol className="collage-history-posters">
+                                        {(Array.isArray(entry.posters) ? entry.posters : []).map((poster, index) => (
+                                            <li key={`${poster.id || poster.title}-${index}`}>{poster.title || 'Untitled poster'}</li>
+                                        ))}
+                                    </ol>
+                                </div>
+                                <Tooltip title="Remove from history">
+                                    <Button
+                                        type="text"
+                                        danger
+                                        icon={<DeleteOutlined />}
+                                        aria-label={`Remove ${entry.title || 'collage'} from history`}
+                                        onClick={() => setCollageHistory(history => history.filter(item => item.id !== entry.id))}
+                                    />
+                                </Tooltip>
+                            </article>
+                        ))}
                     </div>
                 </section>
             )}

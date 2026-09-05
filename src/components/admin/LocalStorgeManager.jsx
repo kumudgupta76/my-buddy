@@ -212,7 +212,7 @@ const LocalStorageManager = () => {
                     </h3>
                 </div>
 
-                <Table dataSource={data} columns={columns} rowKey="key" size="middle" expandable={{
+                <Table dataSource={data} columns={columns} rowKey="key" size="middle" scroll={{ x: 'max-content' }} expandable={{
                     expandedRowRender: (record) => <JsonViewer value={record.value} />,
                 }} />
 

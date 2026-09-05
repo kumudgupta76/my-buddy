@@ -350,22 +350,26 @@ const ExpenseTracker = () => {
       <div className="action-bar" style={{ justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
           <Tooltip title="Add Expense">
-            <Button className='expense-btn' type="primary" onClick={() => setIsModalVisible(true)} icon={<PlusOutlined />}>
+            <Button aria-label="Add Expense" className='expense-btn' type="primary" onClick={() => setIsModalVisible(true)} icon={<PlusOutlined />}>
               {isMobile() ? null : "Add Expense"}
             </Button>
           </Tooltip>
           <Tooltip title="Copy All Rows">
-            <Button className='expense-btn' onClick={() => copyToClipboard({ copyAll: true })} icon={<CopyOutlined />}>
+            <Button aria-label="Copy All Rows" className='expense-btn' onClick={() => copyToClipboard({ copyAll: true })} icon={<CopyOutlined />}>
               {isMobile() ? null : "Copy All"}
             </Button>
           </Tooltip>
           <Tooltip title="Archive All Rows">
-            <Button className='expense-btn' onClick={() => handleArchiveExpense(expenses.map(e => e.key))} icon={<DatabaseOutlined />}>
+            <Button aria-label="Archive All Rows" className='expense-btn' onClick={() => handleArchiveExpense(expenses.map(e => e.key))} icon={<DatabaseOutlined />}>
               {isMobile() ? null : "Archive All"}
             </Button>
           </Tooltip>
         </div>
         <Dropdown.Button
+          buttonsRender={([copyButton, menuButton]) => [
+            React.cloneElement(copyButton, { 'aria-label': `Copy Selected (${selectedRowKeys.length})` }),
+            React.cloneElement(menuButton, { 'aria-label': 'Selected expense actions' }),
+          ]}
           menu={{
             items,
             onClick: onMenuClick,

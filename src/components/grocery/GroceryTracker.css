@@ -4,6 +4,16 @@
   padding: var(--space-sm);
 }
 
+@media (max-width: 768px) {
+  .grocery-container .ant-table-cell-fix-right {
+    position: static !important;
+  }
+
+  .grocery-container .ant-table-cell-fix-right-first::after {
+    display: none;
+  }
+}
+
 .grocery-header {
   display: flex;
   align-items: center;

@@ -3,6 +3,17 @@
   margin: 0 auto;
 }
 
+.invoice-preview {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media screen and (max-width: 768px) {
+  .invoice-preview .invoice-print {
+    min-width: 720px;
+  }
+}
+
 /* ---------- Printable invoice ---------- */
 .invoice-print {
   background: #fff;
@@ -300,6 +311,9 @@
 
 /* ---------- Print rules ---------- */
 @media print {
+  .invoice-preview {
+    overflow: visible;
+  }
   body * {
     visibility: hidden;
   }

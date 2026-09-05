@@ -24,6 +24,7 @@ export const DEFAULT_SETTINGS = {
   captionHashtags: '#movies #watchoftheweek #cinema',
   viewMode: 'large',
   selectedIds: [],
+  collageHistory: [],
 };
 
 const readJson = (key, fallback) => {
@@ -130,6 +131,7 @@ export const mergeSettings = (raw) => ({
   ...(raw || {}),
   bgAdjust: { ...DEFAULT_SETTINGS.bgAdjust, ...((raw && raw.bgAdjust) || {}) },
   selectedIds: Array.isArray(raw && raw.selectedIds) ? raw.selectedIds : [],
+  collageHistory: Array.isArray(raw && raw.collageHistory) ? raw.collageHistory.slice(0, 50) : [],
 });
 
 // ─── One-time migration from the old localStorage-only format ───────────────

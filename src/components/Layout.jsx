@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Layout, Breadcrumb, Menu, Drawer, Button } from 'antd';
+import { Layout, Breadcrumb, Menu, Drawer, Button, Tooltip } from 'antd';
 import { MenuOutlined, HomeOutlined, LoginOutlined, LogoutOutlined } from '@ant-design/icons';
 import { getErrorCount, getErrors } from '../common/utils';
 import { routes } from '../common/constants';
@@ -36,6 +36,12 @@ const Breadcrumbs = () => {
 
 const LayoutComponent = () => {
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const { pathname } = useLocation();
+  const activeRoute = routes.find(route =>
+    pathname === `/my-buddy/${route.slug}` || pathname.startsWith(`/my-buddy/${route.slug}/`)
+  );
+  const isAuthRoute = pathname === '/my-buddy/auth' || pathname.startsWith('/my-buddy/auth/');
+  const selectedKeys = activeRoute ? [String(activeRoute.key)] : isAuthRoute ? ['sign-in'] : [];
 
   const { user } = useContext(UserContext);
 
@@ -50,7 +56,7 @@ const LayoutComponent = () => {
   let menuItems = routes.map(route => {
     const Icon = iconFor(route.slug);
     return {
-      key: route.key,
+      key: String(route.key),
       icon: <Icon style={{ color: colorFor(route.slug) }} />,
       label: <Link to={`/my-buddy/${route.slug}`}><div>{route.name}</div></Link>,
     };
@@ -62,40 +68,34 @@ const LayoutComponent = () => {
     menuItems.push({ key: 'sign-in', icon: <LoginOutlined />, label: <Link to="/my-buddy/auth"><div>Sign In</div></Link> });
   }
 
-  let menuItemsHor = routes.map(route => {
+  const navItems = routes.map(route => {
     const Icon = iconFor(route.slug);
-    return {
-      key: route.key,
-      icon: <Icon />,
-      label: (
-        <Link to={`/my-buddy/${route.slug}`}>
-          <div style={{ color: 'rgba(255,255,255,0.9)', fontSize: 'var(--text-sm)', fontWeight: 500, letterSpacing: '0.01em' }}>
-            {route.name}
-          </div>
-        </Link>
-      ),
-    };
+    return (
+        <Tooltip key={route.key} title={route.name} placement="bottom">
+          <Link
+            to={`/my-buddy/${route.slug}`}
+            className="nav-icon-link"
+            aria-label={route.name}
+            aria-current={activeRoute === route ? 'page' : undefined}
+          >
+            <Icon />
+          </Link>
+        </Tooltip>
+    );
   });
 
   return (
-    <Layout className="layout" style={{ minHeight: '100vh', height: '100vh' }}>
+    <Layout className="layout">
       <Header className="header">
         <div className="logo-container">
-          <Link to="my-buddy/" style={{ display: 'flex', alignItems: 'center', gap: '12px', textDecoration: 'none' }}>
-            <img src="icon.png" className="logo" alt="" />
-            <span style={{ color: 'white', fontSize: 'var(--text-lg)', fontWeight: 600, letterSpacing: '-0.02em' }}>
-              My Buddy
-            </span>
+          <Link to="/my-buddy/" className="header-brand" aria-label="My Buddy home">
+            <img src={`${process.env.PUBLIC_URL}/icon.png`} className="logo" alt="" />
+            <span>My Buddy</span>
           </Link>
-          <Button
-            className="menu-button"
-            type="text"
-            icon={<MenuOutlined />}
-            onClick={showDrawer}
-            style={{ color: 'white', fontSize: 'var(--text-lg)', height: '100%' }}
-          />
         </div>
         <Drawer
+          className="mobile-navigation"
+          width="min(340px, 100vw)"
           title="Navigation"
           placement="right"
           closable={true}
@@ -104,27 +104,41 @@ const LayoutComponent = () => {
           bodyStyle={{ padding: 0 }}
         >
           <Menu
+            id="mobile-navigation-menu"
             mode="inline"
             items={menuItems}
+            selectedKeys={selectedKeys}
             style={{ border: 'none' }}
             onClick={onCloseDrawer}
           />
         </Drawer>
-        <Menu
-          theme="dark"
-          mode="horizontal"
-          className="desktop-menu"
-          items={menuItemsHor}
-          style={{ background: 'transparent', borderBottom: 'none' }}
-        />
-        {/* Kept out of the menu so it is never hidden behind the overflow "…". */}
+        <nav className="desktop-menu" aria-label="Main navigation">
+          {navItems}
+        </nav>
         <div className="header-auth">
           {user ? (
-            <Button type="text" icon={<LogoutOutlined />} onClick={signOutUser}>Sign Out</Button>
+            <Tooltip title="Sign Out">
+              <Button className="header-account-button" type="text" icon={<LogoutOutlined />} aria-label="Sign Out" onClick={signOutUser} />
+            </Tooltip>
           ) : (
-            <Link to="/my-buddy/auth"><Button type="text" icon={<LoginOutlined />}>Sign In</Button></Link>
+            <Tooltip title="Sign In">
+              <Link to="/my-buddy/auth" className="nav-icon-link" aria-label="Sign In" aria-current={isAuthRoute ? 'page' : undefined}>
+                <LoginOutlined />
+              </Link>
+            </Tooltip>
           )}
         </div>
+        <Tooltip title="Open navigation" placement="bottom">
+          <Button
+            className="menu-button"
+            type="text"
+            icon={<MenuOutlined />}
+            aria-label="Open navigation"
+            aria-expanded={drawerVisible}
+            aria-controls="mobile-navigation-menu"
+            onClick={showDrawer}
+          />
+        </Tooltip>
       </Header>
       <Content className="content-div">
         <Breadcrumbs />

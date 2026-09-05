@@ -198,12 +198,12 @@ const DbStorageManager = () => {
                     />
                 )}
 
-                <div className="section-header">
-                    <h3>
+                <div className="section-header" style={{ flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
+                    <h3 style={{ flexShrink: 0 }}>
                         Cloud Data
                         <span className="badge">{rows.length}</span>
                     </h3>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', minWidth: 0, overflowWrap: 'anywhere' }}>
                         {COLLECTION_NAME}/{user.uid} · {formatBytes(docSize)} of {formatBytes(DOC_SIZE_LIMIT)}
                     </span>
                 </div>
@@ -216,6 +216,7 @@ const DbStorageManager = () => {
                         columns={columns}
                         rowKey="key"
                         size="middle"
+                        scroll={{ x: 'max-content' }}
                         pagination={false}
                         expandable={{ expandedRowRender: (record) => <JsonViewer value={record.value} /> }}
                     />

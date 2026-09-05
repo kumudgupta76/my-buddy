@@ -312,9 +312,9 @@ const GroceryTracker = () => {
       fixed: 'right',
       render: (_, record) => (
         <Space size={0}>
-          <Tooltip title="Edit"><Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} /></Tooltip>
-          <Tooltip title="Duplicate to today"><Button type="link" size="small" icon={<CopyOutlined />} onClick={() => duplicateRecord(record)} /></Tooltip>
-          <Tooltip title="Delete"><Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => deleteRecords([record.id])} /></Tooltip>
+          <Tooltip title="Edit"><Button aria-label="Edit purchase" type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} /></Tooltip>
+          <Tooltip title="Duplicate to today"><Button aria-label="Duplicate purchase to today" type="link" size="small" icon={<CopyOutlined />} onClick={() => duplicateRecord(record)} /></Tooltip>
+          <Tooltip title="Delete"><Button aria-label="Delete purchase" type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => deleteRecords([record.id])} /></Tooltip>
         </Space>
       ),
     },
@@ -446,26 +446,26 @@ const GroceryTracker = () => {
 
       <div className="action-bar">
         <Tooltip title="Add purchase">
-          <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>
+          <Button aria-label="Add purchase" type="primary" icon={<PlusOutlined />} onClick={openAdd}>
             {isMobile() ? null : 'Add'}
           </Button>
         </Tooltip>
         <Tooltip title="Import CSV">
-          <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
+          <Button aria-label="Import CSV" icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
             {isMobile() ? null : 'Import'}
           </Button>
         </Tooltip>
         <Dropdown overlay={exportMenu} trigger={['click']}>
-          <Button icon={<ExportOutlined />}>{isMobile() ? null : 'Export'}</Button>
+          <Button aria-label="Export purchases" icon={<ExportOutlined />}>{isMobile() ? null : 'Export'}</Button>
         </Dropdown>
         <Tooltip title="Copy visible rows as tab-separated text">
-          <Button icon={<CopyOutlined />} onClick={() => copyRows(filtered)}>
+          <Button aria-label="Copy visible purchases" icon={<CopyOutlined />} onClick={() => copyRows(filtered)}>
             {isMobile() ? null : 'Copy'}
           </Button>
         </Tooltip>
         <Upload accept=".json,application/json" maxCount={1} showUploadList={false} beforeUpload={restoreJson}>
           <Tooltip title="Restore from a JSON backup">
-            <Button icon={<ReloadOutlined />}>{isMobile() ? null : 'Restore'}</Button>
+            <Button aria-label="Restore JSON backup" icon={<ReloadOutlined />}>{isMobile() ? null : 'Restore'}</Button>
           </Tooltip>
         </Upload>
       </div>
