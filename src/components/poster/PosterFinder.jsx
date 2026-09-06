@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useContext, useMemo } from 'react';
-import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination, Table, Dropdown } from 'antd';
+import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination, Table, Dropdown, Select } from 'antd';
 import {
     SearchOutlined, DownloadOutlined, DeleteOutlined,
     EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
@@ -11,7 +11,7 @@ import { isMobile, COLLECTION_NAME, POSTER_DATA_KEY, POSTER_SETTINGS_KEY } from 
 import { fetchData, saveData } from '../../common/dbUtils';
 import { UserContext } from '../../common/UserContext';
 import {
-    DEFAULT_SETTINGS, mergeSettings, normalizePoster, newPosterId, nowIso,
+    DEFAULT_SETTINGS, POSTER_PAGE_SIZES, mergeSettings, normalizePoster, newPosterId, nowIso,
     getCachedResults, setCachedResults,
     getLocalImages, setLocalImage, removeLocalImage, pruneLocalImages,
     downscaleImage, readLegacyPosterData, isMigrated, markMigrated,
@@ -24,7 +24,6 @@ const ITUNES_BASE = 'https://itunes.apple.com/search';
 const OMDB_BASE = 'https://www.omdbapi.com/';
 const OMDB_KEY = process.env.REACT_APP_OMDB_API_KEY;
 const DEFAULT_BG_URL = `${process.env.PUBLIC_URL || ''}/assets/background.png`;
-const PAGE_SIZE = 24;
 const SAVE_DEBOUNCE_MS = 800;
 
 const VIEW_OPTIONS = [
@@ -57,6 +56,7 @@ const PosterFinder = () => {
     const [dataLoading, setDataLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(DEFAULT_SETTINGS.pageSize);
     const [viewMode, setViewMode] = useState(DEFAULT_SETTINGS.viewMode);
     const [editingId, setEditingId] = useState(null);
     const [editingName, setEditingName] = useState('');
@@ -84,6 +84,7 @@ const PosterFinder = () => {
     const [captionHashtags, setCaptionHashtags] = useState(DEFAULT_SETTINGS.captionHashtags);
     const [captionDraft, setCaptionDraft] = useState(null);
     const [collageHistory, setCollageHistory] = useState(DEFAULT_SETTINGS.collageHistory);
+    const [showCollageHistory, setShowCollageHistory] = useState(DEFAULT_SETTINGS.showCollageHistory);
     // Manual poster modal
     const [manualOpen, setManualOpen] = useState(false);
     const [manualTitle, setManualTitle] = useState('');
@@ -143,6 +144,8 @@ const PosterFinder = () => {
             setCounter(settings.counter);
             setCaptionHashtags(settings.captionHashtags);
             setViewMode(settings.viewMode);
+            setPageSize(settings.pageSize);
+            setShowCollageHistory(settings.showCollageHistory);
             setCollageHistory(settings.collageHistory);
             setPosters(list);
             setSelectedIds(settings.selectedIds.filter(id => list.some(p => p.id === id)).slice(0, 4));
@@ -200,6 +203,8 @@ const PosterFinder = () => {
                     counter,
                     captionHashtags,
                     viewMode,
+                    pageSize,
+                    showCollageHistory,
                     selectedIds,
                     collageHistory,
                 },
@@ -212,6 +217,7 @@ const PosterFinder = () => {
     }, [
         user, dataLoading, posters, selectedIds, collageTitle, collageTitleSize, collageTitleColor,
         namesColor, namesSize, useDefaultBg, bgAdjust, counter, captionHashtags, viewMode, collageHistory,
+        pageSize, showCollageHistory,
     ]);
 
     // ─── Derived views ───────────────────────────────────────────────────────
@@ -219,8 +225,8 @@ const PosterFinder = () => {
         () => [...posters].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))),
         [posters]
     );
-    const pageCount = Math.max(1, Math.ceil(sortedPosters.length / PAGE_SIZE));
-    const pagePosters = sortedPosters.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const pageCount = Math.max(1, Math.ceil(sortedPosters.length / pageSize));
+    const pagePosters = sortedPosters.slice((page - 1) * pageSize, page * pageSize);
     const postersById = useMemo(
         () => posters.reduce((acc, p) => { acc[p.id] = p; return acc; }, {}),
         [posters]
@@ -1418,6 +1424,50 @@ const PosterFinder = () => {
         },
     ];
 
+    const renderPagination = (position) => (
+        <nav
+            className={`poster-pagination poster-pagination-${position}`}
+            aria-label={position === 'top' ? 'Poster pagination' : 'Poster pagination (bottom)'}
+        >
+            {position === 'top' && (
+                <div className="poster-pagination-options">
+                    <div className="poster-page-size">
+                        <label htmlFor="poster-page-size">Posters per page</label>
+                        <Select
+                            id="poster-page-size"
+                            aria-label="Posters per page"
+                            value={pageSize}
+                            options={POSTER_PAGE_SIZES.map(size => ({ value: size, label: size }))}
+                            onChange={(size) => {
+                                setPageSize(size);
+                                setPage(1);
+                            }}
+                        />
+                    </div>
+                    <Checkbox
+                        checked={showCollageHistory}
+                        onChange={(event) => setShowCollageHistory(event.target.checked)}
+                    >
+                        Show created collages
+                    </Checkbox>
+                </div>
+            )}
+            <Pagination
+                current={page}
+                pageSize={pageSize}
+                total={sortedPosters.length}
+                onChange={(next) => {
+                    setPage(next);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                showSizeChanger={false}
+                showLessItems
+                size={mobile ? 'small' : 'default'}
+                showTotal={(total, range) => `${range[0]}-${range[1]} of ${total} posters`}
+            />
+        </nav>
+    );
+
     return (
         <div className="poster-page">
             {/* ── Search Card ────────────────────────────────────────── */}
@@ -1488,7 +1538,14 @@ const PosterFinder = () => {
                             onChange={setViewMode}
                             options={VIEW_OPTIONS.map(o => ({
                                 value: o.value,
-                                label: <Tooltip title={o.title}>{o.icon}</Tooltip>,
+                                label: (
+                                    <Tooltip title={o.title}>
+                                        <span className="poster-view-option">
+                                            <span aria-hidden="true">{o.icon}</span>
+                                            <span className="poster-visually-hidden">{o.title}</span>
+                                        </span>
+                                    </Tooltip>
+                                ),
                             }))}
                         />
                         <Tooltip title="Clear all posters">
@@ -1526,6 +1583,8 @@ const PosterFinder = () => {
                     </div>
                 </div>
             )}
+
+            {!dataLoading && !loading && renderPagination('top')}
 
             {/* ── Loading ────────────────────────────────────────────── */}
             {(loading || dataLoading) && (
@@ -1633,22 +1692,7 @@ const PosterFinder = () => {
                         </div>
                     )}
 
-                    {sortedPosters.length > PAGE_SIZE && (
-                        <div className="poster-pagination">
-                            <Pagination
-                                current={page}
-                                pageSize={PAGE_SIZE}
-                                total={sortedPosters.length}
-                                onChange={(next) => {
-                                    setPage(next);
-                                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                showSizeChanger={false}
-                                size={mobile ? 'small' : 'default'}
-                                showTotal={(total, range) => `${range[0]}–${range[1]} of ${total}`}
-                            />
-                        </div>
-                    )}
+                    {sortedPosters.length > pageSize && renderPagination('bottom')}
                 </>
             )}
 
@@ -1872,6 +1916,9 @@ const PosterFinder = () => {
                                 size="small"
                                 defaultActiveKey="title"
                                 className="collage-tabs"
+                                onChange={(key) => {
+                                    if (key === 'names') setPreviewMode('names');
+                                }}
                                 items={[
                                     {
                                         key: 'title',
@@ -2322,18 +2369,23 @@ const PosterFinder = () => {
                 </section>
             )}
 
-            {collageHistory.length > 0 && (
+            {!dataLoading && showCollageHistory && (
                 <section className="collage-history" aria-labelledby="collage-history-title">
                     <header className="collage-history-header">
                         <div>
-                            <h2 className="collage-history-title" id="collage-history-title">Collage history</h2>
-                            <p className="collage-history-sub">Posters included in previously downloaded collages</p>
+                            <h2 className="collage-history-title" id="collage-history-title">Created collages</h2>
+                            <p className="collage-history-sub">{collageHistory.length} saved</p>
                         </div>
-                        <Button type="text" danger onClick={() => setCollageHistory([])}>Clear history</Button>
+                        {collageHistory.length > 0 && (
+                            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => setCollageHistory([])}>
+                                Clear history
+                            </Button>
+                        )}
                     </header>
-                    <div className="collage-history-list">
+                    {collageHistory.length === 0 && <Text type="secondary">No collages created yet.</Text>}
+                    <ul className="collage-history-list">
                         {collageHistory.map(entry => (
-                            <article className="collage-history-item" key={entry.id}>
+                            <li className="collage-history-item" key={entry.id}>
                                 <div className="collage-history-main">
                                     <div className="collage-history-name">{entry.title || 'Untitled collage'}</div>
                                     <div className="collage-history-date">{formatDate(entry.downloadedAt)}</div>
@@ -2352,9 +2404,9 @@ const PosterFinder = () => {
                                         onClick={() => setCollageHistory(history => history.filter(item => item.id !== entry.id))}
                                     />
                                 </Tooltip>
-                            </article>
+                            </li>
                         ))}
-                    </div>
+                    </ul>
                 </section>
             )}
 

@@ -12,6 +12,8 @@ const MIGRATED_KEY = 'poster-finder-migrated-v1';
 const LEGACY_RESULTS_KEY = 'poster-finder-results-v1';
 const LEGACY_SETTINGS_KEY = 'poster-finder-settings-v1';
 
+export const POSTER_PAGE_SIZES = [6, 12, 24, 48];
+
 export const DEFAULT_SETTINGS = {
   collageTitle: 'Watch Of The Week #$(Counter)',
   collageTitleSize: 56,
@@ -23,6 +25,8 @@ export const DEFAULT_SETTINGS = {
   counter: 1,
   captionHashtags: '#movies #watchoftheweek #cinema',
   viewMode: 'large',
+  pageSize: 24,
+  showCollageHistory: true,
   selectedIds: [],
   collageHistory: [],
 };
@@ -129,6 +133,12 @@ export const normalizePoster = (raw) => {
 export const mergeSettings = (raw) => ({
   ...DEFAULT_SETTINGS,
   ...(raw || {}),
+  pageSize: POSTER_PAGE_SIZES.includes(Number(raw && raw.pageSize))
+    ? Number(raw.pageSize)
+    : DEFAULT_SETTINGS.pageSize,
+  showCollageHistory: typeof (raw && raw.showCollageHistory) === 'boolean'
+    ? raw.showCollageHistory
+    : DEFAULT_SETTINGS.showCollageHistory,
   bgAdjust: { ...DEFAULT_SETTINGS.bgAdjust, ...((raw && raw.bgAdjust) || {}) },
   selectedIds: Array.isArray(raw && raw.selectedIds) ? raw.selectedIds : [],
   collageHistory: Array.isArray(raw && raw.collageHistory) ? raw.collageHistory.slice(0, 50) : [],
