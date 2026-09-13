@@ -642,6 +642,10 @@
   color: #1f1300;
 }
 
+.poster-source-tmdb {
+  background: rgba(1, 180, 228, 0.9);
+}
+
 /* ─── Autocomplete Suggestions ─────────────────────────────────────────────────── */
 .poster-suggest-item {
   display: flex;

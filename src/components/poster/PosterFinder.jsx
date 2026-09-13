@@ -23,6 +23,9 @@ const { Text } = Typography;
 const ITUNES_BASE = 'https://itunes.apple.com/search';
 const OMDB_BASE = 'https://www.omdbapi.com/';
 const OMDB_KEY = process.env.REACT_APP_OMDB_API_KEY;
+const TMDB_BASE = 'https://api.themoviedb.org/3';
+const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
+const TMDB_KEY = process.env.REACT_APP_TMDB_API_KEY;
 const DEFAULT_BG_URL = `${process.env.PUBLIC_URL || ''}/assets/background.png`;
 const SAVE_DEBOUNCE_MS = 800;
 
@@ -46,6 +49,43 @@ const formatDate = (iso) => (iso ? dayjs(iso).format('D MMM YYYY, HH:mm') : '—
 
 // iTunes artwork URLs contain a size like 100x100bb.jpg — we can swap in any size
 const resizeArtwork = (url, size) => url.replace(/\d+x\d+bb/, `${size}x${size}bb`);
+
+const tmdbPosterUrl = (path, size) => (path ? `${TMDB_IMAGE_BASE}/${size}${path}` : null);
+
+// Both providers encode the poster width in the URL, so a bigger one is a swap away.
+const upscalePosterUrl = (url) => (
+    String(url || '').includes('image.tmdb.org')
+        ? url.replace(/\/w\d+\//, '/original/')
+        : String(url || '').replace(/SX\d+/, 'SX1200')
+);
+
+// Map a TMDB search hit onto the same shape OMDB suggestions use.
+const tmdbToSuggestion = (item) => {
+    const isTv = item.media_type === 'tv' || (!item.title && !!item.name);
+    const title = isTv ? item.name : item.title;
+    if (!title) return null;
+    const date = isTv ? item.first_air_date : item.release_date;
+    return {
+        title,
+        year: date ? String(date).slice(0, 4) : '',
+        type: isTv ? 'series' : 'movie',
+        imdbID: null,
+        tmdbId: item.id,
+        tmdbMediaType: isTv ? 'tv' : 'movie',
+        posterPath: item.poster_path || null,
+        poster: tmdbPosterUrl(item.poster_path, 'w185'),
+        source: 'TMDB',
+    };
+};
+
+const tmdbImage = (posterPath, label, isTv, year) => ({
+    url: tmdbPosterUrl(posterPath, 'w500'),
+    urlHD: tmdbPosterUrl(posterPath, 'original'),
+    label,
+    kind: isTv ? 'TV' : 'Movie',
+    year,
+    source: 'TMDB',
+});
 
 const PosterFinder = () => {
     const { user } = useContext(UserContext);
@@ -364,6 +404,9 @@ const PosterFinder = () => {
             const omdbUrl = OMDB_KEY
                 ? `${OMDB_BASE}?apikey=${OMDB_KEY}&t=${encodeURIComponent(title)}`
                 : null;
+            const tmdbUrl = TMDB_KEY
+                ? `${TMDB_BASE}/search/multi?api_key=${TMDB_KEY}&include_adult=false&query=${encodeURIComponent(title)}`
+                : null;
 
             const fetches = [
                 fetchWithTimeout(movieUrl).then(r => r.json()).catch(() => ({ results: [] })),
@@ -371,9 +414,12 @@ const PosterFinder = () => {
                 omdbUrl
                     ? fetchWithTimeout(omdbUrl).then(r => r.json()).catch(() => ({}))
                     : Promise.resolve({}),
+                tmdbUrl
+                    ? fetchWithTimeout(tmdbUrl).then(r => r.json()).catch(() => ({ results: [] }))
+                    : Promise.resolve({ results: [] }),
             ];
 
-            const [movieData, tvData, omdbData] = await Promise.all(fetches);
+            const [movieData, tvData, omdbData, tmdbData] = await Promise.all(fetches);
 
             // Prefer OMDB exact-title match (canonical poster)
             if (omdbData && omdbData.Response === 'True' && omdbData.Poster && omdbData.Poster !== 'N/A') {
@@ -389,6 +435,19 @@ const PosterFinder = () => {
                         year: yearNum,
                         source: 'OMDB',
                     },
+                };
+                cache[title.toLowerCase()] = entry;
+                return entry;
+            }
+
+            // TMDB second — it covers titles OMDB misses (regional, very recent).
+            const tmdbHit = (tmdbData.results || []).find(r => r.media_type !== 'person' && r.poster_path);
+            if (tmdbHit) {
+                const hit = tmdbToSuggestion(tmdbHit);
+                const yearNum = hit.year ? parseInt(hit.year, 10) : null;
+                const entry = {
+                    title: yearNum ? `${hit.title} (${yearNum})` : hit.title,
+                    image: tmdbImage(hit.posterPath, hit.title, hit.type === 'series', yearNum),
                 };
                 cache[title.toLowerCase()] = entry;
                 return entry;
@@ -446,9 +505,48 @@ const PosterFinder = () => {
         setLoading(false);
     };
 
+    // OMDB's canonical poster for an exact IMDb id.
+    const fetchOmdbImage = async (imdbId, fallbackLabel) => {
+        if (!OMDB_KEY || !imdbId) return null;
+        try {
+            const res = await fetchWithTimeout(`${OMDB_BASE}?apikey=${OMDB_KEY}&i=${encodeURIComponent(imdbId)}`);
+            const data = await res.json();
+            if (!data || !data.Poster || data.Poster === 'N/A') return null;
+            return {
+                url: data.Poster,
+                urlHD: upscalePosterUrl(data.Poster),
+                label: data.Title || fallbackLabel,
+                kind: data.Type === 'series' ? 'TV' : 'Movie',
+                year: data.Year ? parseInt(String(data.Year).slice(0, 4), 10) || data.Year : null,
+                source: 'OMDB',
+            };
+        } catch {
+            return null;
+        }
+    };
+
+    // TMDB detail lookup — also hands back the IMDb id so OMDB can still be tried.
+    const fetchTmdbDetail = async (tmdbId, mediaType) => {
+        if (!TMDB_KEY || !tmdbId) return null;
+        try {
+            const res = await fetchWithTimeout(
+                `${TMDB_BASE}/${mediaType || 'movie'}/${tmdbId}?api_key=${TMDB_KEY}&append_to_response=external_ids`
+            );
+            const data = await res.json();
+            if (!data || data.success === false) return null;
+            return {
+                posterPath: data.poster_path || null,
+                imdbId: data.imdb_id || (data.external_ids && data.external_ids.imdb_id) || null,
+            };
+        } catch {
+            return null;
+        }
+    };
+
     // Fetch the single best poster for an EXACT item picked from autocomplete.
     const addExactTitle = async (suggestion) => {
-        const { title, year, type, imdbID, poster } = suggestion;
+        const { title, year, type, tmdbId, tmdbMediaType, poster } = suggestion;
+        let imdbID = suggestion.imdbID;
         const displayTitle = year ? `${title} (${year})` : title;
 
         // De-dupe by imdbID first, then by display title
@@ -470,28 +568,11 @@ const PosterFinder = () => {
 
         try {
             // 1) OMDB by imdbID — the canonical single poster for that exact title
-            if (OMDB_KEY && imdbID) {
-                try {
-                    const res = await fetchWithTimeout(
-                        `${OMDB_BASE}?apikey=${OMDB_KEY}&i=${encodeURIComponent(imdbID)}`
-                    );
-                    const data = await res.json();
-                    const p = data && data.Poster && data.Poster !== 'N/A' ? data.Poster : poster;
-                    if (p) {
-                        image = {
-                            url: p,
-                            urlHD: p.replace(/SX\d+/, 'SX1200'),
-                            label: data.Title || title,
-                            kind: (data.Type || type) === 'series' ? 'TV' : 'Movie',
-                            year: data.Year ? parseInt(String(data.Year).slice(0, 4), 10) || data.Year : yearNum,
-                            source: 'OMDB',
-                        };
-                    }
-                } catch { /* ignore, fall through */ }
-            } else if (poster) {
+            image = await fetchOmdbImage(imdbID, title);
+            if (!image && poster && suggestion.source !== 'TMDB') {
                 image = {
                     url: poster,
-                    urlHD: poster.replace(/SX\d+/, 'SX1200'),
+                    urlHD: upscalePosterUrl(poster),
                     label: title,
                     kind: isTv ? 'TV' : 'Movie',
                     year: yearNum,
@@ -499,7 +580,22 @@ const PosterFinder = () => {
                 };
             }
 
-            // 2) Fallback to iTunes (year-matched) only if OMDB had no poster
+            // 2) TMDB — resolve its IMDb id so OMDB still gets first refusal
+            if (!image && tmdbId) {
+                const detail = await fetchTmdbDetail(tmdbId, tmdbMediaType);
+                if (detail) {
+                    imdbID = imdbID || detail.imdbId;
+                    image = await fetchOmdbImage(detail.imdbId, title);
+                    if (!image && detail.posterPath) {
+                        image = tmdbImage(detail.posterPath, title, isTv, yearNum);
+                    }
+                }
+                if (!image && suggestion.posterPath) {
+                    image = tmdbImage(suggestion.posterPath, title, isTv, yearNum);
+                }
+            }
+
+            // 3) Fallback to iTunes (year-matched) only if neither provider had a poster
             if (!image) {
                 const itunesUrl = isTv
                     ? `${ITUNES_BASE}?term=${encodeURIComponent(title)}&media=tvShow&entity=tvSeason&limit=10`
@@ -634,36 +730,56 @@ const PosterFinder = () => {
     };
 
     const fetchSuggestions = useCallback((term) => {
-        if (!term || term.length < 2 || !OMDB_KEY) {
+        if (!term || term.length < 2 || (!OMDB_KEY && !TMDB_KEY)) {
             setSuggestions([]);
             return;
         }
         if (suggestAbortRef.current) suggestAbortRef.current.abort();
         const controller = new AbortController();
         suggestAbortRef.current = controller;
+        const { signal } = controller;
 
-        const url = `${OMDB_BASE}?apikey=${OMDB_KEY}&s=${encodeURIComponent(term)}`;
-        fetch(url, { signal: controller.signal })
-            .then(r => r.json())
-            .then(data => {
-                const items = (data.Search || []).slice(0, 8).map(it => ({
+        const omdbSearch = OMDB_KEY
+            ? fetch(`${OMDB_BASE}?apikey=${OMDB_KEY}&s=${encodeURIComponent(term)}`, { signal })
+                .then(r => r.json())
+                .then(data => (data.Search || []).map(it => ({
                     title: it.Title,
                     year: it.Year,
                     type: it.Type,
                     imdbID: it.imdbID,
                     poster: it.Poster && it.Poster !== 'N/A' ? it.Poster : null,
-                }));
-                // Deduplicate by imdbID (preferred) or title+year
-                const seen = new Set();
-                const unique = items.filter(it => {
-                    const k = it.imdbID || `${it.title}|${it.year}`;
-                    if (seen.has(k)) return false;
-                    seen.add(k);
-                    return true;
-                });
-                setSuggestions(unique);
-            })
-            .catch(() => { /* ignored */ });
+                    source: 'OMDB',
+                })))
+                .catch(() => [])
+            : Promise.resolve([]);
+
+        const tmdbSearch = TMDB_KEY
+            ? fetch(
+                `${TMDB_BASE}/search/multi?api_key=${TMDB_KEY}&include_adult=false&query=${encodeURIComponent(term)}`,
+                { signal }
+            )
+                .then(r => r.json())
+                .then(data => (data.results || [])
+                    .filter(it => it.media_type !== 'person')
+                    .map(tmdbToSuggestion)
+                    .filter(Boolean))
+                .catch(() => [])
+            : Promise.resolve([]);
+
+        Promise.all([omdbSearch, tmdbSearch]).then(([omdbHits, tmdbHits]) => {
+            if (signal.aborted) return;
+            // OMDB stays primary: its hits lead and TMDB only fills the gaps.
+            const seen = new Set();
+            const merged = [];
+            [...omdbHits, ...tmdbHits].forEach(it => {
+                const titleKey = `${(it.title || '').toLowerCase()}|${String(it.year || '').slice(0, 4)}`;
+                if (seen.has(titleKey) || (it.imdbID && seen.has(it.imdbID))) return;
+                seen.add(titleKey);
+                if (it.imdbID) seen.add(it.imdbID);
+                merged.push(it);
+            });
+            setSuggestions(merged.slice(0, 10));
+        });
     }, []);
 
     const handleQueryChange = (val) => {
@@ -697,9 +813,9 @@ const PosterFinder = () => {
     }, [selectedIds, activeSlot]);
 
     const autocompleteOptions = suggestions.map((s, i) => ({
-        value: `${s.title}__${s.imdbID || s.year || i}`,
+        value: `${s.title}__${s.imdbID || s.tmdbId || s.year || i}`,
         suggestion: s,
-        key: `${s.imdbID || s.title}-${s.year}-${i}`,
+        key: `${s.imdbID || s.tmdbId || s.title}-${s.year}-${i}`,
         label: (
             <div className="poster-suggest-item">
                 {s.poster ? (
@@ -710,7 +826,7 @@ const PosterFinder = () => {
                 <div className="poster-suggest-meta">
                     <div className="poster-suggest-title">{s.title}</div>
                     <div className="poster-suggest-sub">
-                        {s.year}{s.type ? ` · ${s.type}` : ''}
+                        {s.year}{s.type ? ` · ${s.type}` : ''}{s.source ? ` · ${s.source}` : ''}
                     </div>
                 </div>
             </div>
