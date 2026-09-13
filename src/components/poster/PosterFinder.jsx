@@ -580,19 +580,13 @@ const PosterFinder = () => {
                 };
             }
 
-            // 2) TMDB — resolve its IMDb id so OMDB still gets first refusal
+            // 2) TMDB — keep the exact artwork shown in the dropdown; OMDB's poster for
+            //    the same IMDb id is often different art and would look like a wrong hit.
             if (!image && tmdbId) {
                 const detail = await fetchTmdbDetail(tmdbId, tmdbMediaType);
-                if (detail) {
-                    imdbID = imdbID || detail.imdbId;
-                    image = await fetchOmdbImage(detail.imdbId, title);
-                    if (!image && detail.posterPath) {
-                        image = tmdbImage(detail.posterPath, title, isTv, yearNum);
-                    }
-                }
-                if (!image && suggestion.posterPath) {
-                    image = tmdbImage(suggestion.posterPath, title, isTv, yearNum);
-                }
+                imdbID = imdbID || (detail && detail.imdbId) || null;
+                const posterPath = suggestion.posterPath || (detail && detail.posterPath);
+                if (posterPath) image = tmdbImage(posterPath, title, isTv, yearNum);
             }
 
             // 3) Fallback to iTunes (year-matched) only if neither provider had a poster
