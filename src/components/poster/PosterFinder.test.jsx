@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import PosterFinder from './PosterFinder';
+import PosterFinder, { streamSuggestionResults } from './PosterFinder';
 import { UserContext } from '../../common/UserContext';
 import { fetchData, saveData } from '../../common/dbUtils';
 
@@ -46,6 +46,21 @@ const renderPosters = () => render(
         <PosterFinder />
     </UserContext.Provider>
 );
+
+test('publishes OMDB autocomplete results while TMDB is still pending', async () => {
+    const omdbHits = [{ title: 'The Matrix', year: '1999', imdbID: 'tt0133093' }];
+    const pendingTmdbSearch = new Promise(() => {});
+    const onSuggestions = jest.fn();
+
+    streamSuggestionResults(
+        Promise.resolve(omdbHits),
+        pendingTmdbSearch,
+        { aborted: false },
+        onSuggestions
+    );
+
+    await waitFor(() => expect(onSuggestions).toHaveBeenCalledWith(omdbHits));
+});
 
 test('mobile action menu previews a poster without selecting it', async () => {
     renderPosters();

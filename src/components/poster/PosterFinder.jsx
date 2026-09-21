@@ -87,6 +87,33 @@ const tmdbImage = (posterPath, label, isTv, year) => ({
     source: 'TMDB',
 });
 
+export const streamSuggestionResults = (omdbSearch, tmdbSearch, signal, onSuggestions) => {
+    let omdbHits = [];
+    let tmdbHits = [];
+    const publish = () => {
+        if (signal.aborted) return;
+        const seen = new Set();
+        const merged = [];
+        [...omdbHits, ...tmdbHits].forEach(item => {
+            const titleKey = `${(item.title || '').toLowerCase()}|${String(item.year || '').slice(0, 4)}`;
+            if (seen.has(titleKey) || (item.imdbID && seen.has(item.imdbID))) return;
+            seen.add(titleKey);
+            if (item.imdbID) seen.add(item.imdbID);
+            merged.push(item);
+        });
+        onSuggestions(merged.slice(0, 10));
+    };
+
+    omdbSearch.then(hits => {
+        omdbHits = hits;
+        publish();
+    });
+    tmdbSearch.then(hits => {
+        tmdbHits = hits;
+        publish();
+    });
+};
+
 const PosterFinder = () => {
     const { user } = useContext(UserContext);
     const [query, setQuery] = useState('');
@@ -760,20 +787,9 @@ const PosterFinder = () => {
                 .catch(() => [])
             : Promise.resolve([]);
 
-        Promise.all([omdbSearch, tmdbSearch]).then(([omdbHits, tmdbHits]) => {
-            if (signal.aborted) return;
-            // OMDB stays primary: its hits lead and TMDB only fills the gaps.
-            const seen = new Set();
-            const merged = [];
-            [...omdbHits, ...tmdbHits].forEach(it => {
-                const titleKey = `${(it.title || '').toLowerCase()}|${String(it.year || '').slice(0, 4)}`;
-                if (seen.has(titleKey) || (it.imdbID && seen.has(it.imdbID))) return;
-                seen.add(titleKey);
-                if (it.imdbID) seen.add(it.imdbID);
-                merged.push(it);
-            });
-            setSuggestions(merged.slice(0, 10));
-        });
+        // Publish whichever provider responds first. A stalled TMDB request must not
+        // hold back working OMDB suggestions; later hits are merged with OMDB first.
+        streamSuggestionResults(omdbSearch, tmdbSearch, signal, setSuggestions);
     }, []);
 
     const handleQueryChange = (val) => {
