@@ -14,6 +14,18 @@ There are few steps which can be followed to get this in work
 
 To view this repo go to url - https://kumudgupta76.github.io/mobile-helper/
 
+## Private Links
+
+The Links page is available to signed-in users at `/my-buddy/links`. Links are stored as individual Firestore documents under `users/{uid}/links/{linkId}` and are isolated by Firebase Authentication UID.
+
+Deploy the Firestore security rules before using this feature in a Firebase project:
+
+```sh
+firebase deploy --only firestore:rules
+```
+
+The rules also restrict the app's existing `my-buddy/{uid}` user-data documents to their owner. Make sure the Firebase project selected in the Firebase CLI is the same project configured for the app.
+
 
 # Getting Started with Create React App
 

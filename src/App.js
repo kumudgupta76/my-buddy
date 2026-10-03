@@ -16,6 +16,7 @@ import DbStorageManager from './components/admin/DbStorageManager';
 import PosterFinder from './components/poster/PosterFinder';
 import InvoiceGenerator from './components/invoice/InvoiceGenerator';
 import GroceryTracker from './components/grocery/GroceryTracker';
+import Links from './components/links/Links';
 import ProtectedRoute from './common/ProtectedRoute';
 import { UserProvider } from './common/UserContext';
 import AuthActions from './common/AuthActions';
@@ -64,6 +65,7 @@ const App = () => {
           <Route path="my-buddy/expense" element={<ExpenseTracker />} />
           <Route path="my-buddy/poster" element={<ProtectedRoute><PosterFinder /></ProtectedRoute>} />
           <Route path="my-buddy/grocery" element={<ProtectedRoute><GroceryTracker /></ProtectedRoute>} />
+          <Route path="my-buddy/links" element={<ProtectedRoute><Links /></ProtectedRoute>} />
           <Route path="my-buddy/invoice" element={<InvoiceGenerator />} />
           <Route path="my-buddy/dump" element={<NoPage />} />
           </Route>

@@ -1,6 +1,7 @@
 // Order here drives both the header nav and the home grid.
 export const routes = [
     { key: 9, slug: "poster", name:"Poster Finder", isPrivate: true },
+    { key: 12, slug: "links", name:"Links", isPrivate: true },
     { key: 1, slug: "todo", name:"Todo", isPrivate: true },
     { key: 4, slug: "cal", name:"Calendar", isPrivate: true},
     { key: 6, slug: "battery", name:"Battery" },

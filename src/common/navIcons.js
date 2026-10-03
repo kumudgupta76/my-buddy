@@ -10,6 +10,7 @@ import {
   PictureOutlined,
   FileTextOutlined,
   ShoppingCartOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 
 // Icon components (not elements) so each consumer can size and colour them.
@@ -24,6 +25,7 @@ const navIcons = {
   poster: PictureOutlined,
   invoice: FileTextOutlined,
   grocery: ShoppingCartOutlined,
+  links: LinkOutlined,
   dump: AppstoreOutlined,
 };
 
@@ -38,6 +40,7 @@ export const navIconColors = {
   poster: '#8b5cf6',
   invoice: '#0ea5e9',
   grocery: '#16a34a',
+  links: '#0f766e',
   dump: '#94a3b8',
 };
 
