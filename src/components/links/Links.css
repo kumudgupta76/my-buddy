@@ -146,6 +146,63 @@
   border-radius: var(--radius-md);
 }
 
+.clipboard-review {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.clipboard-content textarea {
+  max-height: 120px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+
+.clipboard-link-selection {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.clipboard-selection-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.clipboard-link-options {
+  display: grid;
+  gap: var(--space-xs);
+  max-height: 200px;
+  overflow-y: auto;
+  padding: var(--space-sm);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-sm);
+}
+
+.clipboard-link-options .ant-checkbox-wrapper {
+  display: flex;
+  align-items: flex-start;
+  min-width: 0;
+  gap: var(--space-xs);
+  margin-left: 0;
+  padding: var(--space-xs) 0;
+}
+
+.clipboard-link-option {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 640px) {
   .links-heading,
   .links-toolbar {
@@ -195,6 +252,18 @@
   }
 
   .links-page .ant-input-affix-wrapper {
+    min-height: 44px;
+  }
+
+  .clipboard-review {
+    padding: 12px;
+  }
+
+  .clipboard-link-options {
+    max-height: 34vh;
+  }
+
+  .clipboard-link-selection > .ant-btn-primary {
     min-height: 44px;
   }
 }

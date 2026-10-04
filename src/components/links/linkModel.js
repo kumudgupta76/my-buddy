@@ -16,16 +16,22 @@ export const normalizeUrl = (value) => {
   return parsed.toString();
 };
 
-export const extractClipboardUrl = (text) => {
-  const matches = String(text || '').match(/https?:\/\/[^\s<>"']+/gi) || [];
-  if (matches.length !== 1) {
-    if (matches.length > 1) throw new Error('Clipboard contains multiple links. Paste one link at a time.');
-    const candidate = String(text || '').trim();
-    if (!candidate || /\s/.test(candidate)) throw new Error('No single link was found in the clipboard');
-    return normalizeUrl(candidate);
-  }
+export const extractClipboardUrls = (text) => {
+  const matches = String(text || '').match(/(?:https?:\/\/|www\.)[^\s<>"']+/gi) || [];
+  const candidates = matches.length
+    ? matches
+    : String(text || '').trim() && !/\s/.test(String(text).trim())
+      ? [String(text).trim()]
+      : [];
+  const urls = candidates.map(candidate => {
+    try {
+      return normalizeUrl(candidate.replace(/[.,!?;:)\]}]+$/, ''));
+    } catch {
+      return null;
+    }
+  }).filter(Boolean);
 
-  return normalizeUrl(matches[0].replace(/[.,!?;:)\]}]+$/, ''));
+  return [...new Set(urls)];
 };
 
 export const createLinkId = () =>

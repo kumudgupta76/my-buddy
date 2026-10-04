@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import {
-  Alert, Button, Empty, Form, Input, message, Modal, Popconfirm, Select, Spin, Tag, Tooltip, Typography,
+  Alert, Button, Checkbox, Empty, Form, Input, message, Modal, Popconfirm, Select, Spin, Tag, Tooltip, Typography,
 } from 'antd';
 import {
   CopyOutlined, DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SearchOutlined,
@@ -8,7 +8,7 @@ import {
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { UserContext } from '../../common/UserContext';
-import { createLinkId, extractClipboardUrl, normalizeUrl } from './linkModel';
+import { createLinkId, extractClipboardUrls, normalizeUrl } from './linkModel';
 import { deleteLink as deleteSavedLink, loadLinks, saveLink } from './linksStorage';
 import './Links.css';
 
@@ -33,6 +33,10 @@ const Links = () => {
   const [editingLink, setEditingLink] = useState(null);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
+  const [clipboardRead, setClipboardRead] = useState(false);
+  const [clipboardContent, setClipboardContent] = useState('');
+  const [clipboardUrls, setClipboardUrls] = useState([]);
+  const [selectedClipboardUrls, setSelectedClipboardUrls] = useState([]);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -83,12 +87,20 @@ const Links = () => {
 
   const openCreate = () => {
     setEditingLink(null);
+    setClipboardRead(false);
+    setClipboardContent('');
+    setClipboardUrls([]);
+    setSelectedClipboardUrls([]);
     form.resetFields();
     form.setFieldsValue({ url: '', title: '', notes: '', tags: [] });
     setModalVisible(true);
   };
 
   const openEdit = (link) => {
+    setClipboardContent('');
+    setClipboardRead(false);
+    setClipboardUrls([]);
+    setSelectedClipboardUrls([]);
     setEditingLink(link);
     form.setFieldsValue({
       url: link.url,
@@ -100,19 +112,73 @@ const Links = () => {
   };
 
   const readClipboard = async () => {
+    setClipboardRead(false);
     if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') {
       message.error('Clipboard reading is not available here. Paste the link into the URL field instead.');
       return;
     }
     try {
       const text = await navigator.clipboard.readText();
-      const url = extractClipboardUrl(text);
-      form.setFieldsValue({ url });
-      if (!form.getFieldValue('title')) form.setFieldsValue({ title: titleFromUrl(url) });
-      message.success('Link read from clipboard. Review it and save when ready.');
+      const urls = extractClipboardUrls(text);
+      setClipboardRead(true);
+      setClipboardContent(text);
+      setClipboardUrls(urls);
+      setSelectedClipboardUrls([]);
+      if (urls.length) {
+        message.success(`Clipboard read. Review the content and select links to add (${urls.length} found).`);
+      } else {
+        message.info('Clipboard content loaded, but no valid links were found.');
+      }
     } catch (error) {
       message.error(error.message || 'Could not read the clipboard. Paste the link into the URL field instead.');
     }
+  };
+
+  const importClipboardLinks = async () => {
+    const selectedUrls = clipboardUrls.filter(url => selectedClipboardUrls.includes(url));
+    const alreadySaved = new Set(links.map(link => link.url.toLowerCase()));
+    const urlsToSave = selectedUrls.filter(url => !alreadySaved.has(url.toLowerCase()));
+    if (!urlsToSave.length) {
+      message.info('Select at least one new link to add.');
+      return;
+    }
+
+    setSaving(true);
+    const savedLinks = [];
+    const failedUrls = [];
+    for (const url of urlsToSave) {
+      const now = new Date().toISOString();
+      const link = {
+        id: createLinkId(),
+        url,
+        title: titleFromUrl(url),
+        notes: '',
+        tags: [],
+        favorite: false,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const result = await saveLink(user.uid, link);
+      if (result.success) savedLinks.push(link);
+      else failedUrls.push(url);
+    }
+    setSaving(false);
+
+    if (savedLinks.length) {
+      setLinks(current => [...savedLinks, ...current]);
+    }
+    if (failedUrls.length) {
+      message.error(`Could not save ${failedUrls.length} selected link${failedUrls.length === 1 ? '' : 's'}. You can retry the remaining selection.`);
+      return;
+    }
+
+    message.success(`Added ${savedLinks.length} link${savedLinks.length === 1 ? '' : 's'}.`);
+    setModalVisible(false);
+    setClipboardRead(false);
+    setClipboardContent('');
+    setClipboardUrls([]);
+    setSelectedClipboardUrls([]);
+    form.resetFields();
   };
 
   const submitLink = async (values) => {
@@ -298,6 +364,61 @@ const Links = () => {
               addonAfter={<Button type="link" size="small" onClick={readClipboard}>Read clipboard</Button>}
             />
           </Form.Item>
+          {clipboardRead && (
+            <div className="clipboard-review">
+              <Text strong>Clipboard content {clipboardContent ? '' : '(empty)'}</Text>
+              <Input.TextArea
+                className="clipboard-content"
+                value={clipboardContent}
+                readOnly
+                rows={Math.min(5, Math.max(2, clipboardContent.split(/\r?\n/).length))}
+                aria-label="Clipboard content preview"
+              />
+              {clipboardUrls.length > 0 ? (
+                <div className="clipboard-link-selection">
+                  <div className="clipboard-selection-heading">
+                    <Text strong>Links found ({clipboardUrls.length})</Text>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() => setSelectedClipboardUrls(
+                        clipboardUrls.filter(url => !links.some(link => link.url.toLowerCase() === url.toLowerCase()))
+                      )}
+                    >
+                      Select all new
+                    </Button>
+                  </div>
+                  <Checkbox.Group
+                    className="clipboard-link-options"
+                    value={selectedClipboardUrls}
+                    onChange={setSelectedClipboardUrls}
+                  >
+                    {clipboardUrls.map(url => {
+                      const duplicate = links.some(link => link.url.toLowerCase() === url.toLowerCase());
+                      return (
+                        <Checkbox key={url} value={url} disabled={duplicate}>
+                          <span className="clipboard-link-option">
+                            <span>{url}</span>
+                            {duplicate && <Text type="secondary">Already saved</Text>}
+                          </span>
+                        </Checkbox>
+                      );
+                    })}
+                  </Checkbox.Group>
+                  <Button
+                    type="primary"
+                    onClick={importClipboardLinks}
+                    loading={saving}
+                    disabled={!selectedClipboardUrls.some(url => !links.some(link => link.url.toLowerCase() === url.toLowerCase()))}
+                  >
+                    Add selected links
+                  </Button>
+                </div>
+              ) : (
+                <Text type="secondary">No valid links detected. You can still enter a URL above.</Text>
+              )}
+            </div>
+          )}
           <Form.Item label="Title" name="title">
             <Input placeholder="A useful article" maxLength={160} />
           </Form.Item>

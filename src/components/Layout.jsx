@@ -89,7 +89,7 @@ const LayoutComponent = () => {
       <Header className="header">
         <div className="logo-container">
           <Link to="/my-buddy/" className="header-brand" aria-label="My Buddy home">
-            <img src={`${process.env.PUBLIC_URL}/icon.png`} className="logo" alt="" />
+            <img src={`${process.env.PUBLIC_URL}/buddy-icon.svg`} className="logo" alt="" />
             <span>My Buddy</span>
           </Link>
         </div>

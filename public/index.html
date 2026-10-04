@@ -7,30 +7,28 @@
     }
   </style> -->
   <head>
-    <!-- Other meta tags -->
-    <meta name="theme-color" content="#011528">
-    <!-- Other meta tags -->
-    <meta name="viewport" content="width=device-width">
+    <meta charset="utf-8">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="description" content="Your personal productivity toolkit">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="My Buddy">
+    <link rel="icon" type="image/svg+xml" href="%PUBLIC_URL%/buddy-icon.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/buddy-favicon-32.png">
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png">
+    <title>My Buddy</title>
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json">
   </head>
-  
-  <!-- Adding a manifest to html page -->
-  <link rel="manifest" href="manifest.json" />
 
   <body>
     <div id="root"></div>
   </body>
 
-  <!-- Registration of Service worker -->
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
-        .register("sw-demo.js")
-        .then(reg => {
-          console.log("sw-demo registered.");
-        })
-        .catch(err => {
-          console.log("Error");
-        });
+        .register("%PUBLIC_URL%/sw-demo.js")
+        .catch(err => console.error("Service worker registration failed:", err));
         navigator.serviceWorker.addEventListener('controllerchange', () => {
           if (this.refreshing) return;
           this.refreshing = true;
@@ -40,16 +38,5 @@
           }
         });
     }
-    // Notification.requestPermission().then(function(result) {
-    //   if (result === "denied") {
-    //     console.log("Permission wasn't granted. Allow a retry.");
-    //     return;
-    //   }
-    //   if (result === "default") {
-    //     console.log("The permission request was dismissed.");
-    //     return;
-    //   }
-    //   // Do something with the granted permission.
-    // });
   </script>
 </html>

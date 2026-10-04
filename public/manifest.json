@@ -1,28 +1,36 @@
 {
-  "short_name": "MyBuddy",
-  "name": "Mobile Helper Application",
+  "short_name": "My Buddy",
+  "name": "My Buddy",
+  "description": "Your personal productivity toolkit",
   "icons": [
     {
-      "src": "battery_256.png",
-      "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "battery_256.png",
+      "src": "buddy-icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
-      "purpose": "maskable"
+      "purpose": "any"
     },
     {
-      "src": "icon.png",
+      "src": "buddy-icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any"
+    },
+    {
+      "src": "buddy-icon-maskable-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "maskable"
+    },
+    {
+      "src": "buddy-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
     }
   ],
-  "start_url": "index.html",
-  "background_color": "#011528",
+  "start_url": "./",
+  "background_color": "#4f46e5",
   "display": "standalone",
-  "scope": "/",
-  "theme_color": "#011528"
+  "scope": "./",
+  "theme_color": "#4f46e5"
 }
