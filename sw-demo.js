@@ -66,7 +66,7 @@ self.addEventListener("push", event => {
   const notificationOptions = {
     body: 'This is just a test notification sent from local server',
     data: 'you can provide additional data here',
-    icon: 'battery.png'
+    icon: '/my-buddy/buddy-icon-192.png'
   };
 
   event.waitUntil(
