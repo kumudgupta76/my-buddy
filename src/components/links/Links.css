@@ -40,10 +40,12 @@
 .links-list {
   display: grid;
   gap: var(--space-sm);
+  min-width: 0;
 }
 
 .link-card {
   display: flex;
+  min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-md);
@@ -56,6 +58,7 @@
 
 .link-card-main {
   align-items: flex-start;
+  flex: 1 1 auto;
   min-width: 0;
   gap: var(--space-md);
 }
@@ -74,6 +77,7 @@
 
 .link-card-content {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   min-width: 0;
 }
@@ -96,6 +100,7 @@
 }
 
 .link-card-url {
+  overflow-wrap: anywhere;
   max-width: 100%;
   color: var(--color-text-secondary);
   font-size: var(--text-sm);
@@ -158,10 +163,13 @@
 
   .links-filters .ant-btn {
     flex: 1;
+    min-height: 44px;
   }
 
   .link-card {
     flex-direction: column;
+    gap: var(--space-sm);
+    padding: 12px;
   }
 
   .link-card-main {
@@ -169,6 +177,40 @@
   }
 
   .link-card-actions {
-    align-self: flex-end;
+    align-self: stretch;
+    justify-content: flex-end;
+    width: 100%;
+    padding-top: var(--space-xs);
+    border-top: 1px solid var(--color-border-light);
+  }
+
+  .link-card-actions .ant-btn {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 16px;
+  }
+
+  .links-heading > .ant-btn {
+    min-height: 44px;
+  }
+
+  .links-page .ant-input-affix-wrapper {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 380px) {
+  .link-card-main {
+    gap: var(--space-sm);
+  }
+
+  .link-card-icon {
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .link-card-title {
+    font-size: var(--text-base);
   }
 }
