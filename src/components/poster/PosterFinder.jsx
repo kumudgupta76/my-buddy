@@ -887,11 +887,11 @@ const PosterFinder = () => {
 
     const captionValue = captionDraft != null ? captionDraft : generatedCaption;
 
-    const copyCaption = async () => {
+    const copyCaption = async (showMessage = true) => {
         const text = captionValue || '';
         if (!text.trim()) {
-            message.warning('Nothing to copy yet.');
-            return;
+            if (showMessage) message.warning('Nothing to copy yet.');
+            return false;
         }
         try {
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -906,9 +906,11 @@ const PosterFinder = () => {
                 document.execCommand('copy');
                 document.body.removeChild(ta);
             }
-            message.success('Caption copied to clipboard');
+            if (showMessage) message.success('Caption copied to clipboard');
+            return true;
         } catch {
-            message.error('Could not copy caption');
+            if (showMessage) message.error('Could not copy caption');
+            return false;
         }
     };
 
@@ -1355,6 +1357,10 @@ const PosterFinder = () => {
             return;
         }
 
+        // Start while the download button's user activation is still available;
+        // browsers may reject clipboard writes after the asynchronous canvas work.
+        const captionCopyPromise = copyCaption(false);
+
         // This download uses the current counter; it is bumped only once both files
         // are written, so a failed render never burns a number.
         const titleText = resolveTitle(collageTitle, counter);
@@ -1391,7 +1397,10 @@ const PosterFinder = () => {
             };
             setCollageHistory(history => [historyEntry, ...history].slice(0, 50));
             setCounter(c => c + 1);
-            message.success('Posters and names collages downloaded');
+            const captionCopied = await captionCopyPromise;
+            message.success(captionCopied
+                ? 'Posters and names collages downloaded; caption copied to clipboard'
+                : 'Posters and names collages downloaded');
         } catch (e) {
             message.error('Failed to render collage. Some images may be blocked by CORS.');
         } finally {
