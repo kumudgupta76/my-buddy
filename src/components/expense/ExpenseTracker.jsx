@@ -345,7 +345,7 @@ const ExpenseTracker = () => {
   }
 
   return (
-    <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='expense-continer-div'>
+    <div className='expense-continer-div'>
       {/* Action Bar */}
       <div className="action-bar" style={{ justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>

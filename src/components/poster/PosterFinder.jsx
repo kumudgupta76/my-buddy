@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect, useContext, useMemo } from 'react';
-import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination, Table, Dropdown, Select } from 'antd';
+import { Typography, Input, InputNumber, Button, Spin, Modal, Checkbox, message, Tooltip, AutoComplete, Tag, Upload, Slider, Tabs, Segmented, Pagination, Table, Dropdown, Select, Popover } from 'antd';
 import {
     SearchOutlined, DownloadOutlined, DeleteOutlined,
     EyeOutlined, AppstoreOutlined, UploadOutlined, PictureOutlined, ReloadOutlined, PlusOutlined,
     FontSizeOutlined, BgColorsOutlined, EditOutlined, MessageOutlined, CopyOutlined,
-    CheckOutlined, CloseOutlined, CloudSyncOutlined, BlockOutlined, BarsOutlined, TableOutlined, MoreOutlined,
+    CheckOutlined, CloseOutlined, CloudSyncOutlined, BlockOutlined, BarsOutlined,     TableOutlined, MoreOutlined, SettingOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { isMobile, COLLECTION_NAME, POSTER_DATA_KEY, POSTER_SETTINGS_KEY } from '../../common/utils';
@@ -15,6 +15,7 @@ import {
     getCachedResults, setCachedResults,
     getLocalImages, setLocalImage, removeLocalImage, pruneLocalImages,
     downscaleImage, readLegacyPosterData, isMigrated, markMigrated,
+    getCollageThumbs, saveCollageThumb, pruneCollageThumbs, blobToThumbnail,
 } from './posterStorage';
 import './PosterFinder.css';
 
@@ -46,6 +47,14 @@ const safeFileName = (value) =>
     String(value || '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 
 const formatDate = (iso) => (iso ? dayjs(iso).format('D MMM YYYY, HH:mm') : '—');
+
+// Where each selected poster lands in the collage; mirrors computeSlots' draw order.
+const SLOT_POSITIONS = {
+    2: ['Back', 'Front'],
+    3: ['Left', 'Right', 'Front'],
+    4: ['Top left', 'Top right', 'Bottom left', 'Bottom right'],
+};
+export const slotPosition = (index, count) => (SLOT_POSITIONS[count] || [])[index] || null;
 
 // iTunes artwork URLs contain a size like 100x100bb.jpg — we can swap in any size
 const resizeArtwork = (url, size) => url.replace(/\d+x\d+bb/, `${size}x${size}bb`);
@@ -152,6 +161,8 @@ const PosterFinder = () => {
     const [captionDraft, setCaptionDraft] = useState(null);
     const [collageHistory, setCollageHistory] = useState(DEFAULT_SETTINGS.collageHistory);
     const [showCollageHistory, setShowCollageHistory] = useState(DEFAULT_SETTINGS.showCollageHistory);
+    const [collageThumbs, setCollageThumbs] = useState(() => getCollageThumbs());
+    const [settingsOpen, setSettingsOpen] = useState(false);
     // Manual poster modal
     const [manualOpen, setManualOpen] = useState(false);
     const [manualTitle, setManualTitle] = useState('');
@@ -214,6 +225,7 @@ const PosterFinder = () => {
             setPageSize(settings.pageSize);
             setShowCollageHistory(settings.showCollageHistory);
             setCollageHistory(settings.collageHistory);
+            setCollageThumbs(pruneCollageThumbs(settings.collageHistory.map(entry => entry.id)));
             setPosters(list);
             setSelectedIds(settings.selectedIds.filter(id => list.some(p => p.id === id)).slice(0, 4));
             setLocalImages(pruneLocalImages(list.map(p => p.id)));
@@ -695,7 +707,20 @@ const PosterFinder = () => {
         setEditingName('');
     };
 
-    const openCollage = () => setCollageOpen(true);
+    const openCollage = () => {
+        setPreviewMode('names');
+        setCollageOpen(true);
+    };
+
+    // Bring the builder into view once it has rendered.
+    useEffect(() => {
+        if (!collageOpen) return undefined;
+        const frame = requestAnimationFrame(() => {
+            const section = document.getElementById('collage-builder');
+            if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [collageOpen]);
 
     const downloadImage = async (url, filename) => {
         try {
@@ -1390,12 +1415,24 @@ const PosterFinder = () => {
                 fileBase,
                 counter,
                 downloadedAt: nowIso(),
-                posters: items.map(poster => ({
-                    id: poster.id,
-                    title: displayNameOf(poster),
-                })),
+                posters: items.map(poster => {
+                    const src = imageSrc(poster);
+                    return {
+                        id: poster.id,
+                        title: displayNameOf(poster),
+                        // Remote URL only; local uploads are looked up by id at render time.
+                        image: src && !src.startsWith('data:') ? src : null,
+                    };
+                }),
             };
             setCollageHistory(history => [historyEntry, ...history].slice(0, 50));
+            blobToThumbnail(postersOut.blob)
+                .then(thumb => setCollageThumbs(saveCollageThumb(
+                    historyEntry.id,
+                    thumb,
+                    collageHistory.slice(0, 49).map(entry => entry.id)
+                )))
+                .catch(() => {});
             setCounter(c => c + 1);
             const captionCopied = await captionCopyPromise;
             message.success(captionCopied
@@ -1559,6 +1596,10 @@ const PosterFinder = () => {
         },
     ];
 
+    const pageRangeText = sortedPosters.length === 0
+        ? '0 posters'
+        : `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, sortedPosters.length)} of ${sortedPosters.length} posters`;
+
     const renderPagination = (position) => (
         <nav
             className={`poster-pagination poster-pagination-${position}`}
@@ -1566,8 +1607,9 @@ const PosterFinder = () => {
         >
             {position === 'top' && (
                 <div className="poster-pagination-options">
+                    <span className="poster-pagination-meta" aria-live="polite">{pageRangeText}</span>
                     <div className="poster-page-size">
-                        <label htmlFor="poster-page-size">Posters per page</label>
+                        <label htmlFor="poster-page-size">Per page</label>
                         <Select
                             id="poster-page-size"
                             aria-label="Posters per page"
@@ -1579,12 +1621,6 @@ const PosterFinder = () => {
                             }}
                         />
                     </div>
-                    <Checkbox
-                        checked={showCollageHistory}
-                        onChange={(event) => setShowCollageHistory(event.target.checked)}
-                    >
-                        Show created collages
-                    </Checkbox>
                 </div>
             )}
             <Pagination
@@ -1598,7 +1634,6 @@ const PosterFinder = () => {
                 showSizeChanger={false}
                 showLessItems
                 size={mobile ? 'small' : 'default'}
-                showTotal={(total, range) => `${range[0]}-${range[1]} of ${total} posters`}
             />
         </nav>
     );
@@ -1652,13 +1687,8 @@ const PosterFinder = () => {
 
             {/* ── Action toolbar ─────────────────────────────────────── */}
             {posters.length > 0 && !collageOpen && (
-                <div className="poster-action-bar">
+                <div className={`poster-action-bar${selectedCount === 0 ? ' poster-action-bar-idle' : ''}`}>
                     <div className="poster-action-left">
-                        <span className="poster-action-summary">
-                            {selectedCount > 0
-                                ? `${selectedCount} of ${posters.length} selected`
-                                : `${posters.length} title${posters.length === 1 ? '' : 's'} saved`}
-                        </span>
                         {saving && (
                             <span className="poster-save-state">
                                 <CloudSyncOutlined /> Saving…
@@ -1666,26 +1696,6 @@ const PosterFinder = () => {
                         )}
                     </div>
                     <div className="poster-action-right">
-                        <Segmented
-                            size="middle"
-                            className="poster-view-switch"
-                            value={viewMode}
-                            onChange={setViewMode}
-                            options={VIEW_OPTIONS.map(o => ({
-                                value: o.value,
-                                label: (
-                                    <Tooltip title={o.title}>
-                                        <span className="poster-view-option">
-                                            <span aria-hidden="true">{o.icon}</span>
-                                            <span className="poster-visually-hidden">{o.title}</span>
-                                        </span>
-                                    </Tooltip>
-                                ),
-                            }))}
-                        />
-                        <Tooltip title="Clear all posters">
-                            <Button icon={<DeleteOutlined />} aria-label="Clear all posters" size="middle" onClick={clearAll} />
-                        </Tooltip>
                         {selectedCount > 0 && (
                             <Tooltip title="Clear selection">
                                 <Button size="middle" icon={<CloseOutlined />} aria-label="Clear selection" onClick={clearSelection} />
@@ -1699,8 +1709,9 @@ const PosterFinder = () => {
                                 onClick={downloadSelected}
                                 loading={downloading}
                                 className="poster-selection-download"
+                                aria-label={`Download (${selectedCount})`}
                             >
-                                Download ({selectedCount})
+                                {mobile ? `${selectedCount}` : `Download (${selectedCount})`}
                             </Button>
                         )}
                         {selectedCount >= 2 && selectedCount <= 4 && (
@@ -1710,11 +1721,62 @@ const PosterFinder = () => {
                                 size="middle"
                                 onClick={openCollage}
                                 className="poster-selection-collage"
+                                aria-label={`Create collage (${selectedCount})`}
                             >
-                                {collageOpen ? `Collage builder open` : `Create collage (${selectedCount})`}
+                                {mobile ? `Collage (${selectedCount})` : `Create collage (${selectedCount})`}
                             </Button>
                         )}
-
+                        <Popover
+                            trigger="click"
+                            placement="bottomRight"
+                            open={settingsOpen}
+                            onOpenChange={setSettingsOpen}
+                            overlayClassName="poster-settings-popover"
+                            content={(
+                                <div className="poster-settings" role="group" aria-label="Poster settings">
+                                    <div className="poster-settings-label">Poster view</div>
+                                    <Segmented
+                                        size="middle"
+                                        className="poster-view-switch"
+                                        value={viewMode}
+                                        onChange={setViewMode}
+                                        options={VIEW_OPTIONS.map(o => ({
+                                            value: o.value,
+                                            label: (
+                                                <Tooltip title={o.title}>
+                                                    <span className="poster-view-option">
+                                                        <span aria-hidden="true">{o.icon}</span>
+                                                        <span className="poster-visually-hidden">{o.title}</span>
+                                                    </span>
+                                                </Tooltip>
+                                            ),
+                                        }))}
+                                    />
+                                    <Checkbox
+                                        className="poster-settings-check"
+                                        checked={showCollageHistory}
+                                        onChange={(event) => setShowCollageHistory(event.target.checked)}
+                                    >
+                                        Show created collages
+                                    </Checkbox>
+                                    <Button
+                                        danger
+                                        block
+                                        icon={<DeleteOutlined />}
+                                        onClick={() => {
+                                            setSettingsOpen(false);
+                                            clearAll();
+                                        }}
+                                    >
+                                        Clear all posters
+                                    </Button>
+                                </div>
+                            )}
+                        >
+                            <Tooltip title="Settings">
+                                <Button size="middle" icon={<SettingOutlined />} aria-label="Poster settings" className="poster-settings-btn" />
+                            </Tooltip>
+                        </Popover>
                     </div>
                 </div>
             )}
@@ -1794,11 +1856,18 @@ const PosterFinder = () => {
                                     >
                                         <div className="poster-img-wrapper">
                                             <img src={src} alt={name} loading="lazy" />
-                                            {isSelected && (
-                                                <div className="poster-order-badge" title={`Position ${orderIdx + 1}`}>
-                                                    {orderIdx + 1}
-                                                </div>
-                                            )}
+                                            {isSelected && (() => {
+                                                const position = slotPosition(orderIdx, selectedIds.length);
+                                                return (
+                                                    <div
+                                                        className={`poster-order-badge${position ? ' poster-order-badge-wide' : ''}`}
+                                                        title={position ? `Position ${orderIdx + 1}: ${position}` : `Position ${orderIdx + 1}`}
+                                                    >
+                                                        {orderIdx + 1}
+                                                        {position && <span className="poster-order-position">{position}</span>}
+                                                    </div>
+                                                );
+                                            })()}
                                             {poster.image.source && (
                                                 <div className={`poster-source poster-source-${poster.image.source.toLowerCase()}`}>
                                                     {poster.image.source}
@@ -1866,7 +1935,7 @@ const PosterFinder = () => {
             <Modal
                 open={!!previewImg}
                 onCancel={() => setPreviewImg(null)}
-                footer={[
+                footer={previewImg?.thumbnail ? null : [
                     <Button key="download" type="primary" icon={<DownloadOutlined />} onClick={() => {
                         if (!previewImg) return;
                         downloadImage(
@@ -1904,19 +1973,26 @@ const PosterFinder = () => {
                             </p>
                         </div>
                         <div className="collage-section-actions">
-                            <Button onClick={() => setCollageOpen(false)}>Hide</Button>
-                            <Button
-                                onClick={() => setCollageBg(null)}
-                                disabled={!collageBg}
-                            >
-                                Reset background
+                            <Button onClick={() => setCollageOpen(false)} aria-label="Hide" icon={<CloseOutlined />}>
+                                {mobile ? '' : 'Hide'}
                             </Button>
+                            <Tooltip title="Reset background">
+                                <Button
+                                    onClick={() => setCollageBg(null)}
+                                    disabled={!collageBg}
+                                    aria-label="Reset background"
+                                    icon={<ReloadOutlined />}
+                                >
+                                    {mobile ? '' : 'Reset background'}
+                                </Button>
+                            </Tooltip>
                             <Button
                                 type="primary"
                                 icon={<DownloadOutlined />}
                                 loading={collageRendering}
                                 onClick={downloadCollage}
                                 disabled={selectedCount < 2}
+                                className="collage-download-btn"
                             >
                                 Download collages
                             </Button>
@@ -2049,7 +2125,7 @@ const PosterFinder = () => {
                         <aside className="collage-side">
                             <Tabs
                                 size="small"
-                                defaultActiveKey="title"
+                                defaultActiveKey="names"
                                 className="collage-tabs"
                                 onChange={(key) => {
                                     if (key === 'names') setPreviewMode('names');
@@ -2247,10 +2323,13 @@ const PosterFinder = () => {
                                                                             key={poster.id}
                                                                             className={`collage-thumb ${activeSlot === i ? 'collage-thumb-active' : ''}`}
                                                                             onClick={() => setActiveSlot(i)}
-                                                                            title={displayNameOf(poster)}
+                                                                            title={[displayNameOf(poster), slotPosition(i, selectedPosters.length)].filter(Boolean).join(' — ')}
                                                                         >
                                                                             <img src={src} alt={displayNameOf(poster)} />
                                                                             <span className="collage-thumb-num">{i + 1}</span>
+                                                                            {slotPosition(i, selectedPosters.length) && (
+                                                                                <span className="collage-thumb-position">{slotPosition(i, selectedPosters.length)}</span>
+                                                                            )}
                                                                         </button>
                                                                     );
                                                                 })}
@@ -2269,6 +2348,7 @@ const PosterFinder = () => {
                                                                         <div>
                                                                             <div className="collage-field-label" style={{ marginBottom: 2 }}>
                                                                                 Adjust slot #{activeSlot + 1}
+                                                                                {slotPosition(activeSlot, selectedPosters.length) && ` · ${slotPosition(activeSlot, selectedPosters.length)}`}
                                                                             </div>
                                                                             <div className="collage-active-title" title={displayNameOf(poster)}>
                                                                                 {displayNameOf(poster)}
@@ -2495,7 +2575,7 @@ const PosterFinder = () => {
                                         ),
                                     },
                                 ].sort((a, b) => {
-                                    const order = ['title', 'names', 'caption', 'bg', 'posters'];
+                                    const order = ['names', 'caption', 'title', 'bg', 'posters'];
                                     return order.indexOf(a.key) - order.indexOf(b.key);
                                 })}
                             />
@@ -2512,35 +2592,80 @@ const PosterFinder = () => {
                             <p className="collage-history-sub">{collageHistory.length} saved</p>
                         </div>
                         {collageHistory.length > 0 && (
-                            <Button type="text" danger icon={<DeleteOutlined />} onClick={() => setCollageHistory([])}>
-                                Clear history
+                            <Button
+                                type="text"
+                                danger
+                                icon={<DeleteOutlined />}
+                                onClick={() => {
+                                    setCollageHistory([]);
+                                    setCollageThumbs(pruneCollageThumbs([]));
+                                }}
+                            >
+                                Clear All Saved
                             </Button>
                         )}
                     </header>
                     {collageHistory.length === 0 && <Text type="secondary">No collages created yet.</Text>}
                     <ul className="collage-history-list">
-                        {collageHistory.map(entry => (
-                            <li className="collage-history-item" key={entry.id}>
-                                <div className="collage-history-main">
-                                    <div className="collage-history-name">{entry.title || 'Untitled collage'}</div>
-                                    <div className="collage-history-date">{formatDate(entry.downloadedAt)}</div>
-                                    <ol className="collage-history-posters">
-                                        {(Array.isArray(entry.posters) ? entry.posters : []).map((poster, index) => (
-                                            <li key={`${poster.id || poster.title}-${index}`}>{poster.title || 'Untitled poster'}</li>
-                                        ))}
-                                    </ol>
-                                </div>
-                                <Tooltip title="Remove from history">
-                                    <Button
-                                        type="text"
-                                        danger
-                                        icon={<DeleteOutlined />}
-                                        aria-label={`Remove ${entry.title || 'collage'} from history`}
-                                        onClick={() => setCollageHistory(history => history.filter(item => item.id !== entry.id))}
-                                    />
-                                </Tooltip>
-                            </li>
-                        ))}
+                        {collageHistory.map(entry => {
+                            const entryPosters = Array.isArray(entry.posters) ? entry.posters : [];
+                            const thumb = collageThumbs[entry.id];
+                            const entryTitle = entry.title || 'Untitled collage';
+                            const posterImage = (p) => p.image
+                                || localImages[p.id]
+                                || imageSrc(postersById[p.id])
+                                || null;
+                            return (
+                                <li className="collage-history-item" key={entry.id}>
+                                    <button
+                                        type="button"
+                                        className="collage-history-thumb"
+                                        aria-label={`Preview ${entryTitle}`}
+                                        disabled={!thumb}
+                                        onClick={() => thumb && setPreviewImg({ src: thumb, title: entryTitle, thumbnail: true })}
+                                    >
+                                        {thumb ? (
+                                            <img src={thumb} alt={`${entryTitle} collage`} loading="lazy" />
+                                        ) : (
+                                            <span className={`collage-history-mini collage-history-mini-${Math.min(entryPosters.length, 4)}`}>
+                                                {entryPosters.slice(0, 4).map((p, index) => {
+                                                    const src = posterImage(p);
+                                                    return src ? (
+                                                        <img key={`${p.id || p.title}-${index}`} src={src} alt="" loading="lazy" />
+                                                    ) : (
+                                                        <span key={`${p.id || p.title}-${index}`} className="collage-history-mini-empty">
+                                                            <PictureOutlined />
+                                                        </span>
+                                                    );
+                                                })}
+                                            </span>
+                                        )}
+                                    </button>
+                                    <div className="collage-history-main">
+                                        <div className="collage-history-name">{entryTitle}</div>
+                                        <div className="collage-history-date">{formatDate(entry.downloadedAt)}</div>
+                                        <ol className="collage-history-posters">
+                                            {entryPosters.map((poster, index) => (
+                                                <li key={`${poster.id || poster.title}-${index}`}>{poster.title || 'Untitled poster'}</li>
+                                            ))}
+                                        </ol>
+                                    </div>
+                                    {/* <Tooltip title="Remove from history">
+                                        <Button
+                                            type="text"
+                                            danger
+                                            icon={<DeleteOutlined />}
+                                            aria-label={`Remove ${entry.title || 'collage'} from history`}
+                                            onClick={() => {
+                                                const remaining = collageHistory.filter(item => item.id !== entry.id);
+                                                setCollageHistory(remaining);
+                                                setCollageThumbs(pruneCollageThumbs(remaining.map(item => item.id)));
+                                            }}
+                                        />
+                                    </Tooltip> */}
+                                </li>
+                            );
+                        })}
                     </ul>
                 </section>
             )}

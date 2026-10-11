@@ -111,7 +111,7 @@ const Timer = () => {
                     </div>
                 </div>
 
-                <div style={{
+                <div className="timer-face" style={{
                     background: 'var(--color-bg)',
                     padding: 'var(--space-lg)',
                     borderRadius: 'var(--radius-md)',
@@ -120,8 +120,7 @@ const Timer = () => {
                     border: '1px solid var(--color-border-light)',
                 }}>
                     <Text type="secondary" style={{ fontSize: 'var(--text-sm)', display: 'block', marginBottom: 'var(--space-xs)' }}>Take a Break in</Text>
-                    <div style={{
-                        fontSize: 40,
+                    <div className="timer-display" style={{
                         fontWeight: 700,
                         letterSpacing: '-0.02em',
                         fontFamily: 'var(--font-mono)',

@@ -188,7 +188,7 @@ export const EditPanel = ({ editKey, inputValue, setInputValue, onSave, onCancel
           Editing: <Tag>{editKey}</Tag>
         </span>
         {isJson && (
-          <Space size={4}>
+          <Space size={4} wrap>
             <Tooltip title="Format / Beautify JSON">
               <Button icon={<FormatPainterOutlined />} size="small" onClick={handleFormat}>Format</Button>
             </Tooltip>

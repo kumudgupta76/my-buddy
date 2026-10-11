@@ -1,7 +1,7 @@
 import React, { useContext, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Layout, Breadcrumb, Menu, Drawer, Button, Tooltip } from 'antd';
-import { MenuOutlined, HomeOutlined, LoginOutlined, LogoutOutlined } from '@ant-design/icons';
+import { MenuOutlined, LoginOutlined, LogoutOutlined } from '@ant-design/icons';
 import { getErrorCount, getErrors } from '../common/utils';
 import { routes } from '../common/constants';
 import { UserContext } from '../common/UserContext';
@@ -13,21 +13,27 @@ const { Header, Content, Footer } = Layout;
 const Breadcrumbs = () => {
   const location = useLocation();
   const pathSnippets = location.pathname.split('/').filter(i => i);
+  if (pathSnippets[0] === 'my-buddy') {
+    pathSnippets.shift();
+  }
   const breadcrumbItems = pathSnippets.map((_, index) => {
-    const url = `/${pathSnippets.slice(0, index + 1).join('/')}`;
+    const url = `/my-buddy/${pathSnippets.slice(0, index + 1).join('/')}`;
     const name = pathSnippets[index].replace(/-/g, ' ');
     return (
       <Breadcrumb.Item key={url}>
-        <Link to={url} style={{ color: 'var(--color-text-secondary)', fontWeight: 500, fontSize: 'var(--text-sm)' }}>
+        <Link to={url} aria-current={index === pathSnippets.length - 1 ? 'page' : undefined}>
           {name.charAt(0).toUpperCase() + name.slice(1)}
         </Link>
       </Breadcrumb.Item>
     );
   });
   return (
-    <Breadcrumb style={{ margin: 'var(--space-md) 0 var(--space-sm) 0' }}>
+    <Breadcrumb className="header-breadcrumbs" aria-label="Breadcrumb" separator={'\u00b7'}>
       <Breadcrumb.Item>
-        <Link to="/my-buddy/" style={{ color: 'var(--color-text-muted)' }}><HomeOutlined /></Link>
+        <Link to="/my-buddy/" className="header-brand" aria-label="My Buddy home" aria-current={pathSnippets.length === 0 ? 'page' : undefined}>
+          <img src={`${process.env.PUBLIC_URL}/buddy-icon.svg`} className="logo" alt="" />
+          <span>My Buddy</span>
+        </Link>
       </Breadcrumb.Item>
       {breadcrumbItems}
     </Breadcrumb>
@@ -88,10 +94,7 @@ const LayoutComponent = () => {
     <Layout className="layout">
       <Header className="header">
         <div className="logo-container">
-          <Link to="/my-buddy/" className="header-brand" aria-label="My Buddy home">
-            <img src={`${process.env.PUBLIC_URL}/buddy-icon.svg`} className="logo" alt="" />
-            <span>My Buddy</span>
-          </Link>
+          <Breadcrumbs />
         </div>
         <Drawer
           className="mobile-navigation"
@@ -141,7 +144,6 @@ const LayoutComponent = () => {
         </Tooltip>
       </Header>
       <Content className="content-div">
-        <Breadcrumbs />
         <div className="site-layout-content">
           <Outlet />
         </div>

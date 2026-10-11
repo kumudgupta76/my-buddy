@@ -1,13 +1,14 @@
 // Storage helpers for the Poster Finder.
 //
 // Posters and collage settings live in Firestore (one document per user, shared
-// with the other features). Two things deliberately stay in this browser only:
+// with the other features). Some things deliberately stay in this browser only:
 //   - the search-result cache, which is a throwaway performance cache
-//   - uploaded manual poster images, which are base64 and would blow the
-//     1MB Firestore document limit within a couple of entries
+//   - uploaded manual poster images and created-collage thumbnails, which are
+//     base64 and would blow the 1MB Firestore document limit quickly
 
 const CACHE_KEY = 'poster-finder-cache-v2';
 const LOCAL_IMAGES_KEY = 'poster-finder-local-images-v1';
+const COLLAGE_THUMBS_KEY = 'poster-finder-collage-thumbs-v1';
 const MIGRATED_KEY = 'poster-finder-migrated-v1';
 const LEGACY_RESULTS_KEY = 'poster-finder-results-v1';
 const LEGACY_SETTINGS_KEY = 'poster-finder-settings-v1';
@@ -88,6 +89,52 @@ export const pruneLocalImages = (validIds) => {
   if (changed) writeJson(LOCAL_IMAGES_KEY, all);
   return all;
 };
+
+// ─── Local-only collage thumbnails ──────────────────────────────────────────
+// Small JPEG previews of downloaded collages, keyed by history entry id.
+export const getCollageThumbs = () => readJson(COLLAGE_THUMBS_KEY, {}) || {};
+
+// Keep only thumbnails for the given ids (newest first) and add a new one.
+// If storage is full, the oldest thumbnails are dropped until it fits.
+export const saveCollageThumb = (id, dataUrl, keepIds = []) => {
+  const all = getCollageThumbs();
+  const order = [id, ...keepIds.filter(k => k !== id && all[k])];
+  const next = {};
+  order.forEach(k => { next[k] = k === id ? dataUrl : all[k]; });
+  while (order.length) {
+    if (writeJson(COLLAGE_THUMBS_KEY, next)) return next;
+    delete next[order.pop()];
+  }
+  return {};
+};
+
+export const pruneCollageThumbs = (validIds) => {
+  const all = getCollageThumbs();
+  const keep = new Set(validIds);
+  let changed = false;
+  Object.keys(all).forEach(id => {
+    if (!keep.has(id)) { delete all[id]; changed = true; }
+  });
+  if (changed) writeJson(COLLAGE_THUMBS_KEY, all);
+  return all;
+};
+
+export const blobToThumbnail = (blob, maxSize = 400, quality = 0.75) =>
+  new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Could not decode the image')); };
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.src = url;
+  });
 
 // Shrink uploads before caching them so localStorage doesn't fill up.
 export const downscaleImage = (file, maxSize = 800, quality = 0.8) =>

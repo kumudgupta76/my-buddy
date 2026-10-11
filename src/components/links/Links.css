@@ -16,6 +16,7 @@
   justify-content: space-between;
   gap: var(--space-md);
   margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
 }
 
 .links-heading .ant-typography {
@@ -35,6 +36,7 @@
 .links-filters {
   display: flex;
   gap: var(--space-xs);
+  flex-wrap: wrap;
 }
 
 .links-list {
@@ -121,6 +123,9 @@
 
 .link-card-tags .ant-tag {
   margin: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .link-card-date {
@@ -174,6 +179,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 .clipboard-link-options {

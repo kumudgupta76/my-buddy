@@ -1,22 +1,22 @@
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Button, Table, Input, DatePicker, Select, Space, Tooltip, Tabs, Modal,
-  message, Spin, Typography, Dropdown, Menu, Tag, Upload, Empty,
+  Button, Table, Input, DatePicker, Space, Tooltip, Tabs, Modal,
+  message, Spin, Typography, Dropdown, Menu, Tag, Empty,
 } from 'antd';
 import {
   PlusOutlined, ImportOutlined, ExportOutlined, CopyOutlined, DeleteOutlined,
   EditOutlined, CloudSyncOutlined, ReloadOutlined, SaveOutlined, ClearOutlined,
+  MenuOutlined,
 } from '@ant-design/icons';
 import moment from 'moment';
 import { UserContext } from '../../common/UserContext';
-import { isMobile } from '../../common/utils';
 import GroceryFormModal from './GroceryFormModal';
 import GroceryImportModal from './GroceryImportModal';
 import GroceryInsights from './GroceryInsights';
 import GroceryCleanup from './GroceryCleanup';
 import {
   makeRecord, sortByDateDesc, computeSummary, formatCurrency, itemKeyOf,
-  hasRateMismatch, CATEGORY_OPTIONS,
+  hasRateMismatch, normalizeRecordText,
 } from './groceryModel';
 import {
   recordsToLegacyCsv, recordsToNormalizedCsv, recordsToTsv, toSheetDate,
@@ -41,9 +41,9 @@ const GroceryTracker = () => {
   const [saving, setSaving] = useState(false);
 
   const [search, setSearch] = useState('');
-  const [range, setRange] = useState(null);
-  const [units, setUnits] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [range, setRange] = useState(() => [moment().startOf('day'), moment().startOf('day')]);
+  // True while the range is still the "today" default; typing a search then widens to all dates.
+  const [rangeIsDefault, setRangeIsDefault] = useState(true);
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -52,6 +52,7 @@ const GroceryTracker = () => {
   const [tab, setTab] = useState('purchases');
 
   const saveTimerRef = useRef(null);
+  const restoreInputRef = useRef(null);
   const skipSaveRef = useRef(true);
 
   // ─── Load: cache paints first, Firestore then becomes the source of truth ──
@@ -60,7 +61,11 @@ const GroceryTracker = () => {
     let cancelled = false;
 
     const cached = readCache(user.uid);
-    if (cached) setRecords(cached);
+    if (cached) {
+      const normalizedCache = cached.map(normalizeRecordText);
+      setRecords(normalizedCache);
+      writeCache(user.uid, normalizedCache);
+    }
 
     (async () => {
       const res = await loadGroceries(user.uid);
@@ -71,9 +76,14 @@ const GroceryTracker = () => {
         setLoading(false);
         return;
       }
-      skipSaveRef.current = true;
-      setRecords(res.records);
-      writeCache(user.uid, res.records);
+      const normalizedRecords = res.records.map(normalizeRecordText);
+      const textFields = ['item', 'unit', 'rateUnit', 'category', 'store', 'notes'];
+      const needsNormalization = res.records.some((record, index) => (
+        textFields.some((field) => record[field] !== normalizedRecords[index][field])
+      ));
+      skipSaveRef.current = !needsNormalization;
+      setRecords(normalizedRecords);
+      writeCache(user.uid, normalizedRecords);
       setLoading(false);
     })();
 
@@ -101,16 +111,11 @@ const GroceryTracker = () => {
   }, [user, loading, records]);
 
   const commit = (next, note) => {
-    setRecords(sortByDateDesc(next));
+    setRecords(sortByDateDesc(next.map(normalizeRecordText)));
     if (note) message.success(note);
   };
 
   // ─── Filtering ────────────────────────────────────────────────────────────
-  const unitOptions = useMemo(() => {
-    const found = new Set(records.map((r) => r.unit).filter(Boolean));
-    return [...found].sort().map((value) => ({ value, label: value }));
-  }, [records]);
-
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     const from = range?.[0] ? range[0].format('YYYY-MM-DD') : null;
@@ -123,25 +128,36 @@ const GroceryTracker = () => {
       }
       if (from && record.date < from) return false;
       if (to && record.date > to) return false;
-      if (units.length > 0 && !units.includes(record.unit)) return false;
-      if (categories.length > 0 && !categories.includes(record.category)) return false;
       return true;
     });
-  }, [records, search, range, units, categories]);
+  }, [records, search, range]);
 
   const summary = useMemo(() => computeSummary(filtered), [filtered]);
   const selected = useMemo(
-    () => filtered.filter((record) => selectedRowKeys.includes(record.id)),
-    [filtered, selectedRowKeys]
+    () => records.filter((record) => selectedRowKeys.includes(record.id)),
+    [records, selectedRowKeys]
   );
 
-  const filtersActive = search.trim() !== '' || !!range || units.length > 0 || categories.length > 0;
+  const filtersActive = search.trim() !== '' || !!range;
 
   const clearFilters = () => {
     setSearch('');
     setRange(null);
-    setUnits([]);
-    setCategories([]);
+    setRangeIsDefault(false);
+  };
+
+  const handleSearchChange = (e) => {
+    const { value } = e.target;
+    setSearch(value);
+    if (rangeIsDefault && value.trim()) {
+      setRange(null);
+      setRangeIsDefault(false);
+    }
+  };
+
+  const handleRangeChange = (value) => {
+    setRange(value);
+    setRangeIsDefault(false);
   };
 
   // ─── Row actions ──────────────────────────────────────────────────────────
@@ -149,7 +165,7 @@ const GroceryTracker = () => {
 
   const openEdit = (record) => { setEditing(record); setFormOpen(true); setTab('purchases'); };
 
-  const handleSubmit = (values) => {
+  const handleSubmit = (values, { addAnother = false } = {}) => {
     if (editing) {
       commit(
         records.map((r) => (r.id === editing.id ? makeRecord({ ...editing, ...values }) : r)),
@@ -158,14 +174,9 @@ const GroceryTracker = () => {
     } else {
       commit([makeRecord(values), ...records], 'Purchase added');
     }
+    if (addAnother && !editing) return;
     setFormOpen(false);
     setEditing(null);
-  };
-
-  const duplicateRecord = (record) => {
-    const copy = makeRecord({ ...record, id: undefined, createdAt: undefined, date: stamp() });
-    commit([copy, ...records], 'Copied to today — edit as needed');
-    openEdit(copy);
   };
 
   const deleteRecords = (ids) => Modal.confirm({
@@ -241,7 +252,7 @@ const GroceryTracker = () => {
     } catch (error) {
       message.error('That file is not a valid grocery backup');
     }
-    return Upload.LIST_IGNORE;
+    return undefined;
   };
 
   // ─── Table ────────────────────────────────────────────────────────────────
@@ -308,32 +319,45 @@ const GroceryTracker = () => {
     {
       title: 'Actions',
       key: 'actions',
-      width: 130,
+      width: 76,
       fixed: 'right',
       render: (_, record) => (
-        <Space size={0}>
-          <Tooltip title="Edit"><Button aria-label="Edit purchase" type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} /></Tooltip>
-          <Tooltip title="Duplicate to today"><Button aria-label="Duplicate purchase to today" type="link" size="small" icon={<CopyOutlined />} onClick={() => duplicateRecord(record)} /></Tooltip>
-          <Tooltip title="Delete"><Button aria-label="Delete purchase" type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => deleteRecords([record.id])} /></Tooltip>
-        </Space>
+        <Tooltip title="Edit">
+          <Button aria-label="Edit purchase" type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+        </Tooltip>
       ),
     },
   ];
 
-  const exportMenu = (
+  const actionsMenu = (
     <Menu
       onClick={({ key }) => {
-        if (key === 'filtered') exportCsv(filtered);
-        if (key === 'all') exportCsv(records);
-        if (key === 'normalized') exportCsv(filtered, { normalized: true });
+        if (key === 'import') setImportOpen(true);
+        if (key === 'export-filtered') exportCsv(filtered);
+        if (key === 'export-all') exportCsv(records);
+        if (key === 'export-normalized') exportCsv(filtered, { normalized: true });
         if (key === 'backup') backupJson();
+        if (key === 'copy') copyRows(selected.length > 0 ? selected : filtered);
+        if (key === 'delete') deleteRecords(selected.map((record) => record.id));
+        if (key === 'restore') restoreInputRef.current?.click();
       }}
       items={[
-        { key: 'filtered', label: `Sheet CSV — filtered (${filtered.length})` },
-        { key: 'all', label: `Sheet CSV — everything (${records.length})` },
-        { key: 'normalized', label: 'Detailed CSV (with category, store, notes)' },
+        { key: 'import', label: 'Import CSV', icon: <ImportOutlined /> },
+        {
+          key: 'export',
+          label: 'Export',
+          icon: <ExportOutlined />,
+          children: [
+            { key: 'export-filtered', label: `CSV — filtered (${filtered.length})` },
+            { key: 'export-all', label: `CSV — everything (${records.length})` },
+            { key: 'export-normalized', label: 'Detailed CSV' },
+            { key: 'backup', label: 'JSON backup', icon: <SaveOutlined /> },
+          ],
+        },
         { type: 'divider' },
-        { key: 'backup', label: 'JSON backup', icon: <SaveOutlined /> },
+        { key: 'copy', label: selected.length > 0 ? `Copy selected (${selected.length})` : `Copy visible (${filtered.length})`, icon: <CopyOutlined /> },
+        ...(selected.length ? [{ key: 'delete', label: `Delete selected (${selected.length})`, icon: <DeleteOutlined />, danger: true }] : []),
+        { key: 'restore', label: 'Restore JSON backup', icon: <ReloadOutlined /> },
       ]}
     />
   );
@@ -349,59 +373,24 @@ const GroceryTracker = () => {
           allowClear
           placeholder="Search item, store or note"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={handleSearchChange}
           style={{ maxWidth: 260 }}
         />
         <RangePicker
           value={range}
-          onChange={setRange}
+          onChange={handleRangeChange}
           format="DD MMM YYYY"
           allowEmpty={[true, true]}
-        />
-        <Select
-          mode="multiple"
-          allowClear
-          placeholder="Unit"
-          value={units}
-          onChange={setUnits}
-          options={unitOptions}
-          style={{ minWidth: 140 }}
-          maxTagCount="responsive"
-        />
-        <Select
-          mode="multiple"
-          allowClear
-          placeholder="Category"
-          value={categories}
-          onChange={setCategories}
-          options={CATEGORY_OPTIONS.map((value) => ({ value, label: value }))}
-          style={{ minWidth: 170 }}
-          maxTagCount="responsive"
         />
         {filtersActive && (
           <Button size="small" type="link" icon={<ClearOutlined />} onClick={clearFilters}>Clear</Button>
         )}
       </div>
 
-      <div className="grocery-stats">
-        <span className="stat-pill">{summary.rows} rows</span>
-        <span className="stat-pill">{formatCurrency(summary.totalSpend)} total</span>
-        <span className="stat-pill">{summary.trips} trips</span>
-        <span className="stat-pill">{summary.uniqueItems} items</span>
-        <span className="stat-pill">{formatCurrency(summary.avgPerTrip)} avg / trip</span>
+      <div className="grocery-stats" aria-live="polite">
+        <span>Count: <strong>{summary.rows}</strong></span>
+        <span>Sum: <strong>{formatCurrency(summary.totalSpend)}</strong></span>
       </div>
-
-      {selectedRowKeys.length > 0 && (
-        <div className="grocery-selection-bar">
-          <Text>{selectedRowKeys.length} selected</Text>
-          <Space>
-            <Button size="small" icon={<CopyOutlined />} onClick={() => copyRows(selected)}>Copy</Button>
-            <Button size="small" icon={<ExportOutlined />} onClick={() => exportCsv(selected)}>Export</Button>
-            <Button size="small" danger icon={<DeleteOutlined />} onClick={() => deleteRecords(selectedRowKeys)}>Delete</Button>
-            <Button size="small" type="link" onClick={() => setSelectedRowKeys([])}>Clear</Button>
-          </Space>
-        </div>
-      )}
 
       <Table
         rowKey="id"
@@ -421,7 +410,7 @@ const GroceryTracker = () => {
           emptyText: (
             <Empty description={filtersActive ? 'No purchases match these filters' : 'No purchases yet'}>
               {!filtersActive && (
-                <Space>
+                <Space wrap>
                   <Button type="primary" icon={<PlusOutlined />} onClick={openAdd}>Add one</Button>
                   <Button icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>Import CSV</Button>
                 </Space>
@@ -445,29 +434,22 @@ const GroceryTracker = () => {
       </div>
 
       <div className="action-bar">
-        <Tooltip title="Add purchase">
-          <Button aria-label="Add purchase" type="primary" icon={<PlusOutlined />} onClick={openAdd}>
-            {isMobile() ? null : 'Add'}
-          </Button>
-        </Tooltip>
-        <Tooltip title="Import CSV">
-          <Button aria-label="Import CSV" icon={<ImportOutlined />} onClick={() => setImportOpen(true)}>
-            {isMobile() ? null : 'Import'}
-          </Button>
-        </Tooltip>
-        <Dropdown overlay={exportMenu} trigger={['click']}>
-          <Button aria-label="Export purchases" icon={<ExportOutlined />}>{isMobile() ? null : 'Export'}</Button>
+        <Button aria-label="Add purchase" type="primary" icon={<PlusOutlined />} onClick={openAdd}>Add purchase</Button>
+        <Dropdown overlay={actionsMenu} trigger={['click']} placement="bottomRight">
+          <Button aria-label="More grocery actions" icon={<MenuOutlined />}></Button>
         </Dropdown>
-        <Tooltip title="Copy visible rows as tab-separated text">
-          <Button aria-label="Copy visible purchases" icon={<CopyOutlined />} onClick={() => copyRows(filtered)}>
-            {isMobile() ? null : 'Copy'}
-          </Button>
-        </Tooltip>
-        <Upload accept=".json,application/json" maxCount={1} showUploadList={false} beforeUpload={restoreJson}>
-          <Tooltip title="Restore from a JSON backup">
-            <Button aria-label="Restore JSON backup" icon={<ReloadOutlined />}>{isMobile() ? null : 'Restore'}</Button>
-          </Tooltip>
-        </Upload>
+        <input
+          ref={restoreInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="grocery-hidden-input"
+          aria-label="Restore JSON backup"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) restoreJson(file);
+            event.target.value = '';
+          }}
+        />
       </div>
 
       <Tabs

@@ -40,12 +40,8 @@ const AuthActions = () => {
     };
 
     return (
-        <div style={{
-            maxWidth: 420,
-            margin: '0 auto',
-            padding: 'var(--space-xl)',
-        }}>
-            <div className="info-card" style={{ padding: 'var(--space-xl)' }}>
+        <div className="auth-page">
+            <div className="info-card">
 
             {user ? (
                 <div style={{ textAlign: 'center' }}>

@@ -68,23 +68,25 @@ const LocalStorageManager = () => {
         {
             title: 'Actions',
             key: 'actions',
-            fixed: 'right',
             width: "50%",
             render: (_, record) => (
-                <Space>
+                <Space wrap>
                     <Tooltip title="Copy Entry">
                         <Button
+                            aria-label="Copy entry"
                             icon={<CopyOutlined />}
                             onClick={() => handleCopy(record.key)}
                         />
                     </Tooltip>
                     <Tooltip title="Edit Entry">
                         <Button
+                            aria-label="Edit entry"
                             icon={<EditOutlined />}
                             onClick={() => handleEdit(record.key)}
                         /></Tooltip>
                     <Tooltip title="Delete Entry">
                         <Button
+                            aria-label="Delete entry"
                             icon={<DeleteOutlined />}
                             onClick={() => handleDelete(record.key)}
                             danger
@@ -182,7 +184,7 @@ const LocalStorageManager = () => {
     };
 
     return (
-        <div style={{ maxWidth: '100%', overflowX: 'auto' }}>
+        <div className="storage-page">
             {/* Action Bar */}
             <div className="action-bar" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-md)' }}>
                 <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
@@ -212,7 +214,7 @@ const LocalStorageManager = () => {
                     </h3>
                 </div>
 
-                <Table dataSource={data} columns={columns} rowKey="key" size="middle" scroll={{ x: 'max-content' }} expandable={{
+                <Table dataSource={data} columns={columns} rowKey="key" size="middle" tableLayout="fixed" expandable={{
                     expandedRowRender: (record) => <JsonViewer value={record.value} />,
                 }} />
 

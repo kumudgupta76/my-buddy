@@ -90,7 +90,7 @@ const GroceryInsights = ({ records }) => {
   ];
 
   return (
-    <Row gutter={[16, 16]}>
+    <Row gutter={[{ xs: 0, lg: 16 }, 16]}>
       <Col xs={24} lg={12}>
         <Card size="small" title="Spend by month" bordered={false} className="grocery-card">
           <Table
@@ -98,6 +98,7 @@ const GroceryInsights = ({ records }) => {
             rowKey="key"
             columns={monthColumns}
             dataSource={months}
+            scroll={{ x: 360 }}
             pagination={{ pageSize: 8, size: 'small', hideOnSinglePage: true }}
           />
         </Card>
@@ -110,6 +111,7 @@ const GroceryInsights = ({ records }) => {
             rowKey="key"
             columns={categoryColumns}
             dataSource={categories}
+            scroll={{ x: 320 }}
             pagination={{ pageSize: 8, size: 'small', hideOnSinglePage: true }}
           />
         </Card>
@@ -139,7 +141,7 @@ const GroceryInsights = ({ records }) => {
           extra={(
             <Select
               size="small"
-              style={{ minWidth: 180 }}
+              className="grocery-history-select"
               showSearch
               value={activeKey}
               onChange={setSelectedItem}
@@ -154,6 +156,7 @@ const GroceryInsights = ({ records }) => {
             rowKey="key"
             columns={historyColumns}
             dataSource={history}
+            scroll={{ x: 380 }}
             pagination={{ pageSize: 10, size: 'small', hideOnSinglePage: true }}
             locale={{ emptyText: 'Select an item to see how its rate moved' }}
           />

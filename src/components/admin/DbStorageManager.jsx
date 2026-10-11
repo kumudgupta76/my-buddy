@@ -142,7 +142,7 @@ const DbStorageManager = () => {
             dataIndex: 'key',
             key: 'key',
             render: (key, record) => (
-                <Space size={6}>
+                <Space size={6} wrap>
                     <span style={{ fontWeight: 500 }}>{key}</span>
                     {record.count != null && <Tag>{record.count} items</Tag>}
                     <Tag color="blue">{formatBytes(record.size)}</Tag>
@@ -152,17 +152,17 @@ const DbStorageManager = () => {
         {
             title: 'Actions',
             key: 'actions',
-            width: 160,
+            width: '45%',
             render: (_, record) => (
-                <Space>
+                <Space wrap>
                     <Tooltip title="Copy value">
-                        <Button icon={<CopyOutlined />} onClick={() => copyToClipboard(record.value)} />
+                        <Button aria-label="Copy value" icon={<CopyOutlined />} onClick={() => copyToClipboard(record.value)} />
                     </Tooltip>
                     <Tooltip title="Edit value">
-                        <Button icon={<EditOutlined />} onClick={() => handleEdit(record.key)} />
+                        <Button aria-label="Edit value" icon={<EditOutlined />} onClick={() => handleEdit(record.key)} />
                     </Tooltip>
                     <Tooltip title="Delete field">
-                        <Button icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
+                        <Button aria-label="Delete field" icon={<DeleteOutlined />} danger onClick={() => handleDelete(record.key)} />
                     </Tooltip>
                 </Space>
             ),
@@ -172,7 +172,7 @@ const DbStorageManager = () => {
     if (!user) return null;
 
     return (
-        <div style={{ maxWidth: '100%', overflowX: 'auto' }}>
+        <div className="storage-page">
             <div className="action-bar" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 'var(--space-md)' }}>
                 <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
                     <Button onClick={load} icon={<ReloadOutlined />}>Refresh</Button>
@@ -216,7 +216,7 @@ const DbStorageManager = () => {
                         columns={columns}
                         rowKey="key"
                         size="middle"
-                        scroll={{ x: 'max-content' }}
+                        tableLayout="fixed"
                         pagination={false}
                         expandable={{ expandedRowRender: (record) => <JsonViewer value={record.value} /> }}
                     />

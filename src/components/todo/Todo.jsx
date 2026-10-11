@@ -188,21 +188,21 @@ const TodoTracker = () => {
   };
 
   const columns = [
-    { title: 'Title', dataIndex: 'title', key: 'title', width: '80%' },
+    { title: 'Title', dataIndex: 'title', key: 'title' },
     {
       title: 'Action',
       key: 'action',
       width: '20%',
       render: (_, record) => (
-        <Space>
+        <Space wrap>
           <Tooltip title="Edit Entry">
-            <Button onClick={() => handleEditTodo(record)} icon={<EditOutlined />}>
+            <Button aria-label="Edit todo" onClick={() => handleEditTodo(record)} icon={<EditOutlined />}>
               {isMobile() ? "" : "Edit"}
             </Button>
           </Tooltip>
           <Tooltip title="Archive Entry">
             {!record.archived && (
-              <Button onClick={() => handleArchiveTodo(record.key)} icon={<CloudUploadOutlined />} danger>
+              <Button aria-label="Archive todo" onClick={() => handleArchiveTodo(record.key)} icon={<CloudUploadOutlined />} danger>
                 {isMobile() ? "" : "Archive"}
               </Button>
             )}
@@ -213,7 +213,7 @@ const TodoTracker = () => {
   ];
 
   const archivedColumns = [
-    { title: 'Title', key: 'title', width: '80%', render: (_, record) => <>
+    { title: 'Title', key: 'title', render: (_, record) => <>
     <strong>{record.title}</strong>
     
     </> },
@@ -222,9 +222,10 @@ const TodoTracker = () => {
       key: 'action',
       width: '20%',
       render: (_, record) => (
-        <Space>
+        <Space wrap>
           <Tooltip title="Delete Entry">
             <Button
+              aria-label="Delete todo"
               icon={<DeleteOutlined />}
               onClick={() => handleDeleteTodo(record.key)}
               danger
@@ -233,7 +234,7 @@ const TodoTracker = () => {
             </Button>
           </Tooltip>
           <Tooltip title="Unarchive Entry">
-            <Button onClick={() => handleUnarchiveTodo(record.key)} icon={<CloudDownloadOutlined />}>
+            <Button aria-label="Unarchive todo" onClick={() => handleUnarchiveTodo(record.key)} icon={<CloudDownloadOutlined />}>
               {isMobile() ? "" : "Unarchive"}
             </Button>
           </Tooltip>
@@ -261,7 +262,7 @@ const TodoTracker = () => {
   }
 
   return (
-    <div style={{ maxWidth: '100%', overflowX: 'auto' }} className='todo-container-div'>
+    <div className='todo-container-div'>
       <Button type="primary" onClick={() => setIsModalVisible(true)} block size="large" icon={<PlusOutlined />}
         style={{ borderRadius: 'var(--radius-md)', height: 48, fontSize: 'var(--text-base)', fontWeight: 600 }}>
         New Todo
@@ -278,14 +279,15 @@ const TodoTracker = () => {
         rowSelection={rowSelection}
         dataSource={todos.filter((todo) => !todo.archived)}
         columns={columns}
+        tableLayout="fixed"
         size="middle"
         expandable={{
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
-              <Col md={12} sm={24} style={{ width: "100%" }}>
+              <Col xs={24} md={12}>
                 <TodoDetail todo={record} />
               </Col>
-              <Col md={12} sm={24} style={{ width: "100%" }}>
+              <Col xs={24} md={12}>
                 <div className="info-card" style={{ marginTop: 'var(--space-sm)' }}>
                   <div style={{ display: "flex", gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
                     <Input
@@ -295,7 +297,7 @@ const TodoTracker = () => {
                       value={newCheckList}
                       style={{ flex: 1 }}
                     />
-                    <Button disabled={newCheckList.length == 0} onClick={() => handleAddChecklistItem(record.key, newCheckList)} icon={<PlusOutlined />} type="primary" />
+                    <Button aria-label="Add checklist item" disabled={newCheckList.length == 0} onClick={() => handleAddChecklistItem(record.key, newCheckList)} icon={<PlusOutlined />} type="primary" />
                   </div>
                   {record.checklist && record.checklist.map((item) => (
                     <div key={item.id} style={{
@@ -316,6 +318,7 @@ const TodoTracker = () => {
                         }}>{item.text}</span>
                       </Checkbox>
                       <Button
+                        aria-label="Delete checklist item"
                         type="text"
                         icon={<DeleteOutlined />}
                         onClick={() => handleDeleteChecklistItem(record.key, item.id)}
@@ -341,14 +344,15 @@ const TodoTracker = () => {
       <Table
         dataSource={todos.filter((todo) => todo.archived)}
         columns={archivedColumns}
+        tableLayout="fixed"
         size="middle"
         expandable={{
           expandedRowRender: (record) => (
             <Row gutter={[16, 16]}>
-              <Col md={12} sm={24}>
+              <Col xs={24} md={12}>
                 <TodoDetail todo={record} />
               </Col>
-              <Col md={12} sm={24}>
+              <Col xs={24} md={12}>
                 <div className="info-card" style={{ marginTop: 'var(--space-sm)' }}>
                   {record.checklist && record.checklist.map((item) => (
                     <div key={item.id} style={{

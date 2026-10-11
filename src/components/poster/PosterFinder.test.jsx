@@ -69,7 +69,7 @@ test('mobile action menu previews a poster without selecting it', async () => {
     expect(within(menu).getAllByRole('menuitem')).toHaveLength(4);
     fireEvent.click(within(menu).getByRole('menuitem', { name: /Preview/ }));
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText('2 titles saved')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Create collage/ })).not.toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: 'Select First movie' })).not.toBeChecked();
 });
 
@@ -79,11 +79,14 @@ test('two selected posters open the collage builder with editing controls', asyn
     fireEvent.click(screen.getByRole('checkbox', { name: 'Select Second movie' }));
     fireEvent.click(screen.getByRole('button', { name: /Create collage \(2\)/ }));
     expect(await screen.findByRole('heading', { name: 'Create poster collage' })).toBeInTheDocument();
+    await waitFor(() => expect(Element.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'start' }));
     expect(screen.getByRole('button', { name: /Download collages/ })).toBeEnabled();
-    expect(screen.getByRole('tab', { name: /Posters/, selected: true })).toBeInTheDocument();
+    expect(within(screen.getByRole('tablist', { name: 'Preview mode' })).getByRole('tab', { name: /Names/, selected: true })).toBeInTheDocument();
+    const sideTabs = within(screen.getByRole('complementary')).getAllByRole('tab').map(tab => tab.textContent);
+    expect(sideTabs).toEqual(['Names', 'Caption', 'Title', 'Background', 'Posters']);
     fireEvent.click(screen.getByRole('button', { name: 'Hide', exact: true }));
     await waitFor(() => expect(screen.queryByRole('heading', { name: 'Create poster collage' })).not.toBeInTheDocument());
-    expect(screen.getByText('2 of 2 selected')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Create collage \(2\)/ })).toBeInTheDocument();
 });
 
 test('opening Names settings shows the names preview while adjusting its size', async () => {
@@ -111,7 +114,8 @@ test('pagination and created collages are visible by default for a single page',
     const pagination = await screen.findByRole('navigation', { name: 'Poster pagination', exact: true });
     expect(within(pagination).getByText('1-2 of 2 posters')).toBeInTheDocument();
     expect(within(pagination).getByRole('combobox', { name: 'Posters per page' })).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'Show created collages' })).toBeChecked();
+    fireEvent.click(screen.getByRole('button', { name: 'Poster settings' }));
+    expect(await screen.findByRole('checkbox', { name: 'Show created collages' })).toBeChecked();
     expect(within(screen.getByRole('region', { name: 'Created collages' })).getByText('No collages created yet.')).toBeInTheDocument();
 });
 
@@ -157,7 +161,8 @@ test.each(['Large icons', 'Small icons', 'List', 'Details'])('respects page size
     fetchData.mockResolvedValueOnce(libraryData());
     renderPosters();
     const pagination = await screen.findByRole('navigation', { name: 'Poster pagination', exact: true });
-    fireEvent.click(screen.getByRole('radio', { name: view, exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Poster settings' }));
+    fireEvent.click(await screen.findByRole('radio', { name: view, exact: true }));
     expect(within(pagination).getByText('1-6 of 13 posters')).toBeInTheDocument();
     if (view === 'Details') {
         expect(screen.getAllByRole('row')).toHaveLength(7);
@@ -186,6 +191,7 @@ test('created collage visibility is restored and saved without removing its hist
     }];
     fetchData.mockResolvedValueOnce(libraryData({ showCollageHistory: false, collageHistory: history }));
     renderPosters();
+    fireEvent.click(await screen.findByRole('button', { name: 'Poster settings' }));
     const toggle = await screen.findByRole('checkbox', { name: 'Show created collages' });
     expect(toggle).not.toBeChecked();
     expect(screen.queryByRole('region', { name: 'Created collages' })).not.toBeInTheDocument();
@@ -198,4 +204,51 @@ test('created collage visibility is restored and saved without removing its hist
             'poster-settings': expect.objectContaining({ showCollageHistory: true, collageHistory: history }),
         })
     ));
+});
+test('created collages show a saved thumbnail, or a poster mini-grid as fallback', async () => {
+    const history = [
+        { id: 'collage-thumb', title: 'With thumb', downloadedAt: '2026-09-05T00:00:00.000Z', posters: [{ id: 'movie-1', title: 'Movie 1' }] },
+        { id: 'collage-grid', title: 'Grid only', downloadedAt: '2026-09-04T00:00:00.000Z', posters: [
+            { id: 'movie-2', title: 'Movie 2', image: '/assets/remote-2.jpg' },
+            { id: 'movie-3', title: 'Movie 3' },
+        ] },
+    ];
+    localStorage.setItem('poster-finder-collage-thumbs-v1', JSON.stringify({ 'collage-thumb': 'data:image/jpeg;base64,AAAA' }));
+    fetchData.mockResolvedValueOnce(libraryData({ collageHistory: history }));
+    renderPosters();
+    const region = within(await screen.findByRole('region', { name: 'Created collages' }));
+    expect(region.getByRole('img', { name: 'With thumb collage' })).toHaveAttribute('src', 'data:image/jpeg;base64,AAAA');
+    const gridButton = region.getByRole('button', { name: 'Preview Grid only' });
+    const imgs = gridButton.querySelectorAll('img');
+    expect(imgs[0]).toHaveAttribute('src', '/assets/remote-2.jpg');
+    expect(imgs[1]).toHaveAttribute('src', '/assets/movie-3.jpg');
+
+    fireEvent.click(region.getByRole('button', { name: 'Preview With thumb' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Download HD/ })).not.toBeInTheDocument();
+
+    fireEvent.click(region.getByRole('button', { name: /Clear All Saved/ }));
+    expect(JSON.parse(localStorage.getItem('poster-finder-collage-thumbs-v1'))).toEqual({});
+    localStorage.clear();
+});
+
+test('settings gear holds clear all posters', async () => {
+    renderPosters();
+    fireEvent.click(await screen.findByRole('button', { name: 'Poster settings' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Clear all posters/ }));
+    expect(await screen.findByText('Delete all posters?')).toBeInTheDocument();
+});
+
+test('selected cards show their position in the collage', async () => {
+    fetchData.mockResolvedValueOnce(libraryData({ selectedIds: [] }));
+    renderPosters();
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Select Movie 1', exact: true }));
+    expect(document.querySelector('.poster-order-position')).toBeNull();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Movie 2', exact: true }));
+    expect(screen.getByTitle('Position 1: Back')).toBeInTheDocument();
+    expect(screen.getByTitle('Position 2: Front')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Movie 3', exact: true }));
+    expect(screen.getByTitle('Position 1: Left')).toBeInTheDocument();
+    expect(screen.getByTitle('Position 2: Right')).toBeInTheDocument();
+    expect(screen.getByTitle('Position 3: Front')).toBeInTheDocument();
 });

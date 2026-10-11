@@ -8,6 +8,7 @@ import {
   hasRateMismatch,
   isIncomplete,
   makeRecord,
+  normalizeRecordText,
   splitDuplicates,
   findDuplicatesAgainst,
   computeSummary,
@@ -47,6 +48,28 @@ describe('normalisation', () => {
     expect(guessCategory('Sarson Oil')).toBe('Oil & Ghee');
     expect(guessCategory('Head & Shoulder')).toBe('Personal Care');
     expect(guessCategory('Zzz')).toBe('Other');
+  });
+
+  it('normalizes grocery text fields without changing other record data', () => {
+    expect(normalizeRecordText({
+      item: '  PARLE G  ',
+      unit: 'KGS',
+      rateUnit: 'KGS',
+      category: 'Snacks & Biscuits',
+      store: '  BIG BAZAAR ',
+      notes: '  Weekly Shop ',
+      id: 'record-id',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+    })).toMatchObject({
+      item: 'parle g',
+      unit: 'kg',
+      rateUnit: 'kg',
+      category: 'snacks & biscuits',
+      store: 'big bazaar',
+      notes: 'weekly shop',
+      id: 'record-id',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+    });
   });
 
   it('parses currency-formatted numbers', () => {
@@ -99,7 +122,7 @@ describe('duplicates', () => {
 
   it('compares incoming rows against what is already stored', () => {
     const { fresh, duplicates } = findDuplicatesAgainst([a], [b, c]);
-    expect(fresh.map((r) => r.item)).toEqual(['Sugar']);
+    expect(fresh.map((r) => r.item)).toEqual(['sugar']);
     expect(duplicates).toHaveLength(1);
   });
 });
@@ -126,8 +149,8 @@ describe('aggregations', () => {
 
   it('buckets spend by category', () => {
     const byCategory = categorySpend(records);
-    expect(byCategory.find((c) => c.category === 'Grains & Pulses').total).toBe(900);
-    expect(byCategory.find((c) => c.category === 'Dry Fruits').total).toBe(520);
+    expect(byCategory.find((c) => c.category === 'grains & pulses').total).toBe(900);
+    expect(byCategory.find((c) => c.category === 'dry fruits').total).toBe(520);
   });
 
   it('tracks the latest rate and its movement per item', () => {
@@ -138,7 +161,11 @@ describe('aggregations', () => {
 
 describe('cleanup helpers', () => {
   it('groups item names that differ only by case or spacing', () => {
-    const groups = findAliasGroups([record({ item: 'Kaju' }), record({ item: 'kaju' }), record({ item: 'Rice' })]);
+    const groups = findAliasGroups([
+      { ...record(), item: 'Kaju' },
+      { ...record(), item: 'kaju' },
+      record({ item: 'Rice' }),
+    ]);
     expect(groups).toHaveLength(1);
     expect(groups[0].variants.map((v) => v.name).sort()).toEqual(['Kaju', 'kaju']);
   });

@@ -123,12 +123,26 @@ export const isIncomplete = (record) => (
   || !record.unit
 );
 
+export const normalizeRecordText = (record = {}) => {
+  const item = cleanItemName(record.item).toLowerCase();
+  const unit = normalizeUnit(record.unit);
+  return {
+    ...record,
+    item,
+    unit,
+    rateUnit: normalizeUnit(record.rateUnit) || unit,
+    category: String(record.category || guessCategory(item)).trim().toLowerCase(),
+    store: cleanItemName(record.store).toLowerCase(),
+    notes: String(record.notes ?? '').trim().toLowerCase(),
+  };
+};
+
 export const makeRecord = (input = {}) => {
   const amounts = deriveAmounts(input);
   const item = cleanItemName(input.item);
   const unit = normalizeUnit(input.unit);
   const now = new Date().toISOString();
-  return {
+  return normalizeRecordText({
     id: input.id || newId(),
     date: input.date || '',
     item,
@@ -142,7 +156,7 @@ export const makeRecord = (input = {}) => {
     notes: String(input.notes ?? '').trim(),
     createdAt: input.createdAt || now,
     updatedAt: now,
-  };
+  });
 };
 
 // Two rows are treated as the same purchase when the whole line matches.

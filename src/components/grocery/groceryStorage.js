@@ -3,6 +3,7 @@
 
 import { fetchData, saveData } from '../../common/dbUtils';
 import { COLLECTION_NAME, GROCERY_DATA_KEY } from '../../common/utils';
+import { normalizeRecordText } from './groceryModel';
 
 const cacheKeyFor = (uid) => `grocery-cache:${uid}`;
 
@@ -22,7 +23,7 @@ export const readCache = (uid) => {
 export const writeCache = (uid, records) => {
   if (!uid) return;
   try {
-    localStorage.setItem(cacheKeyFor(uid), JSON.stringify(records));
+    localStorage.setItem(cacheKeyFor(uid), JSON.stringify(records.map(normalizeRecordText)));
   } catch (error) {
     console.error('Could not write grocery cache', error);
   }
@@ -45,7 +46,7 @@ export const loadGroceries = async (uid) => {
 };
 
 export const saveGroceries = async (uid, records) => saveData(COLLECTION_NAME, uid, {
-  [GROCERY_DATA_KEY]: records,
+  [GROCERY_DATA_KEY]: records.map(normalizeRecordText),
 });
 
 export const downloadTextFile = (filename, content, mime = 'text/csv;charset=utf-8') => {

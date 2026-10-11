@@ -4,18 +4,36 @@
 import { normalizeUnit, cleanItemName, guessCategory } from './groceryModel';
 
 // Spellings that differ only by case/spacing/punctuation collapse onto one entry.
-const catalogKeyOf = (name) => cleanItemName(name).toLowerCase().replace(/[^a-z0-9]/g, '');
+export const itemCatalogKeyOf = (name) => cleanItemName(name).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-const foldInto = (catalog, { item, unit, rate, date }) => {
-  const key = catalogKeyOf(item);
+const foldInto = (catalog, { item, unit, rate, date, quantity, value }) => {
+  const key = itemCatalogKeyOf(item);
   if (!key) return;
 
-  const entry = catalog.get(key) || { key, names: new Map(), units: new Map(), rate: null, latest: '' };
+  const entry = catalog.get(key) || {
+    key,
+    names: new Map(),
+    units: new Map(),
+    quantities: new Map(),
+    values: new Map(),
+    rate: null,
+    latest: '',
+  };
   const name = cleanItemName(item);
   entry.names.set(name, (entry.names.get(name) || 0) + 1);
 
   const canonicalUnit = normalizeUnit(unit);
   if (canonicalUnit) entry.units.set(canonicalUnit, (entry.units.get(canonicalUnit) || 0) + 1);
+
+  if (Number.isFinite(quantity) && quantity > 0) {
+    const quantityKey = `${quantity}|${canonicalUnit}`;
+    const quantityEntry = entry.quantities.get(quantityKey) || { quantity, unit: canonicalUnit, count: 0 };
+    quantityEntry.count += 1;
+    entry.quantities.set(quantityKey, quantityEntry);
+  }
+  if (Number.isFinite(value) && value >= 0) {
+    entry.values.set(value, (entry.values.get(value) || 0) + 1);
+  }
 
   if (String(date) >= entry.latest && Number.isFinite(rate)) {
     entry.latest = String(date);
@@ -26,6 +44,11 @@ const foldInto = (catalog, { item, unit, rate, date }) => {
 };
 
 const mostCommon = (counts) => [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0];
+
+const mostFrequent = (counts, compareValues) => [...counts.entries()]
+  .sort((a, b) => b[1].count - a[1].count || compareValues(a[1], b[1]))
+  .slice(0, 3)
+  .map(([, suggestion]) => suggestion);
 
 export const buildItemCatalog = (records = []) => {
   const catalog = new Map();
@@ -40,8 +63,16 @@ export const buildItemCatalog = (records = []) => {
         name,
         unit: entry.unit || mostCommon(entry.units) || '',
         rate: entry.rate,
-        category: guessCategory(name),
+        category: guessCategory(name).toLowerCase(),
         times,
+        quantitySuggestions: mostFrequent(
+          new Map([...entry.quantities].map(([key, suggestion]) => [key, { ...suggestion }])),
+          (a, b) => a.quantity - b.quantity || a.unit.localeCompare(b.unit)
+        ),
+        valueSuggestions: mostFrequent(
+          new Map([...entry.values].map(([value, count]) => [value, { value, count }])),
+          (a, b) => a.value - b.value
+        ),
       };
     })
     .sort((a, b) => b.times - a.times || a.name.localeCompare(b.name));

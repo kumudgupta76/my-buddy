@@ -1,8 +1,8 @@
-import React, { useEffect, useMemo } from 'react';
-import { Modal, Form, Input, InputNumber, Select, AutoComplete, DatePicker, Row, Col, Alert, Typography } from 'antd';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Modal, Form, Input, InputNumber, Select, AutoComplete, DatePicker, Row, Col, Alert, Typography, Collapse, Tag, Button, Space } from 'antd';
 import moment from 'moment';
 import { CATEGORY_OPTIONS, UNIT_OPTIONS, guessCategory, hasRateMismatch, formatCurrency } from './groceryModel';
-import { buildItemCatalog } from './groceryCatalog';
+import { buildItemCatalog, itemCatalogKeyOf } from './groceryCatalog';
 
 const { Text } = Typography;
 
@@ -10,6 +10,7 @@ const DATE_PICKER_FORMAT = 'DD MMM YYYY';
 
 const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
   const [form] = Form.useForm();
+  const [selectedItem, setSelectedItem] = useState(null);
 
   const catalog = useMemo(() => buildItemCatalog(records), [records]);
 
@@ -43,6 +44,13 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
     }
   }, [open, editing, form]);
 
+  useEffect(() => {
+    if (!open) return;
+    setSelectedItem(editing
+      ? catalog.find((entry) => entry.key === itemCatalogKeyOf(editing.item)) || null
+      : null);
+  }, [open, editing, catalog]);
+
   // Keep quantity × rate = value in sync while still letting either side win.
   const handleValuesChange = (changed, all) => {
     const quantity = Number(all.quantity);
@@ -50,7 +58,7 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
     const rate = Number(all.rate);
 
     if ('item' in changed && !editing) {
-      form.setFieldsValue({ category: guessCategory(changed.item) });
+      form.setFieldsValue({ category: guessCategory(changed.item).toLowerCase() });
     }
     if ('unit' in changed) {
       form.setFieldsValue({ rateUnit: changed.unit });
@@ -64,12 +72,17 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
     }
   };
 
-  const handleOk = () => {
+  const handleOk = (addAnother = false) => {
     form.validateFields().then((values) => {
       onSubmit({
         ...values,
         date: values.date.format('YYYY-MM-DD'),
-      });
+      }, { addAnother });
+      if (addAnother) {
+        form.resetFields();
+        form.setFieldsValue({ date: values.date, store: values.store, unit: 'kg' });
+        setSelectedItem(null);
+      }
     }).catch(() => { /* antd highlights the offending fields */ });
   };
 
@@ -77,8 +90,9 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
   const handleItemSelect = (_, option) => {
     const entry = option?.entry;
     if (!entry) return;
+    setSelectedItem(entry);
     const { quantity, unit, rate } = form.getFieldsValue(['quantity', 'unit', 'rate']);
-    const patch = { category: entry.category };
+    const patch = { category: entry.category.toLowerCase() };
     if (entry.unit && (!unit || unit === 'kg')) {
       patch.unit = entry.unit;
       patch.rateUnit = entry.unit;
@@ -90,15 +104,40 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
     form.setFieldsValue(patch);
   };
 
+  const handleItemChange = (value) => {
+    const key = itemCatalogKeyOf(value);
+    const entry = catalog.find((candidate) => candidate.key === key);
+    setSelectedItem(entry || null);
+  };
+
+  const applyQuantitySuggestion = (suggestion) => {
+    form.setFieldsValue({ quantity: suggestion.quantity, unit: suggestion.unit, rateUnit: suggestion.unit });
+  };
+
+  const applyValueSuggestion = (value) => {
+    form.setFieldsValue({ value });
+  };
+
   return (
     <Modal
       title={editing ? 'Edit purchase' : 'Add purchase'}
       open={open}
-      onOk={handleOk}
       onCancel={onCancel}
-      okText={editing ? 'Save changes' : 'Add'}
       destroyOnClose
       width={640}
+      footer={(
+        <div className="grocery-modal-actions">
+          {!editing && (
+            <Button onClick={() => handleOk(true)}>Add another</Button>
+          )}
+          <Space wrap>
+            <Button onClick={onCancel}>Cancel</Button>
+            <Button type="primary" onClick={() => handleOk(false)}>
+              {editing ? 'Save changes' : 'Add'}
+            </Button>
+          </Space>
+        </div>
+      )}
     >
       <Form
         form={form}
@@ -108,12 +147,7 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
         initialValues={{ date: moment(), unit: 'kg' }}
       >
         <Row gutter={16}>
-          <Col xs={24} sm={12}>
-            <Form.Item name="date" label="Date" rules={[{ required: true, message: 'Pick the purchase date' }]}>
-              <DatePicker style={{ width: '100%' }} format={DATE_PICKER_FORMAT} allowClear={false} />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={12}>
+          <Col xs={24}>
             <Form.Item
               name="item"
               label="Item"
@@ -123,6 +157,7 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
                 options={itemOptions}
                 placeholder="e.g. Arhar Dal"
                 onSelect={handleItemSelect}
+                onChange={handleItemChange}
                 filterOption={(input, option) => option.value.toLowerCase().includes(input.toLowerCase())}
               />
             </Form.Item>
@@ -138,6 +173,21 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
             >
               <InputNumber style={{ width: '100%' }} min={0} step={0.25} />
             </Form.Item>
+            {selectedItem?.quantitySuggestions.length > 0 && (
+              <div className="grocery-suggestions">
+                <Text type="secondary">Often bought:</Text>
+                {selectedItem.quantitySuggestions.map((suggestion) => (
+                  <Tag
+                    key={`${suggestion.quantity}|${suggestion.unit}`}
+                    color="blue"
+                    title={`Used in ${suggestion.count} previous purchase(s)`}
+                    onClick={() => applyQuantitySuggestion(suggestion)}
+                  >
+                    {suggestion.quantity} {suggestion.unit}
+                  </Tag>
+                ))}
+              </div>
+            )}
           </Col>
           <Col xs={12} sm={6}>
             <Form.Item name="unit" label="Unit" rules={[{ required: true, message: 'Required' }]}>
@@ -155,6 +205,21 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
             >
               <InputNumber style={{ width: '100%' }} min={0} step={1} />
             </Form.Item>
+            {selectedItem?.valueSuggestions.length > 0 && (
+              <div className="grocery-suggestions">
+                <Text type="secondary">Often paid:</Text>
+                {selectedItem.valueSuggestions.map((suggestion) => (
+                  <Tag
+                    key={suggestion.value}
+                    color="green"
+                    title={`Used in ${suggestion.count} previous purchase(s)`}
+                    onClick={() => applyValueSuggestion(suggestion.value)}
+                  >
+                    {formatCurrency(suggestion.value)}
+                  </Tag>
+                ))}
+              </div>
+            )}
           </Col>
           <Col xs={12} sm={6}>
             <Form.Item name="rate" label="Rate per unit (₹)">
@@ -163,24 +228,37 @@ const GroceryFormModal = ({ open, editing, records, onCancel, onSubmit }) => {
           </Col>
         </Row>
 
-        <Row gutter={16}>
-          <Col xs={24} sm={8}>
-            <Form.Item name="category" label="Category">
-              <Select options={CATEGORY_OPTIONS.map((value) => ({ value, label: value }))} allowClear />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Form.Item name="store" label="Store">
-              <AutoComplete options={storeOptions} placeholder="Optional" />
-            </Form.Item>
-          </Col>
-          <Col xs={24} sm={8}>
-            <Form.Item name="rateUnit" hidden><Input /></Form.Item>
-            <Form.Item name="notes" label="Notes">
-              <Input placeholder="Optional" />
-            </Form.Item>
-          </Col>
-        </Row>
+        <Form.Item name="rateUnit" hidden><Input /></Form.Item>
+
+        <Collapse>
+          <Collapse.Panel header="More details" key="more-details">
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Form.Item name="date" label="Date" rules={[{ required: true, message: 'Pick the purchase date' }]}>
+                  <DatePicker style={{ width: '100%' }} format={DATE_PICKER_FORMAT} allowClear={false} />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="category" label="Category">
+                  <Select options={CATEGORY_OPTIONS.map((value) => {
+                    const normalized = value.toLowerCase();
+                    return { value: normalized, label: normalized };
+                  })} allowClear />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="store" label="Store">
+                  <AutoComplete options={storeOptions} placeholder="Optional" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Form.Item name="notes" label="Notes">
+                  <Input placeholder="Optional" />
+                </Form.Item>
+              </Col>
+            </Row>
+          </Collapse.Panel>
+        </Collapse>
 
         <Form.Item shouldUpdate noStyle>
           {({ getFieldsValue }) => {

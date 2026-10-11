@@ -44,7 +44,7 @@ const CalendarComponent = () => {
 
   // Handle mobile responsiveness by adjusting the layout dynamically
   return (
-    <Layout style={{ minHeight: '100vh', background: 'transparent' }}>
+    <Layout style={{ minWidth: 0, background: 'transparent' }}>
       <Content>
         <div className="action-bar" style={{ justifyContent: 'center', marginBottom: 'var(--space-md)' }}>
           <CalendarOutlined style={{ color: 'var(--color-primary)' }} />

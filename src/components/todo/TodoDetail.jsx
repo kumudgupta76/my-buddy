@@ -37,8 +37,8 @@ const TodoDetail = ({ todo }) => {
     return <> <Text type={{type}}><ClockCircleOutlined /> {timeRemaining}</Text> ({dueDate.format("Do MMM YY")})</>;
 }
   return (
-    <div className="info-card" style={{ marginTop: 'var(--space-sm)' }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+    <div className="info-card todo-detail" style={{ marginTop: 'var(--space-sm)', overflowWrap: 'anywhere' }}>
+      <div style={{ display: "flex", flexWrap: 'wrap', gap: 'var(--space-sm)', justifyContent: "space-between", alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
         <span style={{ fontWeight: 600, fontSize: 'var(--text-base)', color: 'var(--color-text)' }}>{todo.title}</span>
         <span style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>{ getDisplayDueDate(todo.date)}</span>
       </div>

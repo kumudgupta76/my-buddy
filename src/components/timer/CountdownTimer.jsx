@@ -97,7 +97,7 @@ const CountdownTimer = () => {
                 boxShadow: 'var(--shadow-md)',
             }}>
                 {/* Timer Display */}
-                <div style={{
+                <div className="timer-face" style={{
                     background: 'linear-gradient(135deg, var(--color-primary-light) 0%, #f0f9ff 100%)',
                     borderRadius: 'var(--radius-md)',
                     padding: 'var(--space-xl)',
@@ -106,8 +106,7 @@ const CountdownTimer = () => {
                     border: '1px solid var(--color-border-light)',
                 }}>
                     <Text type="secondary" style={{ fontSize: 'var(--text-sm)', fontWeight: 500 }}>Take a Break in</Text>
-                    <div style={{
-                        fontSize: 52,
+                    <div className="timer-display" style={{
                         fontWeight: 700,
                         letterSpacing: '-0.03em',
                         fontFamily: 'var(--font-mono)',

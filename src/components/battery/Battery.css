@@ -116,7 +116,20 @@
 /* ─── Responsive ────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .battery-page {
-    padding: var(--space-sm);
+    padding: 0 var(--space-sm);
+  }
+
+  .battery-tab {
+    min-height: 44px;
+    padding: 8px;
+  }
+
+  .battery-live-card {
+    padding: var(--space-md) !important;
+  }
+
+  .battery-live-header {
+    flex-wrap: wrap;
   }
 
   .stat-card-value {
