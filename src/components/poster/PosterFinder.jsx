@@ -1723,7 +1723,7 @@ const PosterFinder = () => {
                                 className="poster-selection-collage"
                                 aria-label={`Create collage (${selectedCount})`}
                             >
-                                {mobile ? `Collage (${selectedCount})` : `Create collage (${selectedCount})`}
+                                {mobile ? 'Collage' : `Create collage (${selectedCount})`}
                             </Button>
                         )}
                         <Popover

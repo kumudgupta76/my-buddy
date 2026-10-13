@@ -1796,9 +1796,11 @@
   font-size: var(--text-sm);
 }
 
+/* As many ~320px columns as fit; mobile media queries collapse to one. */
 .collage-history-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  column-gap: var(--space-lg);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1806,6 +1808,7 @@
 
 .collage-history-item {
   display: flex;
+  min-width: 0;
   /* align-items: flex-start; */
   justify-content: space-between;
   gap: var(--space-sm);
@@ -1970,24 +1973,48 @@
     justify-content: space-between;
   }
 
+  .poster-action-left:empty {
+    display: none;
+  }
+
   /* One row: [clear] [download] [collage] [gear] */
   .poster-action-right {
     display: flex;
     flex-wrap: nowrap;
     gap: 8px;
     align-items: center;
+    width: 100%;
+    min-width: 0;
   }
 
-  .poster-selection-download,
-  .poster-selection-collage {
+  /* Flex buttons keep icon and label on one centred line; the label truncates. */
+  .poster-action-right .ant-btn.poster-selection-download,
+  .poster-action-right .ant-btn.poster-selection-collage {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex: 1 1 0;
+    min-width: 0;
+    padding: 0 12px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  .poster-action-right .ant-btn.poster-selection-download {
+    flex: 0 0 auto;
+  }
+
+  .poster-action-right .ant-btn.poster-selection-download > .anticon,
+  .poster-action-right .ant-btn.poster-selection-collage > .anticon {
+    flex: 0 0 auto;
+  }
+
+  .poster-action-right .ant-btn.poster-selection-download > span:not(.anticon),
+  .poster-action-right .ant-btn.poster-selection-collage > span:not(.anticon) {
+    display: block;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-  }
-
-  .poster-selection-download {
-    flex: 0 1 auto;
   }
 
   .poster-settings-btn {
@@ -2176,9 +2203,24 @@
     gap: 8px;
   }
 
+  .collage-section-actions .ant-btn {
+    white-space: nowrap;
+  }
+
   .collage-section-actions .collage-download-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     flex: 1 1 auto;
     min-width: 0;
+    overflow: hidden;
+  }
+
+  .collage-section-actions .collage-download-btn > span:not(.anticon) {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .collage-preview-tab {
@@ -2252,5 +2294,25 @@
 
   .collage-history-posters {
     overflow-wrap: anywhere;
+  }
+}
+
+/* Very narrow phones: drop the collage icon so "Collage (n)" fits in full. */
+@media (max-width: 359px) {
+  .poster-action-right {
+    gap: 6px;
+  }
+
+  .poster-action-right .ant-btn.poster-selection-download,
+  .poster-action-right .ant-btn.poster-selection-collage {
+    padding: 0 8px;
+  }
+
+  .poster-action-right .ant-btn.poster-selection-collage > .anticon {
+    display: none;
+  }
+
+  .poster-action-right .ant-btn.poster-selection-collage > .anticon + span {
+    margin-left: 0;
   }
 }
